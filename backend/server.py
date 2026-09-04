@@ -1317,7 +1317,8 @@ async def _on_startup_impl():
                 # Serve static assets
                 app.mount("/static", StaticFiles(directory=str(_bp / "static")), name="static")
 
-                # SPA catch-all — must come AFTER api_router is included
+                # SPA catch-all - MUST come AFTER api_router is registered
+                # FIX: Return JSON 404 for /api/* paths instead of serving index.html
                 @app.get("/{full_path:path}", include_in_schema=False)
                 async def _spa_catchall(full_path: str):
                     if full_path.startswith("api"):
