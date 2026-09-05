@@ -554,7 +554,7 @@ async def get_media_file(
 @router.get("/media/content/{file_path:path}")
 async def get_content_file(
     file_path: str,
-    user: User = Depends(_dep_current_user),
+    user: Optional[User] = Depends(_optional_current_user),
 ):
     """Serve static content files (starter-library ebooks, etc.) from the content/ directory.
 
@@ -575,15 +575,19 @@ async def get_content_file(
         raise HTTPException(403, "Access denied")
     if not os.path.isfile(full_path):
         raise HTTPException(404, "Content file not found")
-    # Check purchase entitlement
+    # Check purchase entitlement (only for paid content)
     product = await db.media_products.find_one(
         {"file_path": file_path}, {"_id": 0, "id": 1, "owner_id": 1, "price_cents": 1}
     )
     if product and product.get("price_cents", 0) > 0:
+        # Paid content requires authentication
+        if user is None:
+            raise HTTPException(401, "Authentication required to download this content")
         owner = product.get("owner_id", "")
         is_owner = owner == user.id
         is_admin = ROLE_RANK.get(user.role, 0) >= ROLE_RANK.get("admin", 6)
         purchased = await db.media_purchases.find_one({"buyer_id": user.id, "product_id": product.get("id")})
         if not is_owner and not is_admin and not purchased:
             raise HTTPException(403, "Purchase required to download this content")
+    # Free content (like starter library books) is publicly accessible
     return FileResponse(full_path, media_type="text/markdown", filename=os.path.basename(full_path))

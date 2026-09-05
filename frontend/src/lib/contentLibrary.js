@@ -2,8 +2,13 @@
  * ContentLibrary — displays the free starter library books.
  *
  * These are static Markdown files in content/starter-library/ that were not
- * previously displayed anywhere in the UI. This component reads them from a
- * central registry so they can be shared across pages without duplication.
+ * previously displayed anywhere in the UI. This registry provides metadata
+ * for displaying them via the /api/media/content/ endpoint (public access).
+ *
+ * NOTE: This is NOT a second catalog system. It's a frontend registry for
+ * static public content that exists as Markdown files. The authoritative
+ * content is in the .md files themselves. This registry only provides
+ * display metadata (titles, descriptions, tags) for the UI.
  */
 
 export const STARTER_LIBRARY = [
