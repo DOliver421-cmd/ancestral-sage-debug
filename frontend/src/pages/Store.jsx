@@ -4,7 +4,8 @@ import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { MEMBERSHIP_PLANS, TRIAL_PLAN } from "../lib/plans";
 import AppShell from "../components/AppShell";
-import { ExternalLink, ArrowRight, ShoppingBag, Loader2, Zap, Check, AlertTriangle } from "lucide-react";
+import { ExternalLink, ArrowRight, ShoppingBag, Loader2, Zap, Check, AlertTriangle, BookOpen, Download } from "lucide-react";
+import { STARTER_LIBRARY } from "../lib/contentLibrary";
 
 const GUMROAD_PROFILE = "https://namoshun.gumroad.com/";
 
@@ -246,6 +247,51 @@ export default function Store() {
               ))}
             </div>
           )}
+        </div>
+
+        {/* ── 5. Free Starter Library ── */}
+        <div className="mb-10">
+          <div className="flex items-center justify-between gap-3 mb-4">
+            <h2 className="font-heading text-xl font-bold text-ink flex items-center gap-2">
+              <BookOpen className="w-5 h-5 text-copper" /> Free Starter Library
+            </h2>
+            <span className="text-[10px] font-black uppercase tracking-widest bg-green-100 text-green-800 px-2 py-0.5 rounded-full">
+              Read now · no purchase needed
+            </span>
+          </div>
+          <p className="text-sm text-ink/60 mb-6">
+            Practical guides on ownership, AI, community funding, and building real things. Free to read — no account required.
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {STARTER_LIBRARY.map((book) => (
+              <div key={book.slug} className="card-flat p-5 flex flex-col">
+                <div className="overline text-ink/40">{book.priceLabel}</div>
+                <div className="font-heading font-bold text-lg text-ink mt-1">{book.title}</div>
+                <div className="text-sm text-ink/60 mt-1">{book.subtitle}</div>
+                {book.description && (
+                  <div className="text-sm text-ink/60 mt-2 flex-1" style={{ display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+                    {book.description}
+                  </div>
+                )}
+                <div className="flex items-center justify-between mt-4 pt-3 border-t border-ink/10">
+                  <div className="flex items-center gap-2 text-xs text-ink/50">
+                    <span className="flex items-center gap-1">
+                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                      {book.readTime}
+                    </span>
+                  </div>
+                  <a
+                    href={`/content/starter-library/${book.slug}.md`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 text-xs font-bold text-copper hover:text-copper/80 transition-colors"
+                  >
+                    Read <Download className="w-3 h-3" />
+                  </a>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
 
         {/* ── 4. External storefront — secondary venue ── */}

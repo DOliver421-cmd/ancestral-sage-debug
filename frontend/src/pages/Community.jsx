@@ -3,7 +3,8 @@ import { Link } from "react-router-dom";
 import PublicNav from "../components/PublicNav";
 import BackButton from "../components/BackButton";
 import { api, BACKEND_URL } from "../lib/api";
-import { HandHelping, Users, Sparkles, MessageSquare, Scale, HelpCircle, Clock, BookOpen, ArrowRight, Loader2 } from "lucide-react";
+import { STARTER_LIBRARY } from "../lib/contentLibrary";
+import { HandHelping, Users, Sparkles, MessageSquare, Scale, HelpCircle, Clock, BookOpen, ArrowRight, Loader2, ShoppingBag, GraduationCap, FileText } from "lucide-react";
 
 const CAT_ICONS = { skill_offer: BookOpen, need: HandHelping, community: Users, story: Sparkles };
 const CAT_COLORS = { skill_offer: "bg-emerald-50 text-emerald-700", need: "bg-amber-50 text-amber-700", community: "bg-blue-50 text-blue-700", story: "bg-purple-50 text-purple-700" };
@@ -58,6 +59,37 @@ export default function Community() {
               <div className="text-xs text-ink/50 mt-0.5">{a.desc}</div>
             </Link>
           ))}
+        </div>
+
+        {/* What We Offer — quick links to all offerings */}
+        <div className="mt-8">
+          <div className="overline text-copper mb-4">What We Offer</div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <Link to="/courses" className="card-flat p-5 group hover:shadow-md transition-all">
+              <GraduationCap className="w-6 h-6 text-copper mb-2" />
+              <div className="font-heading font-bold text-sm text-ink group-hover:text-copper transition-colors">Courses</div>
+              <div className="text-xs text-ink/50 mt-0.5">Free and paid courses from community creators</div>
+              <ArrowRight className="w-4 h-4 text-copper mt-2 inline opacity-0 group-hover:opacity-100 transition-opacity" />
+            </Link>
+            <Link to="/store" className="card-flat p-5 group hover:shadow-md transition-all">
+              <ShoppingBag className="w-6 h-6 text-copper mb-2" />
+              <div className="font-heading font-bold text-sm text-ink group-hover:text-copper transition-colors">Store</div>
+              <div className="text-xs text-ink/50 mt-0.5">Memberships, digital products, and the starter library</div>
+              <ArrowRight className="w-4 h-4 text-copper mt-2 inline opacity-0 group-hover:opacity-100 transition-opacity" />
+            </Link>
+            <Link to="/modules" className="card-flat p-5 group hover:shadow-md transition-all">
+              <BookOpen className="w-6 h-6 text-copper mb-2" />
+              <div className="font-heading font-bold text-sm text-ink group-hover:text-copper transition-colors">Learning Modules</div>
+              <div className="text-xs text-ink/50 mt-0.5">Structured learning paths and adaptive tracks</div>
+              <ArrowRight className="w-4 h-4 text-copper mt-2 inline opacity-0 group-hover:opacity-100 transition-opacity" />
+            </Link>
+            <a href="/content/starter-library" className="card-flat p-5 group hover:shadow-md transition-all">
+              <FileText className="w-6 h-6 text-copper mb-2" />
+              <div className="font-heading font-bold text-sm text-ink group-hover:text-copper transition-colors">Free Library</div>
+              <div className="text-xs text-ink/50 mt-0.5">{STARTER_LIBRARY.length} free books and guides to read now</div>
+              <ArrowRight className="w-4 h-4 text-copper mt-2 inline opacity-0 group-hover:opacity-100 transition-opacity" />
+            </a>
+          </div>
         </div>
 
         {/* WAI Institute Facebook group — the mission's home on Facebook */}
