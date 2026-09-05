@@ -296,12 +296,12 @@ export function SiteSearchModal() {
           onClick={openModal}
           aria-label="Search the site"
           title="Search the site (Ctrl+K)"
-          className="fixed bottom-6 left-6 z-50 w-14 h-14 rounded-full shadow-2xl flex items-center justify-center transition-all hover:scale-110 focus:outline-none focus:ring-4 focus:ring-copper/30"
+          className="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full shadow-2xl flex items-center justify-center transition-all hover:scale-110 focus:outline-none focus:ring-4 focus:ring-copper/30"
           style={{ background: "linear-gradient(135deg,#1B4332,#2D6A4F)", color: "#fff" }}
         >
           <Search className="w-6 h-6" />
         </button>
-        {!open && <div className="pointer-events-none fixed bottom-6 left-6 z-40 opacity-0" aria-hidden />}
+        {!open && <div className="pointer-events-none fixed bottom-6 right-6 z-40 opacity-0" aria-hidden />}
       </>
     );
   }

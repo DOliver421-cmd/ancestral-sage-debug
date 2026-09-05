@@ -55,7 +55,7 @@ export default function HelpGuide() {
       <button
         data-help-toggle
         onClick={() => setOpen(!open)}
-        className="fixed bottom-4 left-4 z-50 flex items-center gap-2 px-4 py-2 bg-ink text-white rounded-full shadow-lg hover:bg-ink/90 transition-all text-sm font-semibold"
+        className="fixed bottom-4 left-44 z-50 flex items-center gap-2 px-4 py-2 bg-ink text-white rounded-full shadow-lg hover:bg-ink/90 transition-all text-sm font-semibold"
         aria-label="Get help with this page"
       >
         {open ? <X className="w-4 h-4" /> : <HelpCircle className="w-4 h-4" />}
@@ -66,7 +66,7 @@ export default function HelpGuide() {
       {open && (
         <div
           ref={panelRef}
-          className="fixed bottom-16 left-4 z-50 w-80 sm:w-96 max-h-[70vh] bg-white rounded-2xl shadow-2xl border border-ink/10 flex flex-col overflow-hidden animate-fade-in"
+          className="fixed bottom-16 left-44 z-50 w-80 sm:w-96 max-h-[70vh] bg-white rounded-2xl shadow-2xl border border-ink/10 flex flex-col overflow-hidden animate-fade-in"
         >
           {/* Header */}
           <div className="bg-ink text-white px-5 py-4">
