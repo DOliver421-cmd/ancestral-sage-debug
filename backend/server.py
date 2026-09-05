@@ -273,7 +273,17 @@ async def add_security_headers(request: Request, call_next):
     # Strict transport security (force HTTPS)
     response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
     # Content Security Policy (restrict resource loading)
-    response.headers["Content-Security-Policy"] = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+    # CSP: allow the external services the frontend actually loads (Google Fonts,
+    # Fontshare, PostHog) instead of silently blocking them in production.
+    response.headers["Content-Security-Policy"] = (
+        "default-src 'self'; "
+        "script-src 'self' https://us-assets.i.posthog.com https://us.i.posthog.com; "
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://api.fontshare.com; "
+        "font-src 'self' data: https://fonts.gstatic.com https://cdn.fontshare.com; "
+        "img-src 'self' data: https:; "
+        "connect-src 'self' https:; "
+        "frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+    )
     # Referrer policy (limit referrer disclosure)
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
     # Permissions policy (disable legacy features)
