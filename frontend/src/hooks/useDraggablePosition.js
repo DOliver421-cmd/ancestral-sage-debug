@@ -43,6 +43,7 @@ export default function useDraggablePosition(storageKey, defaultPos) {
     (e) => {
       if (e.button !== 0) return;
       const el = e.currentTarget;
+      if (!el || !el.getBoundingClientRect) return;
       const startX = e.clientX;
       const startY = e.clientY;
       // If no position has been set yet (CSS-placed), anchor to the element's
@@ -69,7 +70,11 @@ export default function useDraggablePosition(storageKey, defaultPos) {
         if (moved) {
           setPos((p) => {
             const final = clamp(p.x, p.y, el);
-            localStorage.setItem(storageKey, JSON.stringify(final));
+            try {
+              localStorage.setItem(storageKey, JSON.stringify(final));
+            } catch {
+              /* storage may be unavailable or disabled */
+            }
             return final;
           });
         }

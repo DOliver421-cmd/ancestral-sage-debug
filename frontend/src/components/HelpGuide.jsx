@@ -13,7 +13,7 @@ export default function HelpGuide() {
   const [query, setQuery] = useState("");
   const [busy, setBusy] = useState(false);
   const panelRef = useRef(null);
-  const fab = useDraggablePosition("mhc_help_fab", null);
+  const fab = useDraggablePosition("mhc_help_fab", { x: 16, y: 16 });
 
   const fetchHelp = useCallback(async (path, q) => {
     setBusy(true);
