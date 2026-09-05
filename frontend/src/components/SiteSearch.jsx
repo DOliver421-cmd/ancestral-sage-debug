@@ -13,6 +13,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams, Link } from "react-router-dom";
 import { api } from "../lib/api";
+import useDraggablePosition from "../hooks/useDraggablePosition";
 import {
   Search, X, CornerDownLeft, BookOpen, FlaskConical, Video,
   Music, User, Compass, Loader2, ArrowRight, FileText, Sparkles,
@@ -251,6 +252,7 @@ export function SiteSearchModal() {
   const navigate = useNavigate();
   const { results, loading, searched } = useSiteSearch(query);
   const panelRef = useRef(null);
+  const fab = useDraggablePosition("mhcsite_search_fab", null);
   const inputRef = useRef(null);
 
   const flat = useMemo(() => results, [results]);
@@ -293,11 +295,19 @@ export function SiteSearchModal() {
     return (
       <>
         <button
-          onClick={openModal}
+          onClick={(e) => { if (fab.dragged) { e.preventDefault(); return; } openModal(); }}
+          onPointerDown={fab.onPointerDown}
           aria-label="Search the site"
-          title="Search the site (Ctrl+K)"
-          className="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full shadow-2xl flex items-center justify-center transition-all hover:scale-110 focus:outline-none focus:ring-4 focus:ring-copper/30"
-          style={{ background: "linear-gradient(135deg,#1B4332,#2D6A4F)", color: "#fff" }}
+          title="Search the site (Ctrl+K) — drag to move"
+          className="fixed z-50 w-14 h-14 rounded-full shadow-2xl flex items-center justify-center transition-shadow hover:shadow-copper/30 focus:outline-none focus:ring-4 focus:ring-copper/30 touch-none select-none"
+          style={{
+            left: fab.pos ? fab.pos.x : undefined,
+            top: fab.pos ? fab.pos.y : undefined,
+            ...(fab.pos ? {} : { bottom: 24, right: 24 }),
+            background: "linear-gradient(135deg,#1B4332,#2D6A4F)",
+            color: "#fff",
+            cursor: fab.dragged ? "grabbing" : "grab",
+          }}
         >
           <Search className="w-6 h-6" />
         </button>

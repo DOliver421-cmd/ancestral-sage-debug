@@ -4,6 +4,7 @@ import { api } from "../lib/api";
 import TeamAvatar from "./TeamAvatar";
 import { Send, X, Mic, MicOff, Volume2, VolumeX, Paperclip, Music, FileText, Image, Trash2, RefreshCw, Plus, ChevronRight } from "lucide-react";
 import { useMic } from "../hooks/useMic";
+import useDraggablePosition from "../hooks/useDraggablePosition";
 import { toast } from "sonner";
 
 const STORAGE_KEY = "sovereign_chat_history";
@@ -318,6 +319,7 @@ export default function SovereignChat() {
   const [uploading, setUploading] = useState(false);
   const [attachedFiles, setAttachedFiles] = useState([]);
   const [playingId, setPlayingId] = useState(null);
+  const fab = useDraggablePosition("mhc_sovereign_fab", null);
 
   const trackAudioRef  = useRef(null);
   const fileInputRef   = useRef(null);
@@ -449,10 +451,21 @@ export default function SovereignChat() {
   if (!open) {
     return (
       <button
-        onClick={() => setOpen(true)}
+        onClick={(e) => { if (fab.dragged) { e.preventDefault(); return; } setOpen(true); }}
+        onPointerDown={fab.onPointerDown}
         data-testid="summon-sovereign"
-        className="fixed bottom-6 left-6 flex items-center gap-2 px-4 py-3 rounded-full font-bold shadow-lg"
-        style={{ zIndex: 1400, background: "var(--wai-emerald)", color: "var(--wai-gold-light)", border: "1px solid var(--wai-gold)" }}
+        title="Summon The Director — drag to move"
+        className="fixed flex items-center gap-2 px-4 py-3 rounded-full font-bold shadow-lg touch-none select-none"
+        style={{
+          zIndex: 1400,
+          left: fab.pos ? fab.pos.x : undefined,
+          top: fab.pos ? fab.pos.y : undefined,
+          ...(fab.pos ? {} : { bottom: 24, left: 24 }),
+          background: "var(--wai-emerald)",
+          color: "var(--wai-gold-light)",
+          border: "1px solid var(--wai-gold)",
+          cursor: fab.dragged ? "grabbing" : "grab",
+        }}
       >
         <TeamAvatar size={28} /> Summon The Director
       </button>

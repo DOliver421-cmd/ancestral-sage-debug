@@ -3,6 +3,7 @@ import { useLocation } from "react-router-dom";
 import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { HelpCircle, X, Search, ArrowRight, ExternalLink } from "lucide-react";
+import useDraggablePosition from "../hooks/useDraggablePosition";
 
 export default function HelpGuide() {
   const { user } = useAuth();
@@ -12,6 +13,7 @@ export default function HelpGuide() {
   const [query, setQuery] = useState("");
   const [busy, setBusy] = useState(false);
   const panelRef = useRef(null);
+  const fab = useDraggablePosition("mhc_help_fab", null);
 
   const fetchHelp = useCallback(async (path, q) => {
     setBusy(true);
@@ -54,9 +56,17 @@ export default function HelpGuide() {
       {/* Floating help button — compact pill with label, bottom-left to avoid blocking content */}
       <button
         data-help-toggle
-        onClick={() => setOpen(!open)}
-        className="fixed bottom-4 left-44 z-50 flex items-center gap-2 px-4 py-2 bg-ink text-white rounded-full shadow-lg hover:bg-ink/90 transition-all text-sm font-semibold"
+        onClick={(e) => { if (fab.dragged) { e.preventDefault(); return; } setOpen(!open); }}
+        onPointerDown={fab.onPointerDown}
+        className="fixed z-50 flex items-center gap-2 px-4 py-2 bg-ink text-white rounded-full shadow-lg hover:bg-ink/90 transition-all text-sm font-semibold touch-none select-none"
+        style={{
+          left: fab.pos ? fab.pos.x : undefined,
+          top: fab.pos ? fab.pos.y : undefined,
+          ...(fab.pos ? {} : { bottom: 16, left: 176 }),
+          cursor: fab.dragged ? "grabbing" : "grab",
+        }}
         aria-label="Get help with this page"
+        title="Get help — drag to move"
       >
         {open ? <X className="w-4 h-4" /> : <HelpCircle className="w-4 h-4" />}
         <span>{open ? "Close" : "Help"}</span>
@@ -66,7 +76,8 @@ export default function HelpGuide() {
       {open && (
         <div
           ref={panelRef}
-          className="fixed bottom-16 left-44 z-50 w-80 sm:w-96 max-h-[70vh] bg-white rounded-2xl shadow-2xl border border-ink/10 flex flex-col overflow-hidden animate-fade-in"
+          className="fixed z-50 w-80 sm:w-96 max-h-[70vh] bg-white rounded-2xl shadow-2xl border border-ink/10 flex flex-col overflow-hidden animate-fade-in"
+          style={fab.pos ? { left: fab.pos.x, top: Math.max(8, fab.pos.y - 60) } : { bottom: 64, left: 176 }}
         >
           {/* Header */}
           <div className="bg-ink text-white px-5 py-4">
