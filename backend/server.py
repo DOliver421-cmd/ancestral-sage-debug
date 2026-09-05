@@ -277,11 +277,13 @@ async def add_security_headers(request: Request, call_next):
     # Fontshare, PostHog) instead of silently blocking them in production.
     response.headers["Content-Security-Policy"] = (
         "default-src 'self'; "
-        "script-src 'self' https://us-assets.i.posthog.com https://us.i.posthog.com; "
+        "script-src 'self' https://us-assets.i.posthog.com https://us.i.posthog.com https://wai-institute-production.up.railway.app; "
+        "worker-src 'self' blob:; "
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://api.fontshare.com; "
         "font-src 'self' data: https://fonts.gstatic.com https://cdn.fontshare.com; "
         "img-src 'self' data: https:; "
         "connect-src 'self' https:; "
+        "frame-src 'self' https://bandcamp.com https://namoshun.gumroad.com https://gumroad.com https://wai-institute-production.up.railway.app https://www.youtube.com https://www.youtube-nocookie.com; "
         "frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
     )
     # Referrer policy (limit referrer disclosure)
