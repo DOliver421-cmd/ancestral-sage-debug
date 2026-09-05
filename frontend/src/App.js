@@ -150,6 +150,7 @@ import SiteControlPanel from "./pages/SiteControlPanel";
 import BusinessOffice from "./pages/BusinessOffice";
 import ClassicTools from "./pages/ClassicTools";
 import AdminTools from "./pages/AdminTools";
+import ExecSystem from "./pages/ExecSystem";
 import LegacyTool from "./pages/LegacyTool";
 import AgentRegistryView from "./pages/aawab/AgentRegistryView";
 import AdminAawabDashboard from "./pages/aawab/AdminAawabDashboard";
