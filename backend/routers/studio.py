@@ -126,6 +126,79 @@ class VideoSceneBody(BaseModel):
     text: str = Field(default="", max_length=5000)
     duration: int = Field(default=5, ge=1, le=60)
     position: int = Field(default=0, ge=0, le=8)
+    text_placement: Optional[Literal["top", "center", "bottom"]] = "bottom"
+    text_size: Optional[int] = Field(default=48, ge=16, le=160)
+    caption: Optional[str] = Field(default=None, max_length=2000)
+    transition: Optional[Literal["none", "fade", "slide"]] = "none"
+
+
+class VideoAudioBody(BaseModel):
+    track_type: Literal["music", "narration"]
+    audio_url: str = Field(..., max_length=2000)
+    volume: float = Field(default=1.0, ge=0.0, le=1.0)
+    fade_in: float = Field(default=0.0, ge=0.0, le=10.0)
+    fade_out: float = Field(default=0.0, ge=0.0, le=10.0)
+
+
+class ProjectDuplicateBody(BaseModel):
+    title: Optional[str] = Field(default=None, max_length=200)
+
+
+class AutosaveBody(BaseModel):
+    """Lightweight editor heartbeat: persists plan/draft text without full validation."""
+    idea: Optional[str] = Field(default=None, max_length=5000)
+    description: Optional[str] = Field(default=None, max_length=5000)
+
+
+class ThumbnailBody(BaseModel):
+    thumbnail_url: str = Field(..., max_length=2000)
+
+
+@router.post("/video/projects/{project_id}/autosave")
+async def autosave_video_project(project_id: str, body: AutosaveBody, user: User = Depends(_dep_current_user)):
+    """Editor autosave touch — persists draft text and refreshes updated_at."""
+    await _owned_video_project(project_id, user)
+    updates = {k: v for k, v in body.model_dump(exclude_none=True).items()}
+    updates["updated_at"] = datetime.now(timezone.utc).isoformat()
+    await db.video_projects.update_one({"id": project_id, "user_id": user.id}, {"$set": updates})
+    return {"saved": True, "updated_at": updates["updated_at"]}
+
+
+@router.post("/video/projects/{project_id}/thumbnail")
+async def set_video_thumbnail(project_id: str, body: ThumbnailBody, user: User = Depends(_dep_current_user)):
+    """Set the project thumbnail from an uploaded MoreHelp media file."""
+    await _owned_video_project(project_id, user)
+    if not body.thumbnail_url.startswith("/api/media/file/"):
+        raise HTTPException(400, "Thumbnails must be uploaded MoreHelp media files")
+    now = datetime.now(timezone.utc).isoformat()
+    await db.video_projects.update_one({"id": project_id, "user_id": user.id}, {"$set": {"thumbnail_url": body.thumbnail_url, "updated_at": now}})
+    return {"thumbnail_url": body.thumbnail_url}
+
+
+@router.post("/video/projects/{project_id}/share")
+async def share_video_project(project_id: str, user: User = Depends(_dep_current_user)):
+    """Create (or return) a share link for the finished video. Private link, token-based."""
+    project = await _owned_video_project(project_id, user)
+    if not project.get("final_video_url"):
+        raise HTTPException(400, "Make your video first — there is nothing to share yet.")
+    token = project.get("share_token")
+    if not token:
+        token = uuid.uuid4().hex[:24]
+        await db.video_projects.update_one({"id": project_id, "user_id": user.id}, {"$set": {"share_token": token}})
+    return {"share_url": f"/shared-video/{token}", "token": token, "video_url": project["final_video_url"]}
+
+
+@router.get("/video/shared/{token}")
+async def get_shared_video(token: str):
+    """Public, token-scoped view of one shared video — no auth, no enumeration of projects."""
+    if not token or len(token) < 8 or not token.isalnum():
+        raise HTTPException(404, "Shared video not found")
+    project = await db.video_projects.find_one({"share_token": token}, {"_id": 0})
+    if not project or not project.get("final_video_url"):
+        raise HTTPException(404, "Shared video not found")
+    return {"title": project.get("title"), "description": project.get("description"),
+            "video_url": project["final_video_url"], "thumbnail_url": project.get("thumbnail_url"),
+            "author": project.get("user_id") and None or None, "created_at": project.get("created_at")}
 
 
 @router.get("/video/projects")
@@ -178,7 +251,192 @@ async def delete_video_project(project_id: str, user: User = Depends(_dep_curren
     await _owned_video_project(project_id, user)
     await db.video_projects.delete_one({"id": project_id, "user_id": user.id})
     await db.video_scenes.delete_many({"project_id": project_id, "user_id": user.id})
+    await db.video_audio_tracks.delete_many({"project_id": project_id, "user_id": user.id})
+    await db.video_render_jobs.delete_many({"project_id": project_id, "user_id": user.id})
     return {"deleted": True}
+
+
+@router.post("/video/projects/{project_id}/duplicate")
+async def duplicate_video_project(project_id: str, body: ProjectDuplicateBody, user: User = Depends(_dep_current_user)):
+    source = await _owned_video_project(project_id, user)
+    now = datetime.now(timezone.utc).isoformat()
+    new_id = "vp_" + uuid.uuid4().hex
+    copy = {k: v for k, v in source.items() if k not in {"id", "_id", "created_at", "updated_at", "status", "final_video_url", "thumbnail_url", "render_job_id"}}
+    copy.update({"id": new_id, "user_id": user.id,
+                 "title": (body.title or f"{source.get('title', 'Project')} (copy)"),
+                 "status": "Draft", "final_video_url": None, "thumbnail_url": None,
+                 "created_at": now, "updated_at": now})
+    await db.video_projects.insert_one(copy)
+    scenes = await db.video_scenes.find({"project_id": project_id, "user_id": user.id}, {"_id": 0}).to_list(100)
+    for scene in scenes:
+        scene["id"] = "vs_" + uuid.uuid4().hex
+        scene["project_id"] = new_id
+        await db.video_scenes.insert_one(scene)
+    audio = await db.video_audio_tracks.find({"project_id": project_id, "user_id": user.id}, {"_id": 0}).to_list(20)
+    for track in audio:
+        track["id"] = "va_" + uuid.uuid4().hex
+        track["project_id"] = new_id
+        await db.video_audio_tracks.insert_one(track)
+    return _clean_video_doc(copy)
+
+
+# ── Audio tracks: music + narration, independently controllable ─────────────
+
+@router.get("/video/projects/{project_id}/audio")
+async def list_video_audio(project_id: str, user: User = Depends(_dep_current_user)):
+    await _owned_video_project(project_id, user)
+    tracks = await db.video_audio_tracks.find({"project_id": project_id, "user_id": user.id}, {"_id": 0}).to_list(20)
+    return tracks
+
+
+@router.post("/video/projects/{project_id}/audio")
+async def add_video_audio(project_id: str, body: VideoAudioBody, user: User = Depends(_dep_current_user)):
+    await _owned_video_project(project_id, user)
+    if not body.audio_url.startswith("/api/media/file/"):
+        raise HTTPException(400, "Music and voice must be uploaded MoreHelp audio files")
+    track = {"id": "va_" + uuid.uuid4().hex, "project_id": project_id, "user_id": user.id,
+             "track_type": body.track_type, "audio_url": body.audio_url, "volume": body.volume,
+             "fade_in": body.fade_in, "fade_out": body.fade_out,
+             "created_at": datetime.now(timezone.utc).isoformat()}
+    await db.video_audio_tracks.insert_one(track)
+    await db.video_projects.update_one({"id": project_id, "user_id": user.id}, {"$set": {"updated_at": datetime.now(timezone.utc).isoformat()}})
+    return _clean_video_doc(track)
+
+
+@router.patch("/video/projects/{project_id}/audio/{track_id}")
+async def update_video_audio(project_id: str, track_id: str, body: VideoAudioBody, user: User = Depends(_dep_current_user)):
+    await _owned_video_project(project_id, user)
+    if not body.audio_url.startswith("/api/media/file/"):
+        raise HTTPException(400, "Music and voice must be uploaded MoreHelp audio files")
+    updates = {"track_type": body.track_type, "audio_url": body.audio_url, "volume": body.volume,
+               "fade_in": body.fade_in, "fade_out": body.fade_out}
+    result = await db.video_audio_tracks.update_one(
+        {"id": track_id, "project_id": project_id, "user_id": user.id}, {"$set": updates})
+    if not result.matched_count:
+        raise HTTPException(404, "Audio track not found")
+    return _clean_video_doc(await db.video_audio_tracks.find_one({"id": track_id}, {"_id": 0}))
+
+
+@router.delete("/video/projects/{project_id}/audio/{track_id}")
+async def delete_video_audio(project_id: str, track_id: str, user: User = Depends(_dep_current_user)):
+    await _owned_video_project(project_id, user)
+    result = await db.video_audio_tracks.delete_one({"id": track_id, "project_id": project_id, "user_id": user.id})
+    if not result.deleted_count:
+        raise HTTPException(404, "Audio track not found")
+    return {"deleted": True}
+
+
+# ── Voice generation: real TTS through the platform's persona_speak stack ───
+
+class VoiceBody(BaseModel):
+    text: str = Field(..., min_length=1, max_length=4000)
+    persona: str = Field(default="director", max_length=60)
+
+
+@router.post("/video/voice")
+async def generate_voice(body: VoiceBody, user: User = Depends(_dep_current_user)):
+    _video_access(user)
+    from ai.persona_tts import persona_speak
+    result = await persona_speak(body.persona, body.text, db=db)
+    audio = result.get("audio")
+    if not audio:
+        raise HTTPException(503, "Voice generation is unavailable right now. You can still add music or record separately.")
+    from motor.motor_asyncio import AsyncIOMotorGridFSBucket
+    bucket = AsyncIOMotorGridFSBucket(db)
+    gfs_id = await bucket.upload_from_stream(
+        f"voice_{uuid.uuid4().hex}.mp3", audio,
+        metadata={"kind": "video_voice", "uploader": user.id, "content_type": "audio/mpeg", "filename": "generated_voice.mp3"})
+    return {"audio_url": f"/api/media/file/{gfs_id}", "tier": result.get("tier"), "persona": body.persona}
+
+
+# ── Templates: real project settings that create a real editable project ────
+
+VIDEO_TEMPLATES = {
+    "educational-short": {"title": "Educational Short", "aspect_ratio": "9:16", "desired_length": 30,
+                          "purpose": "teach", "description": "Teach one clear idea in under 30 seconds."},
+    "announcement": {"title": "Announcement", "aspect_ratio": "9:16", "desired_length": 20,
+                      "purpose": "inform", "description": "Share news with your audience quickly."},
+    "quote": {"title": "Quote", "aspect_ratio": "9:16", "desired_length": 15,
+               "purpose": "inspire", "description": "One powerful quote with a bold background."},
+    "promotional": {"title": "Promotional Video", "aspect_ratio": "9:16", "desired_length": 30,
+                     "purpose": "promote", "description": "Promote a product, service, or idea."},
+    "course-intro": {"title": "Course Introduction", "aspect_ratio": "16:9", "desired_length": 45,
+                      "purpose": "teach", "description": "Introduce a course and what students will learn."},
+    "instructor-tip": {"title": "Instructor Tip", "aspect_ratio": "9:16", "desired_length": 25,
+                        "purpose": "teach", "description": "A quick actionable tip from an instructor."},
+    "story": {"title": "Story", "aspect_ratio": "9:16", "desired_length": 40,
+               "purpose": "connect", "description": "Tell a short personal or brand story."},
+    "music-promotion": {"title": "Music Promotion", "aspect_ratio": "9:16", "desired_length": 30,
+                         "purpose": "promote", "description": "Highlight a release with energy."},
+    "event": {"title": "Event Announcement", "aspect_ratio": "1:1", "desired_length": 20,
+               "purpose": "inform", "description": "Get people to show up to your event."},
+    "feature": {"title": "MoreHelp Feature", "aspect_ratio": "9:16", "desired_length": 30,
+                 "purpose": "inform", "description": "Show off something MoreHelp can do."},
+}
+
+
+@router.get("/video/templates")
+async def list_video_templates():
+    return [{"slug": slug, **tpl} for slug, tpl in VIDEO_TEMPLATES.items()]
+
+
+@router.post("/video/templates/{slug}/use")
+async def use_video_template(slug: str, user: User = Depends(_dep_current_user)):
+    _video_access(user)
+    tpl = VIDEO_TEMPLATES.get(slug)
+    if not tpl:
+        raise HTTPException(404, "Template not found")
+    now = datetime.now(timezone.utc).isoformat()
+    doc = {"id": "vp_" + uuid.uuid4().hex, "user_id": user.id,
+           "title": tpl["title"], "idea": "", "description": tpl["description"],
+           "intended_audience": "", "desired_length": tpl["desired_length"],
+           "purpose": tpl["purpose"], "call_to_action": "", "aspect_ratio": tpl["aspect_ratio"],
+           "status": "Draft", "final_video_url": None, "thumbnail_url": None,
+           "template": slug, "created_at": now, "updated_at": now}
+    await db.video_projects.insert_one(doc)
+    return _clean_video_doc(doc)
+
+
+# ── Publish to the MoreHelp stream: creates a REAL community post record ────
+
+class PublishBody(BaseModel):
+    title: str = Field(..., min_length=1, max_length=200)
+    description: str = Field(default="", max_length=2000)
+    visibility: Literal["private", "morehelp", "public"] = "morehelp"
+    thumbnail_url: Optional[str] = Field(default=None, max_length=2000)
+
+
+@router.post("/video/projects/{project_id}/publish")
+async def publish_video_project(project_id: str, body: PublishBody, user: User = Depends(_dep_current_user)):
+    """Publish a finished video to the MoreHelp stream as a real community post."""
+    project = await _owned_video_project(project_id, user)
+    if not project.get("final_video_url"):
+        raise HTTPException(400, "Make your video first — there is nothing to publish yet.")
+    now = datetime.now(timezone.utc).isoformat()
+    post_doc = {
+        "id": str(uuid.uuid4()),
+        "content": f"{body.title}\n\n{body.description}\n\n▶ {project['final_video_url']}",
+        "category": "showcase",
+        "author_id": user.id,
+        "author_name": user.full_name,
+        "status": "live" if body.visibility in ("morehelp", "public") else "private",
+        "visibility": body.visibility,
+        "video_project_id": project_id,
+        "video_url": project["final_video_url"],
+        "thumbnail_url": body.thumbnail_url or project.get("thumbnail_url"),
+        "created_at": now,
+        "expires_at": (datetime.now(timezone.utc) + timedelta(days=90)).isoformat(),
+        "likes": 0,
+    }
+    await db.more_posts.insert_one(post_doc)
+    post_doc.pop("_id", None)
+    await db.video_projects.update_one(
+        {"id": project_id, "user_id": user.id},
+        {"$set": {"status": "Published", "published_post_id": post_doc["id"],
+                  "visibility": body.visibility, "updated_at": now}})
+    if audit:
+        await audit(user.id, "video_published", target=project_id, meta={"post_id": post_doc["id"], "visibility": body.visibility})
+    return {"post": post_doc, "project_status": "Published"}
 
 
 @router.post("/video/projects/{project_id}/scenes")
@@ -186,12 +444,15 @@ async def add_video_scene(project_id: str, body: VideoSceneBody, user: User = De
     project = await _owned_video_project(project_id, user)
     if body.media_url and not body.media_url.startswith("/api/media/file/"):
         raise HTTPException(400, "Media must be an uploaded MoreHelp media file")
-    scene = {"id": "vs_" + uuid.uuid4().hex, "project_id": project_id, "user_id": user.id,
+    scene_doc = {"id": "vs_" + uuid.uuid4().hex, "project_id": project_id, "user_id": user.id,
              "scene_order": body.position, "duration": body.duration, "visual_url": body.media_url,
-             "script_text": body.text, "created_at": datetime.now(timezone.utc).isoformat()}
-    await db.video_scenes.insert_one(scene)
+             "script_text": body.text, "text_placement": body.text_placement or "bottom",
+             "text_size": body.text_size or 48, "caption": body.caption,
+             "transition": body.transition or "none",
+             "created_at": datetime.now(timezone.utc).isoformat()}
+    await db.video_scenes.insert_one(scene_doc)
     await db.video_projects.update_one({"id": project_id, "user_id": user.id}, {"$set": {"updated_at": datetime.now(timezone.utc).isoformat(), "status": "Ready to Preview"}})
-    return _clean_video_doc(scene)
+    return _clean_video_doc(scene_doc)
 
 
 @router.patch("/video/projects/{project_id}/scenes/{scene_id}")
@@ -202,7 +463,9 @@ async def update_video_scene(project_id: str, scene_id: str, body: VideoSceneBod
     scene = await db.video_scenes.find_one({"id": scene_id, "project_id": project_id, "user_id": user.id}, {"_id": 0})
     if not scene:
         raise HTTPException(404, "Scene not found")
-    updates = {"duration": body.duration, "script_text": body.text, "visual_url": body.media_url, "scene_order": body.position}
+    updates = {"duration": body.duration, "script_text": body.text, "visual_url": body.media_url,
+               "scene_order": body.position, "text_placement": body.text_placement or "bottom",
+               "text_size": body.text_size or 48, "caption": body.caption, "transition": body.transition or "none"}
     await db.video_scenes.update_one({"id": scene_id, "project_id": project_id}, {"$set": updates})
     scene.update(updates)
     return _clean_video_doc(scene)
@@ -262,6 +525,18 @@ async def _download_render_asset(url: str, workdir: str, index: int, user_id: st
     return target, str(metadata.get("content_type") or "").startswith("video/")
 
 
+def _text_filter_for_scene(scene: dict, width: int, height: int) -> list[str]:
+    """Build a drawtext filter for the scene's on-screen words, plain-language driven."""
+    text = (scene.get("caption") or scene.get("script_text") or "").strip()
+    if not text:
+        return []
+    placement = scene.get("text_placement") or "bottom"
+    size = scene.get("text_size") or 48
+    y_expr = {"top": "h*0.08", "center": "(h-th)/2", "bottom": "h-th-h*0.08"}.get(placement, "h-th-h*0.08")
+    safe = text.replace("\\", "\\\\").replace(":", "\\:").replace("'", "\\\\\"").replace("%", "\\%").replace("\n", " ")
+    return [f"drawtext=text='{safe}':fontsize={size}:fontcolor=white:borderw=3:bordercolor=black:x=(w-tw)/2:y={y_expr}"]
+
+
 @router.post("/video/projects/{project_id}/render")
 async def render_video_project(project_id: str, user: User = Depends(_dep_current_user)):
     project = await _owned_video_project(project_id, user)
@@ -273,6 +548,12 @@ async def render_video_project(project_id: str, user: User = Depends(_dep_curren
         raise HTTPException(400, f"Scene {missing} needs a picture or video before your video can be made.")
     if not shutil.which("ffmpeg"):
         raise HTTPException(503, "Video making is unavailable because the renderer is not installed.")
+
+    audio_tracks = await db.video_audio_tracks.find(
+        {"project_id": project_id, "user_id": user.id}, {"_id": 0}).to_list(20)
+    music_track = next((t for t in audio_tracks if t.get("track_type") == "music"), None)
+    narration_track = next((t for t in audio_tracks if t.get("track_type") == "narration"), None)
+    total_duration = sum(s.get("duration", 5) for s in scenes)
 
     job_id = "vr_" + uuid.uuid4().hex
     now = datetime.now(timezone.utc).isoformat()
@@ -286,8 +567,14 @@ async def render_video_project(project_id: str, user: User = Depends(_dep_curren
                 path, is_video = await _download_render_asset(scene["visual_url"], workdir, index, user.id)
                 output = os.path.join(workdir, f"scene_{index}.mp4")
                 duration = str(scene.get("duration", 5))
+                vf = [f"scale={width}:{height}:force_original_aspect_ratio=decrease,pad={width}:{height}:(ow-iw)/2:(oh-ih)/2,format=yuv420p"]
+                vf.extend(_text_filter_for_scene(scene, width, height))
+                transition = scene.get("transition") or "none"
+                fade_in = "fade=t=in:st=0:d=0.5" if transition == "fade" else None
+                if fade_in:
+                    vf.append(fade_in)
                 input_args = ["-i", path] if is_video else ["-loop", "1", "-i", path]
-                command = ["ffmpeg", "-y", *input_args, "-t", duration, "-vf", f"scale={width}:{height}:force_original_aspect_ratio=decrease,pad={width}:{height}:(ow-iw)/2:(oh-ih)/2,format=yuv420p", "-r", "30", "-an", output]
+                command = ["ffmpeg", "-y", *input_args, "-t", duration, "-vf", ",".join(vf), "-r", "30", "-an", output]
                 await asyncio.to_thread(subprocess.run, command, check=True, capture_output=True, timeout=90)
                 inputs.append(output)
                 await db.video_render_jobs.update_one(
@@ -296,8 +583,39 @@ async def render_video_project(project_id: str, user: User = Depends(_dep_curren
                 )
             concat = os.path.join(workdir, "concat.txt")
             Path(concat).write_text("".join(f"file '{p}'\\n" for p in inputs))
+            assembled = os.path.join(workdir, "assembled.mp4")
+            await asyncio.to_thread(subprocess.run, ["ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", concat, "-c", "copy", assembled], check=True, capture_output=True, timeout=120)
+
+            # Mix music + narration under the video, with independent volume and fades.
+            audio_inputs, audio_filters, amix_labels = [], [], []
+            for track in (narration_track, music_track):
+                if not track:
+                    continue
+                tpath, _ = await _download_render_asset(track["audio_url"], workdir, 100 + len(audio_inputs), user.id)
+                idx = len(audio_inputs)
+                audio_inputs.extend(["-i", tpath])
+                chain = f"[{idx + 1}:a]volume={track.get('volume', 1.0)}"
+                fades = []
+                if track.get("fade_in"):
+                    fades.append(f"afade=t=in:st=0:d={track['fade_in']}")
+                if track.get("fade_out"):
+                    fades.append(f"afade=t=out:st={max(0, total_duration - track['fade_out'])}:d={track['fade_out']}")
+                if fades:
+                    chain += "," + ",".join(fades)
+                label = f"a{idx}"
+                chain += f"[{label}]"
+                audio_filters.append(chain)
+                amix_labels.append(label)
+
             final = os.path.join(workdir, "final.mp4")
-            await asyncio.to_thread(subprocess.run, ["ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", concat, "-c", "copy", final], check=True, capture_output=True, timeout=120)
+            if amix_labels:
+                mix = f"{''.join(audio_filters)};{''.join(amix_labels)}amix=inputs={len(amix_labels)}:duration=longest:dropout_transition=0[aout]"
+                command = ["ffmpeg", "-y", "-i", assembled, *audio_inputs, "-filter_complex", mix,
+                           "-map", "0:v", "-map", "[aout]", "-t", str(total_duration),
+                           "-c:v", "copy", "-c:a", "aac", "-shortest", final]
+            else:
+                command = ["ffmpeg", "-y", "-i", assembled, "-c", "copy", final]
+            await asyncio.to_thread(subprocess.run, command, check=True, capture_output=True, timeout=180)
             from motor.motor_asyncio import AsyncIOMotorGridFSBucket
             with open(final, "rb") as stream:
                 file_id = await AsyncIOMotorGridFSBucket(db).upload_from_stream(f"{project_id}.mp4", stream, metadata={"kind": "video_render", "project_id": project_id, "user_id": user.id, "content_type": "video/mp4"})
@@ -323,6 +641,19 @@ async def get_video_render_job(project_id: str, job_id: str, user: User = Depend
     )
     if not job:
         raise HTTPException(404, "Render job not found")
+    # Stuck-job recovery: a Processing job older than 10 minutes is dead.
+    # Mark it failed so the project never stays stuck in "Making Your Video...".
+    if job.get("status") == "Processing":
+        created = job.get("created_at") or ""
+        try:
+            age = datetime.now(timezone.utc) - datetime.fromisoformat(created)
+            if age.total_seconds() > 600:
+                await db.video_render_jobs.update_one({"id": job_id}, {"$set": {"status": "Failed", "error_message": "The video took too long to make and was stopped. Try again with fewer or shorter scenes."}})
+                await db.video_projects.update_one({"id": project_id}, {"$set": {"status": "Needs Attention"}})
+                job["status"] = "Failed"
+                job["error_message"] = "The video took too long to make and was stopped. Try again with fewer or shorter scenes."
+        except ValueError:
+            pass
     return _clean_video_doc(job)
 
 
