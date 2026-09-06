@@ -281,7 +281,7 @@ export default function Store() {
                     </span>
                   </div>
                   <a
-                    href={`/api/media/content/content/starter-library/${book.slug}.md`}
+                    href={`/api/media/content/starter-library/${book.slug}.md`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="inline-flex items-center gap-1.5 text-xs font-bold text-copper hover:text-copper/80 transition-colors"
