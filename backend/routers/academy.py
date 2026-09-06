@@ -62,6 +62,18 @@ async def _dep_optional_user(authorization: Optional[str] = Header(None)):
     return await current_user(authorization)
 
 
+def _require_rank(*roles):
+    async def _dep(authorization: Optional[str] = Header(None)):
+        user = await _dep_current_user(authorization)
+        if not user:
+            raise HTTPException(401, "Authentication required")
+        user_role = getattr(user, "role", "student")
+        if user_role not in set(roles):
+            raise HTTPException(403, f"Required role: {', '.join(roles)}")
+        return user
+    return _dep
+
+
 # ── Pydantic request models ──────────────────────────────────────────────────
 class StudentCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
