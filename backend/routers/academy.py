@@ -726,7 +726,7 @@ class AcademyMessage(BaseModel):
 
 
 @router.post("/academy/messages")
-async def send_academy_message(payload: AcademyMessage, user: User = Depends(_dep_current_user)):
+async def send_academy_message(payload: AcademyMessage, user: dict = Depends(_dep_current_user)):
     now = _now()
     msg = {
         "id": str(uuid.uuid4()),
@@ -752,7 +752,7 @@ async def send_academy_message(payload: AcademyMessage, user: User = Depends(_de
 
 @router.get("/academy/messages")
 async def list_academy_messages(
-    user: User = Depends(_dep_current_user),
+    user: dict = Depends(_dep_current_user),
     academy_student_id: Optional[str] = None,
     kind: Optional[str] = None,
 ):
@@ -766,7 +766,7 @@ async def list_academy_messages(
 
 
 @router.post("/academy/messages/{mid}/read")
-async def read_academy_message(mid: str, user: User = Depends(_dep_current_user)):
+async def read_academy_message(mid: str, user: dict = Depends(_dep_current_user)):
     await db.academy_messages.update_one({"id": mid, "to_user_id": user.id}, {"$set": {"read": True}})
     return {"ok": True}
 
@@ -775,7 +775,7 @@ async def read_academy_message(mid: str, user: User = Depends(_dep_current_user)
 # Instructor Academy workflow
 # ═════════════════════════════════════════════════════════════════════════════
 @router.get("/academy/instructor/learners")
-async def instructor_learners(user: User = Depends(_require_rank("instructor", "admin"))):
+async def instructor_learners(user: dict = Depends(_require_rank("instructor", "admin"))):
     """List Academy students visible to the instructor, with aggregate progress."""
     students = await db.academy_students.find({"status": "active"}, {"_id": 0}).to_list(500)
     out = []
@@ -802,7 +802,7 @@ async def instructor_learners(user: User = Depends(_require_rank("instructor", "
 
 
 @router.get("/academy/instructor/learners/{student_id}/progress")
-async def instructor_learner_progress(student_id: str, user: User = Depends(_require_rank("instructor", "admin"))):
+async def instructor_learner_progress(student_id: str, user: dict = Depends(_require_rank("instructor", "admin"))):
     student = await db.academy_students.find_one({"id": student_id}, {"_id": 0})
     if not student:
         raise HTTPException(404, "Student not found")
@@ -833,7 +833,7 @@ async def instructor_learner_progress(student_id: str, user: User = Depends(_req
 
 
 @router.post("/academy/instructor/interventions")
-async def create_intervention(payload: dict, user: User = Depends(_require_rank("instructor", "admin"))):
+async def create_intervention(payload: dict, user: dict = Depends(_require_rank("instructor", "admin"))):
     """Record an instructor intervention for a learner."""
     student_id = payload.get("student_id")
     kind = payload.get("kind", "review")
@@ -862,7 +862,7 @@ async def create_intervention(payload: dict, user: User = Depends(_require_rank(
 
 
 @router.get("/academy/instructor/interventions")
-async def list_interventions(user: User = Depends(_require_rank("instructor", "admin")), student_id: Optional[str] = None):
+async def list_interventions(user: dict = Depends(_require_rank("instructor", "admin")), student_id: Optional[str] = None):
     q = {"instructor_id": user.id}
     if student_id:
         q["student_id"] = student_id
