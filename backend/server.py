@@ -241,6 +241,16 @@ _ADDITIONAL_API_ROUTER_MODULES = (
     ("system_rollback", "/api"),
     ("gateway_admin", "/api"),
     ("unifier", "/api"),
+    # Routers whose handlers were extracted from the monolith but never
+    # mounted — their frontend callers 404'd. Inline duplicates (registered
+    # earlier) keep winning on identical paths; these mounts only add the
+    # routes that existed nowhere else.
+    ("admin", "/api"),
+    ("community", "/api"),
+    ("exec", "/api"),
+    ("exec_command", "/api"),
+    ("sovereign", "/api"),
+    ("misc", "/api"),
 )
 
 # ── Feature Control Center enforcement (read side) ──────────────────────────
@@ -3714,9 +3724,15 @@ async def _get_user_sage_tier(user_id: str) -> str:
     Get user's Sage subscription tier (basic | advanced).
     Returns "basic" by default for backward compatibility.
     """
-    # TODO: In production, query db.sage_subscriptions for tier status
-    # For now, default to "basic" for all users (backward compatible)
-    return "basic"
+    # Tier status lives on the user document ('sage_tier' field), granted by
+    # exec tier control (POST /exec/control/user/tier) — same source of truth
+    # as routers/ai.py's copy. Unknown/missing values fall back to "basic".
+    try:
+        doc = await db.users.find_one({"id": user_id}, {"_id": 0, "sage_tier": 1})
+        tier = (doc or {}).get("sage_tier", "basic")
+        return tier if tier in ("basic", "advanced") else "basic"
+    except Exception:
+        return "basic"
 
 
 async def _apply_sage_safety_gates(response_text: str, user_tier: str) -> tuple:
@@ -10082,8 +10098,25 @@ async def submit_bug_report(body: BugReportRequest):
         # Log the submission
         logger.info(f"Bug report submitted: {body.email} — {body.whatYouTried}")
 
-        # TODO: Send email notification to admin (poetgames3@gmail.com)
-        # For now, just store in DB and return success
+        # Notify the owner via the standard provider chain (Resend -> Gmail).
+        # Fail-open: a failed email never rejects the report - it is already stored.
+        try:
+            _subject = f"MoreHelp bug report from {body.name}"
+            _html = (
+                "<h3>New bug report (48-hour campaign)</h3>"
+                f"<p><b>From:</b> {body.name} &lt;{body.email}&gt; (payout: {body.venmoOrPaypal})</p>"
+                f"<p><b>Tried:</b> {body.whatYouTried}</p>"
+                f"<p><b>Broke:</b> {body.whatBroke}</p>"
+            )
+            _sent = False
+            if RESEND_API_KEY:
+                _sent = await _send_via_resend(EXEC_ADMIN_EMAIL, _subject, _html)
+            if not _sent and GMAIL_USER and GMAIL_APP_PASSWORD:
+                _sent = await _send_via_gmail(EXEC_ADMIN_EMAIL, _subject, _html)
+            if not _sent:
+                logger.warning("bug-report: admin notification email not sent (no email provider configured)")
+        except Exception as _br_email_err:
+            logger.warning("bug-report: admin notification failed: %s", _br_email_err)
 
         return {"status": "submitted", "message": "Thanks for testing! You'll get $1 for trying."}
     except Exception as e:
@@ -10271,6 +10304,22 @@ try:
             raise HTTPException(400, result["error"])
         return result
 
+    @api_router.get("/exec/panel/heartbeat-secret")
+    async def exec_panel_heartbeat_secret(user: User = Depends(require_role("executive_admin"))):
+        """Return the heartbeat URL the backup server should POST to.
+        The heartbeat POST itself is deliberately unauthenticated (the backup
+        server has no user session); this exec-only endpoint hands the operator
+        the URL to configure there, matching the panel's 'Retrieve Secret'
+        button in the Failover tab.
+        """
+        base = os.environ.get("BACKUP_ORIGIN", "") or os.environ.get("RAILWAY_PUBLIC_DOMAIN", "")
+        if base and not base.startswith("http"):
+            base = f"https://{base}"
+        return {
+            "secret": f"{base or ''}/api/exec/panel/heartbeat",
+            "payload_hint": {"source": "backup|emergency", "version": "optional"},
+        }
+
     @api_router.get("/exec/free-backup-matrix")
     async def exec_free_backup_matrix(user: User = Depends(require_role("executive_admin"))):
         """Return the free API backup matrix — shows every service and its fallback status."""
@@ -10363,8 +10412,24 @@ except Exception as _csse:
 # reach a real API without duplicating route bodies. Bound like the SSO block
 # above — same handler objects, one source of truth.
 try:
+    from routers import auth as _fr_auth
     from routers import users as _users_router
     _users_router.bind(db, audit, notify, current_user, can_modify, hash_pw)
+    # Break-glass owner recovery: POST /auth/factory-reset — the handler in
+    # routers/auth.py is already gated (EXEC_RESET_SECRET/RESEND_API_KEY plus an
+    # explicit "DELETE ALL" confirm inside the handler), so registering it lets
+    # the FactoryReset console reach the real break-glass wipe instead of a 404.
+    try:
+        _fr_auth.bind(
+            db, audit, notify, current_user, None,
+            check_rate, None, None, make_token,
+            None, None, None, None,
+        )
+        api_router.add_api_route(
+            "/auth/factory-reset", _fr_auth.factory_reset, methods=["POST"])
+    except Exception as _fr_err:
+        logger.warning("factory-reset route not registered: %s", _fr_err)
+
     _USERS_ROUTES = [
         ("GET", "/admin/users/{uid}", _users_router.admin_get_user),
         ("PATCH", "/admin/users/{uid}/tier", _users_router.admin_set_tier),
@@ -10460,6 +10525,8 @@ def _bind_router_dependencies(router_module):
         "_jwt_secret": JWT_SECRET,
         "jwt_algo": JWT_ALGO,
         "_jwt_algo": JWT_ALGO,
+        "_gmail": _send_via_gmail,
+        "_resend": _send_via_resend,
     }
     values = [available[parameter.name] for parameter in inspect.signature(bind).parameters.values()]
     bind(*values)
@@ -10472,6 +10539,24 @@ for _router_module_name, _router_mount_prefix in _ADDITIONAL_API_ROUTER_MODULES:
     _router_module = import_module(f"routers.{_router_module_name}")
     _bind_router_dependencies(_router_module)
     app.include_router(_router_module.router, prefix=_router_mount_prefix)
+
+
+# Unified Access Control Gateway (security/access_control) - mounted per that
+# module's documented wiring (see security/access_control/wiring.py): bind
+# shared deps, expose the executive route-access dashboard under /api, then
+# wrap the app with the hard gate AFTER every route is registered (the gate
+# derives each route's handler rank at wrap time). The gate is an ADDITIONAL
+# exec-configurable restriction layer; with no exec route policy written it
+# changes nothing, and it never loosens any handler's own dependency.
+from security.access_control.wiring import mount_access_gateway as _mount_access_gateway
+
+access_gateway = _mount_access_gateway(
+    app=app,
+    api_router=api_router,
+    db=db,
+    audit=audit,
+    current_user=current_user,
+)
 
 
 # Flag set once _on_startup_impl() finishes (or fails), so the readiness probe

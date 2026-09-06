@@ -42,19 +42,27 @@ routes = []
 seen = set()
 
 
-def add_router(mod, module_name, prefix):
+def add_router(mod, module_name, prefix):  # noqa: C901
     router = getattr(mod, "router", None)
     if router is None:
         routes.append({"method": "*", "path": f"(no router attr in {module_name})", "module": module_name, "auth": [], "error": "no router"})
         return
     for route in router.routes:
-        # Newer FastAPI wraps included routers in _IncludedRouter objects that
+        # Newer FastAPI wraps included routers in opaque wrapper objects that
         # carry no .path of their own — recurse into the wrapped router.
+        # Wrapper classes vary by version (_IncludedRouter, include_context on
+        # Mount/APIRouter copies, nested .routes). Handle every shape.
         inc = getattr(route, "include_context", None)
         if inc is not None:
             add_router(type("Mod", (), {"router": inc.included_router}), module_name, prefix + (getattr(inc, "prefix", "") or ""))
             continue
+        wrapped = getattr(route, "included_router", None)
+        if wrapped is not None:
+            add_router(type("Mod", (), {"router": wrapped}), module_name, prefix + (getattr(route, "prefix", "") or ""))
+            continue
         if not hasattr(route, "path"):
+            if getattr(route, "routes", None):
+                add_router(type("Mod", (), {"router": route}), module_name, prefix)
             continue
         for m in sorted(getattr(route, "methods", ["*"]) or ["*"]):
             full = (prefix + route.path) or "/"
@@ -82,8 +90,9 @@ for name, prefix in mounts:
 
 # Also capture the inline app routes (server.py's own handlers + ai_router).
 def _add_app_route(route, prefix=""):
-    # Newer FastAPI: included routers appear as _IncludedRouter wrappers whose
-    # include_context carries the prefix applied at include time.
+    # Newer FastAPI: included routers appear as opaque wrapper objects whose
+    # wrapped router carries the child routes. Wrapper shapes vary by version —
+    # handle include_context, included_router, and nested .routes.
     inc = getattr(route, "include_context", None)
     if inc is not None:
         sub = getattr(inc, "included_router", None)
@@ -91,13 +100,16 @@ def _add_app_route(route, prefix=""):
             for r in getattr(sub, "routes", []) or []:
                 _add_app_route(r, prefix + (getattr(inc, "prefix", "") or ""))
         return
+    wrapped = getattr(route, "included_router", None)
+    if wrapped is not None:
+        for r in getattr(wrapped, "routes", []) or []:
+            _add_app_route(r, prefix + (getattr(route, "prefix", "") or ""))
+        return
     # Mounts / nested routers: carry the mount path into the child prefix.
     sub = getattr(route, "routes", None)
     if sub:
         for r in sub:
             _add_app_route(r, prefix + (getattr(route, "path", "") or ""))
-        return
-    if not hasattr(route, "path"):
         return
     if not hasattr(route, "path"):
         return

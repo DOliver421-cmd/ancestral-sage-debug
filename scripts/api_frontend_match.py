@@ -51,6 +51,47 @@ def backend_matcher(method: str, path: str):
     return re.compile(pattern)
 
 
+# ── Inventory freshness guard ────────────────────────────────────────────────
+# The inventory JSON is a build artifact, not source. A stale artifact produced
+# dozens of false "broken feature" findings in past audits. Refuse to run
+# against an inventory older than the backend source it must describe; rebuild
+# it first with:  python3 scripts/api_inventory.py  (api_inventory.py sets its
+# own safe local defaults for the server import).
+import os
+import subprocess
+import time
+
+def _newest_backend_mtime() -> float:
+    newest = 0.0
+    for base in (ROOT / "backend" / "server.py", ROOT / "backend" / "routers"):
+        if base.is_dir():
+            for f in base.rglob("*.py"):
+                newest = max(newest, f.stat().st_mtime)
+        elif base.exists():
+            newest = max(newest, base.stat().st_mtime)
+    return newest
+
+_INV_MTIME = INV.stat().st_mtime if INV.exists() else 0.0
+_SRC_MTIME = _newest_backend_mtime()
+if _INV_MTIME < _SRC_MTIME:
+    _age_h = (_SRC_MTIME - _INV_MTIME) / 3600.0
+    print(
+        f"STALE INVENTORY: scripts/api_inventory.json predates backend source "
+        f"by {_age_h:.1f}h. Rebuilding from the live app...",
+        file=sys.stderr,
+    )
+    _sub = subprocess.run(
+        [sys.executable, str(ROOT / "scripts" / "api_inventory.py")],
+        capture_output=True, text=True,
+    )
+    if _sub.returncode != 0 or not INV.exists() or INV.stat().st_mtime < _SRC_MTIME:
+        print(_sub.stderr[-2000:], file=sys.stderr)
+        sys.exit(
+            "api_inventory.json is stale and could not be rebuilt automatically. "
+            "Run: python3 scripts/api_inventory.py"
+        )
+    print("inventory rebuilt OK", file=sys.stderr)
+
 # ── Load inventory ───────────────────────────────────────────────────────────
 inv = json.loads(INV.read_text(encoding="utf-8"))["routes"]
 BY_METHOD = {}
@@ -62,12 +103,74 @@ RAW_PATHS = [r["path"] for r in inv]
 
 
 def route_exists(method: str, path: str) -> bool:
+    """Normalize a frontend call path into a concrete candidate and test it
+    against the backend regex inventory.
+
+    Masked template-literal segments need two different treatments:
+      * '/admin/users/${_}'  — the '${_}' IS the segment (an interpolated id)
+        and must stay, so it matches backend '{uid}' wildcards.
+      * '/admin/courses${_}' — the '${_}' is glue from an interpolated query
+        suffix ('/admin/courses${filter}') and must be stripped, or the
+        literal prefix can never match the backend's '/admin/courses'.
+    """
     norm = strip_api(path.split("?", 1)[0])
+    segs = []
+    for s in norm.strip("/").split("/"):
+        if not s:
+            continue
+        if s == "${_}":
+            segs.append(s)            # whole-segment interpolation — keep
+        elif s.endswith("${_}"):
+            segs.append(s[: -len("${_}")])  # glued suffix — strip
+        else:
+            segs.append(s)
+    norm = "/" + "/".join(segs) if segs else "/"
+    # Collapse runs of whole-segment '${_}' wildcards into ONE wildcard: a
+    # frontend action-router URL like '/aawab/agents/${id}/${action}' matches a
+    # backend endpoint '/aawab/agents/{agent_id}/{action}' whose last segment
+    # is a single wildcard holding the action name.
+    collapsed = []
+    for s in segs:
+        if s == "${_}" and collapsed and collapsed[-1] == "${_}":
+            continue
+        collapsed.append(s)
+    norm_c = "/" + "/".join(collapsed) if collapsed else "/"
     if method and method in ALL_BY_METHOD:
         if any(p.match(norm) for p in ALL_BY_METHOD[method]):
             return True
+        if any(p.match(norm_c) for p in ALL_BY_METHOD[method]):
+            return True
     # fall back to any-method match when method unknown OR exact method missing
-    return any(p.match(norm) for p in ALL_ANY_METHOD)
+    if any(p.match(norm) for p in ALL_ANY_METHOD):
+        return True
+    if any(p.match(norm_c) for p in ALL_ANY_METHOD):
+        return True
+    # Last resort: frontend action-router '/aawab/admin/agents/${id}/${action}'
+    # where the final ${_} is a literal action name picked from a fixed set
+    # (revoke/override/...). The backend spells each action as its own route
+    # with a literal last segment — one segment MORE than the frontend path.
+    # Accept a backend route whose first len(frontend) segments match the
+    # frontend's collapsed segments (wildcard↔wildcard or literal equality)
+    # and whose remaining tail is literal-only.
+    if collapsed:
+        n = len(collapsed)
+        for r in inv:
+            bsegs = strip_api(r["path"].split("?", 1)[0]).strip("/").split("/")
+            if len(bsegs) <= n or not bsegs:
+                continue
+            tail = bsegs[n:]
+            if any(("{" in s and "}" in s) or "${" in s or s.startswith(":") for s in tail):
+                continue  # tail must be literal (a concrete action name)
+            ok = True
+            for f, b in zip(collapsed, bsegs[:n]):
+                if f == "${_}" or b.startswith("{") or b.startswith(":"):
+                    continue
+                if f != b:
+                    ok = False
+                    break
+            if ok:
+                return True
+    return False
 
 
 def mask_templates(text: str) -> str:

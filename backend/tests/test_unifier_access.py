@@ -54,7 +54,18 @@ def test_unifier_access_helper(role: str, tier: str, expected: bool) -> None:
 
 
 def test_unifier_access_requires_patron_not_inferred() -> None:
-    # The Unifier must NOT silently open for higher tiers unless the policy
-    # explicitly says so. Patron is the required tier right now.
+    # The Unifier must NOT silently open for arbitrary tiers: only patron-OR-
+    # HIGHER qualifies (TIER_RANK['patron'] = 4, executive = 6). 'executive' is
+    # rank 6 >= 4, so executive_admin with an executive tier IS allowed — the
+    # helper (security/unifier_access.py) and its owner-policy docstring use
+    # rank comparison, mirrored by the frontend's UNIFIER_MIN_TIER = "patron".
     executive = _FakeUser(role="executive_admin", feature_tier="executive")
-    assert not user_can_use_unifier(executive)
+    assert user_can_use_unifier(executive)
+
+
+def test_unifier_access_excludes_lower_tiers() -> None:
+    # Rank strictly below patron must stay out even for staff roles.
+    pro = _FakeUser(role="executive_admin", feature_tier="pro")
+    assert not user_can_use_unifier(pro)
+    member = _FakeUser(role="admin", feature_tier="member")
+    assert not user_can_use_unifier(member)
