@@ -83,12 +83,12 @@ export default function Community() {
               <div className="text-xs text-ink/50 mt-0.5">Structured learning paths and adaptive tracks</div>
               <ArrowRight className="w-4 h-4 text-copper mt-2 inline opacity-0 group-hover:opacity-100 transition-opacity" />
             </Link>
-            <a href="/content/starter-library" className="card-flat p-5 group hover:shadow-md transition-all">
+            <Link to="/store" className="card-flat p-5 group hover:shadow-md transition-all">
               <FileText className="w-6 h-6 text-copper mb-2" />
               <div className="font-heading font-bold text-sm text-ink group-hover:text-copper transition-colors">Free Library</div>
               <div className="text-xs text-ink/50 mt-0.5">{STARTER_LIBRARY.length} free books and guides to read now</div>
               <ArrowRight className="w-4 h-4 text-copper mt-2 inline opacity-0 group-hover:opacity-100 transition-opacity" />
-            </a>
+            </Link>
           </div>
         </div>
 
