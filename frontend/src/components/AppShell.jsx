@@ -407,6 +407,7 @@ export default function AppShell({ children }) {
                 {nl("/creators", "Creators", Users, "nav-public-creators")}
                 {nl("/community", "Community", Radio, "nav-public-community")}
                 {nl("/store", "Store", ShoppingBag, "nav-public-store")}
+                {nl("/wai-institute", "Homeschool Academy", GraduationCap, "nav-public-academy")}
                 {nl("/premium", "WAI Institute Premium Services", Crown, "nav-public-premium")}
                 {nl("/vonns-saga", "Vonn's Saga", BookOpen, "nav-public-vonns")}
                 {nl("/knowledge", "Knowledge Finder", Search, "nav-public-knowledge")}
@@ -425,6 +426,7 @@ export default function AppShell({ children }) {
               <NavSection label="Home" collapsed={collapsed} defaultOpen={true}>
                 {nl("/", "Home / Landing", Globe, "nav-home")}
                 {nl("/dashboard", "Dashboard", LayoutDashboard, "nav-dashboard")}
+                {nl("/academy/parent", "Homeschool Academy", GraduationCap, "nav-academy")}
                 {isAuthed && !collapsed && (
                   <div className="flex items-center gap-2 px-3 py-2">
                     <UserCircle className="w-4 h-4 text-white/45 shrink-0" />

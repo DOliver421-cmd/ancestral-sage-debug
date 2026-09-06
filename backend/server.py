@@ -207,6 +207,7 @@ from importlib import import_module
 _ADDITIONAL_API_ROUTER_MODULES = (
     ("aawab", "/api"),
     ("abo", "/api"),
+    ("academy", "/api"),
     ("member_projects", ""),
     ("studio", "/api"),
     ("auditor", "/api"),
@@ -1344,6 +1345,17 @@ async def _on_startup_impl():
         await seed_modules()
     except Exception as _e:
         logger.warning("STARTUP: seed_modules failed (non-fatal): %s", _e)
+
+    try:
+        # WAI Institute Homeschool Academy curriculum (tracks/courses/lessons).
+        # Failures here are surfaced loudly because content validation happens
+        # in seed_academy — a buggy course must never half-seed silently.
+        from seed_academy import seed_academy as _seed_academy
+
+        _academy_result = await _seed_academy(db)
+        logger.info("STARTUP: academy curriculum seed — %s", _academy_result)
+    except Exception as _e:
+        logger.warning("STARTUP: seed_academy failed (non-fatal): %s", _e)
 
     try:
         await seed_users()

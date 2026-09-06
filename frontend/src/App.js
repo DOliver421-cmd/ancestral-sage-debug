@@ -81,6 +81,13 @@ import PrivacyPolicy from "./pages/PrivacyPolicy";
 import RefundPolicy from "./pages/RefundPolicy";
 import MoreHelpCenter from "./pages/MoreHelpCenter";
 import WAIInstitute from "./pages/WAIInstitute";
+import AcademyLanding from "./pages/academy/AcademyLanding";
+import CurriculumExplorer from "./pages/academy/CurriculumExplorer";
+import CourseDetail from "./pages/academy/CourseDetail";
+import AcademyParentHome from "./pages/academy/AcademyParentHome";
+import AcademyStudentHome from "./pages/academy/AcademyStudentHome";
+import AcademyLesson from "./pages/academy/AcademyLesson";
+import AcademyRecords from "./pages/academy/AcademyRecords";
 import OurLegacy from "./pages/OurLegacy";
 import VonnsSaga from "./pages/VonnsSaga";
 import CookieConsent from "./components/CookieConsent";
@@ -311,7 +318,16 @@ function App() {
           <Route path="/admin/aawab" element={<BoundedAdmin roles={["admin"]} label="AAWAB Admin" backTo="/admin"><AdminAawabDashboard /></BoundedAdmin>} />
           <Route path="/landing" element={<LandingMarketplace />} />
           {/* WAI Institute — accredited-track portal (also the redirect target for wai-institute.org) */}
+          {/* WAI Institute Homeschool Academy — gateway + learning routes */}
           <Route path="/wai-institute" element={<WAIInstitute />} />
+          <Route path="/academy" element={<AcademyLanding />} />
+          <Route path="/academy/curriculum" element={<CurriculumExplorer />} />
+          <Route path="/academy/courses/:slug" element={<CourseDetail />} />
+          <Route path="/academy/parent" element={<Protected><AcademyParentHome /></Protected>} />
+          <Route path="/academy/student" element={<Protected><AcademyStudentHome /></Protected>} />
+          <Route path="/academy/student/:studentId" element={<Protected><AcademyStudentHome /></Protected>} />
+          <Route path="/academy/learn/:courseSlug/:lessonSlug" element={<Protected><AcademyLesson /></Protected>} />
+          <Route path="/academy/records" element={<Protected><AcademyRecords /></Protected>} />
           {/* Our Legacy, Our Future — the flagship book + campaign (public) */}
           <Route path="/our-legacy" element={<OurLegacy />} />
           {/* Vonns Saga — the multiverse choose-your-own-adventure (public) */}
