@@ -97,6 +97,7 @@ import ScholarshipApply from "./pages/ScholarshipApply";
 import AdminScholarships from "./pages/AdminScholarships";
 import AdminPromoCodes from "./pages/AdminPromoCodes";
 import VideoPresenter from "./pages/VideoPresenter";
+import VideoStudioPage from "./pages/VideoStudioPage";
 import ExecutiveCommandCenter from "./pages/ExecutiveCommandCenter";
 import Community from "./pages/Community";
 import Creators from "./pages/Creators";
@@ -323,6 +324,10 @@ function App() {
           <Route path="/scholarships/apply" element={<Protected><ScholarshipApply /></Protected>} />
           <Route path="/admin/scholarships" element={<BoundedAdmin roles={["admin"]} label="Scholarship Committee" backTo="/admin"><AdminScholarships /></BoundedAdmin>} />
           <Route path="/studio/video-presenter" element={<VideoPresenter />} />
+          {/* Short-Form Video Studio — separate Pro-tier feature (spec).
+              Route-level gate mirrors backend _video_access; the server enforces
+              the same rule on every /api/video/* call. */}
+          <Route path="/video-studio" element={<VideoStudioPage />} />
           <Route path="/admin/command" element={<BoundedAdmin roles={["executive_admin"]} label="Executive Command Center" backTo="/admin"><ExecutiveCommandCenter /></BoundedAdmin>} />
           <Route path="/community" element={<Community />} />
           <Route path="/creators" element={<Creators />} />
