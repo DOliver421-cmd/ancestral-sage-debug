@@ -378,7 +378,8 @@ async def upload_media_file(
     exact time boundary. Full playback is never granted by the upload itself.
     """
     max_mb = 50
-    contents = await file.read()
+    # Read with cap — a 2GB hostile upload must not land in memory before 413.
+    contents = await file.read(max_mb * 1024 * 1024 + 1)
     if len(contents) > max_mb * 1024 * 1024:
         raise HTTPException(413, f"File too large (max {max_mb}MB)")
     is_audio = (file.content_type or "").lower().startswith("audio/")
