@@ -81,7 +81,7 @@ export default function AcademyRecords() {
                 <div className="font-heading text-2xl font-black text-ink">{s.name}</div>
               </div>
               <div className="flex flex-wrap gap-6">
-                <div><Label>Grade</Label><div className="font-bold text-ink">{s.grade === "K" ? "Kindergarten" : `Grade ${s.grade}`}</div></div>
+                <div><Label>Grade</Label><div className="font-bold text-ink">{s.grade === "K" ? "Kindergarten" : s.grade === "adult" ? "Adult" : `Grade ${s.grade}`}</div></div>
                 <div><Label>Track</Label><div className="font-bold text-ink capitalize">{s.track}</div></div>
                 <div><Label>Enrolled</Label><div className="font-bold text-ink">{fmt(s.created_at)}</div></div>
               </div>

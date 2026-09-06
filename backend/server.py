@@ -255,6 +255,7 @@ _ADDITIONAL_API_ROUTER_MODULES = (
     ("ops_admin", "/api"),
     ("workspace", "/api"),
     ("finder", "/api"),
+    ("simulation", "/api"),
 )
 
 # ── Feature Control Center enforcement (read side) ──────────────────────────
@@ -452,6 +453,9 @@ class User(BaseModel):
     # GDPR consent record (ISO strings as stored by register).
     terms_accepted_at: Optional[str] = None
     over_13_confirmed: Optional[bool] = None
+    is_simulation: bool = False
+    simulation_profile: Optional[str] = None
+    simulation_run_id: Optional[str] = None
 
 
 class RegisterReq(BaseModel):
@@ -1356,6 +1360,14 @@ async def _on_startup_impl():
         logger.info("STARTUP: academy curriculum seed — %s", _academy_result)
     except Exception as _e:
         logger.warning("STARTUP: seed_academy failed (non-fatal): %s", _e)
+
+    try:
+        from simulation import get_engine as _get_sim_engine
+        _sim = _get_sim_engine(db, app)
+        await _sim.ensure_indexes()
+        logger.info("STARTUP: simulation indexes ensured")
+    except Exception as _e:
+        logger.warning("STARTUP: simulation engine init failed (non-fatal): %s", _e)
 
     try:
         await seed_users()
@@ -10544,6 +10556,7 @@ def _bind_router_dependencies(router_module):
         "_resend": _send_via_resend,
         "require_role": require_role,
         "_require_role": require_role,
+        "_app": app,
     }
     values = [available[parameter.name] for parameter in inspect.signature(bind).parameters.values()]
     bind(*values)

@@ -14,6 +14,11 @@ const TRACK_OPTIONS = [
   { key: "builder", name: "Builder / Trade (6–12)", desc: "Trade math & science plus trade pathways like electrical." },
   { key: "artist", name: "Artist (K–12)", desc: "Creative disciplines with academic rigor." },
   { key: "scholar", name: "Scholar (9–12)", desc: "College-preparatory academics." },
+  { key: "adult_ed", name: "Adult Education / HSE", desc: "High-school equivalency preparation and practical academics for adult learners." },
+  { key: "life_skills", name: "Life Skills", desc: "Independent living, workplace skills, and personal development." },
+  { key: "leadership", name: "Leadership", desc: "Leadership training for workplace and community roles." },
+  { key: "career", name: "Career / Workforce", desc: "Career exploration, job skills, and professional development." },
+  { key: "entrepreneurship", name: "Entrepreneurship", desc: "Start and grow a business with practical training." },
 ];
 
 export default function AcademyParentHome() {
@@ -52,7 +57,7 @@ export default function AcademyParentHome() {
     setBusy(true); setError(""); setNotice("");
     try {
       const r = await api.post("/academy/students", form);
-      setNotice(`Added ${form.name} — enrolled in ${r.data.auto_enrolled.length} course${r.data.auto_enrolled.length === 1 ? "" : "s"} for ${form.grade === "K" ? "Kindergarten" : "Grade " + form.grade} ${form.track}.`);
+      setNotice(`Added ${form.name} — enrolled in ${r.data.auto_enrolled.length} course${r.data.auto_enrolled.length === 1 ? "" : "s"} for ${form.grade === "K" ? "Kindergarten" : form.grade === "adult" ? "Adult" : "Grade " + form.grade} ${form.track}.`);
       setForm({ name: "", grade: "1", track: "foundations" });
       setAdding(false);
       load();
@@ -146,8 +151,8 @@ export default function AcademyParentHome() {
                 <span className="text-[11px] font-bold uppercase tracking-wide text-ink/50">Grade</span>
                 <select value={form.grade} onChange={(e) => setForm({ ...form, grade: e.target.value })}
                   className="mt-1 w-full px-3 py-2.5 rounded-lg border border-ink/20 text-sm font-semibold focus:ring-2 focus:ring-copper focus:outline-none" data-testid="academy-student-grade">
-                  {["K", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"].map((g) => (
-                    <option key={g} value={g}>{g === "K" ? "Kindergarten" : `Grade ${g}`}</option>
+                  {["K", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "adult"].map((g) => (
+                    <option key={g} value={g}>{g === "K" ? "Kindergarten" : g === "adult" ? "Adult" : `Grade ${g}`}</option>
                   ))}
                 </select>
               </label>
@@ -183,7 +188,7 @@ export default function AcademyParentHome() {
                         <TrackTag track={s.track} />
                       </div>
                       <div className="text-xs font-black uppercase tracking-widest text-copper mt-1">
-                        {s.grade === "K" ? "Kindergarten" : `Grade ${s.grade}`} · {TRACK_OPTIONS.find((t) => t.key === s.track)?.name || s.track}
+                         {s.grade === "K" ? "Kindergarten" : s.grade === "adult" ? "Adult" : `Grade ${s.grade}`} · {TRACK_OPTIONS.find((t) => t.key === s.track)?.name || s.track}
                       </div>
                     </div>
                     <button onClick={() => archive(s)} title="Archive student" className="text-ink/30 hover:text-destructive transition-colors" data-testid={`archive-${s.id}`}>

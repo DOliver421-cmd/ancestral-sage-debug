@@ -88,6 +88,7 @@ import AcademyParentHome from "./pages/academy/AcademyParentHome";
 import AcademyStudentHome from "./pages/academy/AcademyStudentHome";
 import AcademyLesson from "./pages/academy/AcademyLesson";
 import AcademyRecords from "./pages/academy/AcademyRecords";
+import SimulationDashboard from "./pages/simulation/SimulationDashboard";
 import OurLegacy from "./pages/OurLegacy";
 import VonnsSaga from "./pages/VonnsSaga";
 import CookieConsent from "./components/CookieConsent";
@@ -328,6 +329,7 @@ function App() {
           <Route path="/academy/student/:studentId" element={<Protected><AcademyStudentHome /></Protected>} />
           <Route path="/academy/learn/:courseSlug/:lessonSlug" element={<Protected><AcademyLesson /></Protected>} />
           <Route path="/academy/records" element={<Protected><AcademyRecords /></Protected>} />
+          <Route path="/simulation" element={<Protected><SimulationDashboard /></Protected>} />
           {/* Our Legacy, Our Future — the flagship book + campaign (public) */}
           <Route path="/our-legacy" element={<OurLegacy />} />
           {/* Vonns Saga — the multiverse choose-your-own-adventure (public) */}
