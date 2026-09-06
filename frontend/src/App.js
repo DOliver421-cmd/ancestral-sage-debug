@@ -98,6 +98,7 @@ import AdminScholarships from "./pages/AdminScholarships";
 import AdminPromoCodes from "./pages/AdminPromoCodes";
 import VideoPresenter from "./pages/VideoPresenter";
 import VideoStudioPage from "./pages/VideoStudioPage";
+import UnifierPage from "./pages/UnifierPage";
 import ExecutiveCommandCenter from "./pages/ExecutiveCommandCenter";
 import Community from "./pages/Community";
 import Creators from "./pages/Creators";
@@ -471,6 +472,7 @@ function App() {
           <Route path="/arcade/:slug" element={<Protected><ArcadeGame /></Protected>} />
           <Route path="/studio" element={<Protected><TierGate feature="studio"><CreatorStudio /></TierGate></Protected>} />
           <Route path="/arena" element={<BoundedAdmin roles={["executive_admin"]} label="The Arena"><CompetitionArena /></BoundedAdmin>} />
+          <Route path="/unifier" element={<Protected><UnifierPage /></Protected>} />
           <Route path="/executive-suite" element={<BoundedAdmin roles={["admin"]} label="Executive Suite"><ExecutiveSuite /></BoundedAdmin>} />
           <Route path="/admin/bridge" element={<BoundedAdmin roles={["admin"]} label="AI Team Bridge" backTo="/admin"><AITeamBridge /></BoundedAdmin>} />
           <Route path="/jamil" element={<BoundedAdmin roles={["admin"]} label="Jamil"><Jamil /></BoundedAdmin>} />
