@@ -103,6 +103,7 @@ class TaskRequest(BaseModel):
     task: str
     project_id: Optional[str] = None
     round_number: Optional[int] = None
+    work_context_id: Optional[str] = None
 
 
 class UserScoreEntry(BaseModel):
@@ -368,7 +369,7 @@ async def assign_task(
         })
 
     persisted = sum(1 for rid in inserted_ids if rid is not None)
-    return {
+    response = {
         "project_id": project_id,
         "round_number": round_number,
         "task": body.task,
@@ -376,6 +377,26 @@ async def assign_task(
         "persisted_results": persisted,
         "results": response_results,
     }
+    if body.work_context_id and db is not None:
+        try:
+            now = datetime.now(timezone.utc).isoformat()
+            await db.arena_work_context.update_one(
+                {"id": body.work_context_id, "owner_id": str(user.id) if hasattr(user, "id") else user.get("_id", "")},
+                {"$set": {"updated_at": now, "source_capability": "competition"}},
+            )
+            await db.arena_work_context.update_one(
+                {"id": body.work_context_id},
+                {"$push": {"activity_history": {
+                    "action_type": "competition_round_completed",
+                    "description": f"Competition round {round_number} completed for project {project_id}: {persisted} results persisted",
+                    "capability": "competition",
+                    "metadata": {"project_id": project_id, "round_number": round_number, "persisted_results": persisted},
+                    "at": now,
+                }}},
+            )
+        except Exception:
+            pass
+    return response
 
 
 @router.post("/competition/score")

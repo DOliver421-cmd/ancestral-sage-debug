@@ -21,6 +21,7 @@ from fastapi import APIRouter, HTTPException, Request, Depends, Header
 from pydantic import BaseModel, Field
 from typing import Optional, List
 from datetime import datetime
+import uuid
 import sys
 import os
 import jwt
@@ -908,6 +909,7 @@ class NAMChatReq(BaseModel):
     history: List[dict] = []  # optional prior turns [{role, content}]
     module_slug: Optional[str] = None
     mode: Optional[str] = "tutor"  # tutor | ancestral_sage | general
+    context_id: Optional[str] = None
 
 
 # Systems prompt for other personas — static, short, no Hybrid NAM machinery.
@@ -928,13 +930,38 @@ async def _build_hybrid_nam_system(
     user_id: str = "",
     session_id: str = "",
     module_slug: str = "",
+    context_id: Optional[str] = None,
 ) -> str:
     """
-    Compose the full Hybrid NAM system prompt: designation + retrieved knowledge + recent memory.
+    Compose the full Hybrid NAM system prompt: designation + retrieved knowledge + recent memory + active work context.
     This is the bridge between the flat prompt world and the persistent Hybrid NAM intelligence.
     """
     # 1. NAM designation (identity, constitution, personality)
     base = nam.get_designation_prompt()
+
+    # 1a. Active Arena work context (shared state across capabilities)
+    try:
+        from server import db as _db
+        ctx_q = {"owner_id": user_id}
+        if context_id:
+            ctx_q["id"] = context_id
+        else:
+            ctx_q.setdefault("status", {"$nin": ["archived"]})
+        ctx_doc = await _db.arena_work_context.find_one(ctx_q, {"_id": 0}, sort=[("updated_at", -1)])
+        if ctx_doc:
+            ctx_block = "\n\nACTIVE ARENA WORK CONTEXT (shared state across all Arena capabilities — use this to maintain continuity):\n"
+            for field in ["title", "status", "current_objective", "project", "description", "mission_alignment", "next_recommended_action"]:
+                val = ctx_doc.get(field)
+                if val:
+                    ctx_block += f"- {field.replace('_', ' ').title()}: {val}\n"
+            recent_activity = ctx_doc.get("activity_history", [])[-5:]
+            if recent_activity:
+                ctx_block += "\nRecent activity:\n"
+                for evt in recent_activity:
+                    ctx_block += f"- [{evt.get('at', '')[:10]}] {evt.get('action_type', '')}: {evt.get('description', '')}\n"
+            base += ctx_block
+    except Exception:
+        pass  # Context injection is best-effort
 
     # 2. Retrieve relevant knowledge from the Knowledge Forge
     try:
@@ -1091,6 +1118,7 @@ async def nam_chat(body: NAMChatReq, user: dict = Depends(require_auth)):
             user_id=user_id,
             session_id=session_id,
             module_slug=body.module_slug or "",
+            context_id=body.context_id,
         )
     else:
         system = _PERSONA_PROMPTS.get(body.mode, _PERSONA_PROMPTS["tutor"])
@@ -1267,3 +1295,322 @@ async def dispatch_persona(body: PersonaDispatchReq, user: dict = Depends(requir
         resp["degraded"] = True
         resp["provider"] = provider
     return resp
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# Arena Shared Work Context
+# ═════════════════════════════════════════════════════════════════════════════
+
+class ArenaContextCreate(BaseModel):
+    title: str = Field(min_length=1, max_length=200)
+    current_objective: str = Field(default="", max_length=500)
+    project: str = Field(default="", max_length=200)
+    description: str = Field(default="", max_length=2000)
+    mission_alignment: str = Field(default="", max_length=1000)
+    strategic_goals: List[str] = Field(default_factory=list)
+    ideas: List[str] = Field(default_factory=list)
+    assumptions: List[str] = Field(default_factory=list)
+    questions: List[str] = Field(default_factory=list)
+    open_issues: List[str] = Field(default_factory=list)
+    executive_notes: str = Field(default="", max_length=2000)
+    source_capability: str = Field(default="hybrid_nam")
+
+
+class ArenaContextUpdate(BaseModel):
+    title: Optional[str] = Field(default=None, max_length=200)
+    status: Optional[str] = None
+    current_objective: Optional[str] = Field(default=None, max_length=500)
+    project: Optional[str] = Field(default=None, max_length=200)
+    description: Optional[str] = Field(default=None, max_length=2000)
+    mission_alignment: Optional[str] = Field(default=None, max_length=1000)
+    strategic_goals: Optional[List[str]] = None
+    ideas: Optional[List[str]] = None
+    assumptions: Optional[List[str]] = None
+    questions: Optional[List[str]] = None
+    open_issues: Optional[List[str]] = None
+    decisions: Optional[List[dict]] = None
+    risks: Optional[List[dict]] = None
+    opportunities: Optional[List[dict]] = None
+    priorities: Optional[List[dict]] = None
+    tasks: Optional[List[dict]] = None
+    actions: Optional[List[dict]] = None
+    milestones: Optional[List[dict]] = None
+    results: Optional[List[dict]] = None
+    recommendations: Optional[List[str]] = None
+    executive_notes: Optional[str] = Field(default=None, max_length=2000)
+    source_capability: Optional[str] = None
+    next_recommended_action: Optional[str] = Field(default=None, max_length=500)
+
+
+class ArenaContextAction(BaseModel):
+    action_type: str = Field(min_length=1, max_length=100)
+    description: str = Field(min_length=1, max_length=500)
+    capability: str = Field(default="hybrid_nam", max_length=100)
+    metadata: dict = Field(default_factory=dict)
+
+
+def _now() -> str:
+    return datetime.utcnow().isoformat()
+
+
+def _context_doc_to_dict(doc: dict) -> dict:
+    if not doc:
+        return {}
+    return {
+        "id": doc.get("id"),
+        "owner_id": doc.get("owner_id"),
+        "title": doc.get("title", ""),
+        "status": doc.get("status", "new"),
+        "current_objective": doc.get("current_objective", ""),
+        "project": doc.get("project", ""),
+        "description": doc.get("description", ""),
+        "mission_alignment": doc.get("mission_alignment", ""),
+        "strategic_goals": doc.get("strategic_goals", []),
+        "ideas": doc.get("ideas", []),
+        "brainstorm_results": doc.get("brainstorm_results", {}),
+        "decisions": doc.get("decisions", []),
+        "assumptions": doc.get("assumptions", []),
+        "questions": doc.get("questions", []),
+        "open_issues": doc.get("open_issues", []),
+        "risks": doc.get("risks", []),
+        "opportunities": doc.get("opportunities", []),
+        "priorities": doc.get("priorities", []),
+        "tasks": doc.get("tasks", []),
+        "actions": doc.get("actions", []),
+        "milestones": doc.get("milestones", []),
+        "results": doc.get("results", []),
+        "recommendations": doc.get("recommendations", []),
+        "executive_notes": doc.get("executive_notes", ""),
+        "ai_reasoning": doc.get("ai_reasoning", []),
+        "activity_history": doc.get("activity_history", []),
+        "next_recommended_action": doc.get("next_recommended_action", ""),
+        "source_capability": doc.get("source_capability", "hybrid_nam"),
+        "created_at": doc.get("created_at"),
+        "updated_at": doc.get("updated_at"),
+        "created_by": doc.get("created_by"),
+    }
+
+
+@router.post("/context")
+async def create_arena_context(payload: ArenaContextCreate, user: dict = Depends(require_auth)):
+    """Create a new shared Arena work context."""
+    try:
+        from server import db as _db
+    except ImportError:
+        raise HTTPException(500, "Database not available")
+    user_id = user.get("user_id", "")
+    now = _now()
+    doc = {
+        "id": str(uuid.uuid4()),
+        "owner_id": user_id,
+        "title": payload.title,
+        "status": "new",
+        "current_objective": payload.current_objective,
+        "project": payload.project,
+        "description": payload.description,
+        "mission_alignment": payload.mission_alignment,
+        "strategic_goals": payload.strategic_goals,
+        "ideas": payload.ideas,
+        "assumptions": payload.assumptions,
+        "questions": payload.questions,
+        "open_issues": payload.open_issues,
+        "executive_notes": payload.executive_notes,
+        "source_capability": payload.source_capability,
+        "activity_history": [
+            {
+                "action_type": "context_created",
+                "description": f"Work context created: {payload.title}",
+                "capability": payload.source_capability,
+                "at": now,
+            }
+        ],
+        "created_at": now,
+        "updated_at": now,
+        "created_by": user_id,
+    }
+    await _db.arena_work_context.insert_one(doc)
+    return {"context": _context_doc_to_dict(doc)}
+
+
+@router.get("/context")
+async def get_arena_context(context_id: Optional[str] = None, user: dict = Depends(require_auth)):
+    """Get the current user's active work context, or a specific context by ID."""
+    try:
+        from server import db as _db
+    except ImportError:
+        raise HTTPException(500, "Database not available")
+    user_id = user.get("user_id", "")
+    q = {"owner_id": user_id}
+    if context_id:
+        q["id"] = context_id
+    else:
+        q.setdefault("status", {"$nin": ["archived"]})
+    doc = await _db.arena_work_context.find_one(q, {"_id": 0}, sort=[("updated_at", -1)])
+    if not doc:
+        return {"context": None}
+    return {"context": _context_doc_to_dict(doc)}
+
+
+@router.get("/contexts")
+async def list_arena_contexts(status: Optional[str] = None, user: dict = Depends(require_auth)):
+    """List all active work contexts for the current user."""
+    try:
+        from server import db as _db
+    except ImportError:
+        raise HTTPException(500, "Database not available")
+    user_id = user.get("user_id", "")
+    q = {"owner_id": user_id}
+    if status:
+        q["status"] = status
+    docs = await _db.arena_work_context.find(q, {"_id": 0}).sort("updated_at", -1).limit(50).to_list(50)
+    return {"contexts": [_context_doc_to_dict(d) for d in docs]}
+
+
+@router.patch("/context/{context_id}")
+async def update_arena_context(context_id: str, payload: ArenaContextUpdate, user: dict = Depends(require_auth)):
+    """Update a work context. Only the owner can update."""
+    try:
+        from server import db as _db
+    except ImportError:
+        raise HTTPException(500, "Database not available")
+    user_id = user.get("user_id", "")
+    doc = await _db.arena_work_context.find_one({"id": context_id, "owner_id": user_id}, {"_id": 0})
+    if not doc:
+        raise HTTPException(404, "Context not found")
+    updates: dict = {}
+    for field in [
+        "title", "status", "current_objective", "project", "description",
+        "mission_alignment", "executive_notes", "source_capability", "next_recommended_action",
+    ]:
+        val = getattr(payload, field, None)
+        if val is not None:
+            updates[field] = val
+    for field in [
+        "strategic_goals", "ideas", "assumptions", "questions", "open_issues",
+        "decisions", "risks", "opportunities", "priorities", "tasks", "actions",
+        "milestones", "results", "recommendations",
+    ]:
+        val = getattr(payload, field, None)
+        if val is not None:
+            updates[field] = val
+    updates["updated_at"] = _now()
+    await _db.arena_work_context.update_one({"id": context_id, "owner_id": user_id}, {"$set": updates})
+    updated = await _db.arena_work_context.find_one({"id": context_id, "owner_id": user_id}, {"_id": 0})
+    return {"context": _context_doc_to_dict(updated)}
+
+
+@router.post("/context/{context_id}/action")
+async def record_context_action(context_id: str, payload: ArenaContextAction, user: dict = Depends(require_auth)):
+    """Record a meaningful state change in the work context history."""
+    try:
+        from server import db as _db
+    except ImportError:
+        raise HTTPException(500, "Database not available")
+    user_id = user.get("user_id", "")
+    doc = await _db.arena_work_context.find_one({"id": context_id, "owner_id": user_id}, {"_id": 0})
+    if not doc:
+        raise HTTPException(404, "Context not found")
+    now = _now()
+    event = {
+        "action_type": payload.action_type,
+        "description": payload.description,
+        "capability": payload.capability,
+        "metadata": payload.metadata or {},
+        "at": now,
+    }
+    await _db.arena_work_context.update_one(
+        {"id": context_id, "owner_id": user_id},
+        {
+            "$push": {"activity_history": event},
+            "$set": {
+                "updated_at": now,
+                "source_capability": payload.capability,
+            },
+        },
+    )
+    return {"ok": True, "event": event}
+
+
+@router.post("/orchestrate")
+async def orchestrate_arena(body: dict, user: dict = Depends(require_auth)):
+    """Hybrid NAM recommends the appropriate Arena capability for the executive's intent.
+
+    Body: { "message": str, "context_id": Optional[str] }
+
+    Returns: { "capability", "action", "context_summary", "reasoning", "available_capabilities" }
+    """
+    try:
+        from server import db as _db
+    except ImportError:
+        raise HTTPException(500, "Database not available")
+    message = (body.get("message") or "").strip()
+    if not message:
+        raise HTTPException(400, "message is required")
+    context_id = body.get("context_id")
+    context = None
+    if context_id:
+        context = await _db.arena_work_context.find_one({"id": context_id, "owner_id": user.get("user_id", "")}, {"_id": 0})
+    if not context:
+        context = await _db.arena_work_context.find_one(
+            {"owner_id": user.get("user_id", ""), "status": {"$nin": ["archived"]}},
+            {"_id": 0}, sort=[("updated_at", -1)]
+        )
+    context_summary = _context_doc_to_dict(context) if context else None
+    if context_summary:
+        context_summary.pop("activity_history", None)
+        context_summary.pop("ai_reasoning", None)
+    msg_lower = message.lower()
+    capability = "hybrid_nam"
+    action = "chat"
+    reasoning = "Hybrid NAM will handle this directly."
+    available = [
+        {"id": "hybrid_nam", "name": "Hybrid NAM Chat", "description": "Executive AI assistant for thinking, planning, and coordination"},
+        {"id": "unifier", "name": "Unifier", "description": "3-pass synthesis and plan generation", "path": "/unifier"},
+        {"id": "competition", "name": "Competition Arena", "description": "Multi-persona evaluation and scoring", "path": "/arena", "requires_role": "executive_admin"},
+        {"id": "video_studio", "name": "Video Studio", "description": "Short-form video production", "path": "/video-studio", "requires_tier": "pro"},
+        {"id": "ghost_studio", "name": "Ghost Studio", "description": "Music and audio production", "path": "/studio"},
+        {"id": "member_projects", "name": "Member Projects", "description": "Project tracking and oversight", "path": "/my-projects"},
+    ]
+    brainstorm_keywords = ["brainstorm", "idea", "explore", "possibilities", "options", "generate"]
+    refine_keywords = ["refine", "improve", "strengthen", "develop", "sharpen", "better"]
+    align_keywords = ["align", "mission", "strategic", "fit", "direction", "purpose"]
+    plan_keywords = ["plan", "action", "tasks", "milestones", "timeline", "schedule", "execute"]
+    evaluate_keywords = ["evaluate", "compare", "competition", "assess", "score", "judge"]
+    produce_keywords = ["video", "produce", "render", "content", "media", "audio", "music"]
+    oversee_keywords = ["status", "where are we", "oversight", "progress", "update", "review"]
+    if any(k in msg_lower for k in produce_keywords):
+        capability = "video_studio"
+        action = "launch_production"
+        reasoning = "The executive mentioned production intent. Video Studio is the appropriate capability for content creation."
+    elif any(k in msg_lower for k in evaluate_keywords):
+        capability = "competition"
+        action = "launch_evaluation"
+        reasoning = "The executive wants evaluation or comparison. Competition Arena can run multi-persona assessment."
+    elif any(k in msg_lower for k in brainstorm_keywords):
+        capability = "unifier"
+        action = "launch_brainstorm"
+        reasoning = "The executive wants to explore ideas. Unifier provides synthesis through competing perspectives."
+    elif any(k in msg_lower for k in refine_keywords):
+        capability = "unifier"
+        action = "launch_refinement"
+        reasoning = "The executive wants refinement. Unifier can sharpen concepts through synthesis."
+    elif any(k in msg_lower for k in align_keywords):
+        capability = "hybrid_nam"
+        action = "mission_alignment_review"
+        reasoning = "Hybrid NAM will perform mission alignment analysis using existing operational engines."
+    elif any(k in msg_lower for k in plan_keywords):
+        capability = "hybrid_nam"
+        action = "strategic_planning"
+        reasoning = "Hybrid NAM will convert this into an actionable plan."
+    elif any(k in msg_lower for k in oversee_keywords):
+        capability = "member_projects"
+        action = "view_projects"
+        reasoning = "The executive is asking for status. Member Projects provides oversight of active work."
+    return {
+        "capability": capability,
+        "action": action,
+        "context_summary": context_summary,
+        "reasoning": reasoning,
+        "available_capabilities": available,
+    }
+

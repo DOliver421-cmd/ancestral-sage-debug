@@ -121,6 +121,8 @@ export function HybridNamContent({ embedded = false }) {
   const [error, setError] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [formValues, setFormValues] = useState({});
+  const [activeContext, setActiveContext] = useState(null);
+  const [contextLoading, setContextLoading] = useState(false);
 
   const admin = canWrite(user?.role);
 
@@ -146,7 +148,8 @@ export function HybridNamContent({ embedded = false }) {
 
   useEffect(() => {
     loadPillar(activePillar);
-  }, [activePillar, loadPillar]);
+    loadContext();
+  }, [activePillar, loadPillar, loadContext]);
 
   const handlePillarChange = (pillarId) => {
     setActivePillar(pillarId);
@@ -155,7 +158,21 @@ export function HybridNamContent({ embedded = false }) {
 
   const handleRefresh = () => {
     loadPillar(activePillar);
+    loadContext();
   };
+
+  const loadContext = useCallback(async () => {
+    if (!admin) return;
+    setContextLoading(true);
+    try {
+      const { data } = await api.get("/nam/context");
+      setActiveContext(data?.context || null);
+    } catch {
+      setActiveContext(null);
+    } finally {
+      setContextLoading(false);
+    }
+  }, [admin]);
 
   const getFormFields = () => {
     switch (activePillar) {
@@ -571,6 +588,82 @@ export function HybridNamContent({ embedded = false }) {
               Retry
             </button>
           </div>
+        </div>
+      )}
+
+      {/* Active Work Context Panel */}
+      {admin && (
+        <div className="shrink-0 border-b border-ink/10 bg-bone/80 px-4 sm:px-6 py-3">
+          <div className="flex items-center justify-between gap-3 mb-2">
+            <div className="text-[10px] font-black uppercase tracking-widest text-ink/50">Active Arena Work Context</div>
+            <button
+              onClick={async () => {
+                const title = prompt("Work context title:");
+                if (!title) return;
+                try {
+                  await api.post("/nam/context", { title, source_capability: "hybrid_nam" });
+                  toast.success("Work context created");
+                  loadContext();
+                } catch (e) {
+                  toast.error(describeRequestError(e));
+                }
+              }}
+              className="flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded border border-ink/20 text-ink/70 hover:text-ink hover:border-ink/40 transition-colors"
+            >
+              <Plus className="w-3 h-3" /> New Initiative
+            </button>
+          </div>
+          {contextLoading ? (
+            <div className="flex items-center gap-2 text-xs text-ink/50">
+              <Loader2 className="w-3 h-3 animate-spin" /> Loading context…
+            </div>
+          ) : activeContext ? (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-sm font-bold text-ink">{activeContext.title || "Untitled Initiative"}</span>
+                <span className="text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded bg-copper/10 text-copper border border-copper/30">{activeContext.status || "new"}</span>
+                {activeContext.project && (
+                  <span className="text-xs text-ink/60">Project: {activeContext.project}</span>
+                )}
+              </div>
+              {activeContext.current_objective && (
+                <div className="text-xs text-ink/70">Objective: {activeContext.current_objective}</div>
+              )}
+              {activeContext.next_recommended_action && (
+                <div className="text-xs text-ink/70">Next: {activeContext.next_recommended_action}</div>
+              )}
+              {activeContext.activity_history && activeContext.activity_history.length > 0 && (
+                <div className="space-y-1 mt-2">
+                  <div className="text-[10px] font-black uppercase tracking-widest text-ink/40">Recent Activity</div>
+                  {activeContext.activity_history.slice(-5).reverse().map((evt, i) => (
+                    <div key={i} className="text-[11px] text-ink/60 flex items-center gap-2">
+                      <span className="text-[10px] text-ink/40">{fmtDate(evt.at)}</span>
+                      <span className="font-bold text-ink/50">[{evt.action_type}]</span>
+                      <span>{evt.description}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div className="flex items-center gap-2 mt-2">
+                <button
+                  onClick={async () => {
+                    try {
+                      const resp = await api.post("/nam/orchestrate", { message: "What should I do next?", context_id: activeContext.id });
+                      const data = resp.data;
+                      toast.info(`Suggested: ${data.capability} — ${data.reasoning}`);
+                    } catch (e) {
+                      toast.error(describeRequestError(e));
+                    }
+                  }}
+                  className="text-[10px] font-bold px-2 py-1 rounded border border-ink/20 text-ink/70 hover:text-ink hover:border-ink/40 transition-colors"
+                >
+                  Suggest Next Step
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="text-xs text-ink/50">No active work context. Create an initiative to begin.</div>
+          )}
         </div>
       )}
 
