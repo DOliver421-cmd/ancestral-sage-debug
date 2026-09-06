@@ -38,7 +38,7 @@ export const FEATURE_TIER_LABEL = {
 // regardless of tier (they teach, they get access).
 export const TIER_FOR_FEATURE = {
   profile: "free",        // your own profile / basics
-  ai_chat: "free",        // AI Tutor (standard)
+  ai_chat: "member",      // AI Tutor — paid member or higher (BYOK path lives at /byok)
   posts: "member",        // community
   publisher_ai: "member", // AI-assisted publishing (Social Blast)
   lounge: "member",       // creator lounge / community

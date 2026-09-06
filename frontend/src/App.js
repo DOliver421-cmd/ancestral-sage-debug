@@ -281,8 +281,10 @@ function App() {
           <Route path="/main" element={<LandingMarketplace />} />
           <Route path="/help-center" element={<Navigate to="/more-help-center" replace />} />
           <Route path="/more-help-center" element={<MoreHelpCenter />} />
+          {/* Supervisor — the real supervisor panel (SeshatsHub) lives below at
+              /supervisor via SupervisorProtected. A duplicate definition here
+              used to shadow it with the public greeter page. */}
           <Route path="/supervisor/login" element={<SupervisorLogin />} />
-          <Route path="/supervisor" element={<Protected roles={["executive_admin"]} loginRoute="/supervisor/login"><MoreHelpCenter /></Protected>} />
           <Route path="/seshats-hub" element={<Navigate to="/more-help-center" replace />} />
           <Route path="/help-center" element={<HelpCenter />} />
           {/* Knowledge Base — handbooks + top support articles (Phase C) */}
@@ -351,7 +353,8 @@ function App() {
           <Route path="/labs/:slug" element={<Protected><LabDetail /></Protected>} />
           <Route path="/competencies" element={<Protected><Competencies /></Protected>} />
           <Route path="/instructor/labs" element={<Protected roles={["instructor", "admin"]}><InstructorLabs /></Protected>} />
-          <Route path="/ai" element={<Protected><AITutor /></Protected>} />
+          {/* AI Tutor — paid member or higher (see tiers.js TIER_FOR_FEATURE.ai_chat) */}
+          <Route path="/ai" element={<Protected><TierGate feature="ai_chat" title="AI Tutor is a Member feature"><AITutor /></TierGate></Protected>} />
           <Route path="/certificates" element={<Protected><Certificates /></Protected>} />
           <Route path="/credentials" element={<Protected><Credentials /></Protected>} />
           <Route path="/portfolio" element={<Protected><Portfolio /></Protected>} />
@@ -468,7 +471,8 @@ function App() {
           {/* Billing Admin — exec/admin */}
           <Route path="/admin/billing" element={<BoundedAdmin roles={["admin"]} label="Billing Admin"><AdminPage><BillingAdmin /></AdminPage></BoundedAdmin>} />
           {/* Original landing page (alternate entry point) */}
-          <Route path="/assistant" element={<Protected><AdminPage><AdminAssistant /></AdminPage></Protected>} />
+          {/* Admin Assistant — staff only (matches backend /assistant/chat gate) */}
+          <Route path="/assistant" element={<Protected roles={["instructor"]}><AdminPage><AdminAssistant /></AdminPage></Protected>} />
           <Route path="/byok" element={<Protected><BYOK /></Protected>} />
           <Route path="/creative-partner" element={<Protected roles={["instructor","executive_admin"]}><CreativePartnerHub /></Protected>} />
           <Route path="/s-research" element={<BoundedAdmin roles={["executive_admin"]} label="Sentinel Research" backTo="/admin"><SentinelResearch /></BoundedAdmin>} />

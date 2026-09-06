@@ -58,6 +58,22 @@ def bind(_db, _current_user, _audit, _assert_role, _check_rate):
 # Mirrors server.py's role hierarchy for runtime require_role checks.
 from routers.roles import ROLE_RANK, Role
 
+# Membership ladder — same as backend/routers/payments.py + frontend/src/lib/tiers.js
+TIER_RANK = {"free": 0, "member": 1, "plus": 2, "pro": 3, "patron": 4, "platinum": 5, "executive": 6}
+
+async def _ai_chat_access(user) -> bool:
+    """AI Tutor gate: paid member tier+ OR active BYOK. Staff roles bypass.
+    Mirrors site_guide.py's _site_guide_access contract."""
+    role = getattr(user, "role", "student") or "student"
+    if ROLE_RANK.get(role, 0) >= ROLE_RANK.get("instructor", 99):
+        return True
+    user_doc = await db.users.find_one(
+        {"id": user.id}, {"_id": 0, "feature_tier": 1, "byok_enabled": 1}
+    )
+    tier = (user_doc or {}).get("feature_tier") or getattr(user, "feature_tier", "free") or "free"
+    byok = bool((user_doc or {}).get("byok_enabled"))
+    return TIER_RANK.get(tier, 0) >= 1 or byok
+
 # ── AI request models (moved verbatim from server.py) ────────────────────
 class AIChatReq(BaseModel):
     session_id: str
@@ -1069,6 +1085,13 @@ async def _apply_sage_safety_gates(response_text: str, user_tier: str) -> tuple:
 @router.post("/ai/chat")
 async def ai_chat(body: AIChatReq, user: User = Depends(_dep_current_user)):
     check_rate(f"ai_chat:{user.id}", max_calls=20, window_sec=60)
+    # ---- AI Tutor entitlement gate (paid member or higher / BYOK) --------
+    if not await _ai_chat_access(user):
+        raise HTTPException(
+            402,
+            "AI Tutor requires a paid membership (Member or higher) or an active "
+            "BYOK unlock. Upgrade at /plans or set up BYOK at /byok.",
+        )
     # ---- Per-user persona override (runs BEFORE any LLM cost) ------------
     from security.feature_control import check_persona_access
     persona_key = "sage" if body.mode == "ancestral_sage" else body.mode

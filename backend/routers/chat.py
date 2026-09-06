@@ -310,9 +310,11 @@ def _sentinel_hash(passphrase: str) -> str:
 
 @router.post("/assistant/chat")
 async def admin_assistant_chat(body: AssistantChatReq, user: User = Depends(_dep_current_user)):
-    """Admin Assistant — available to all authenticated users.
-    Powers the M.O.R.E. Help Center Admin Assistant service.
-    """
+    """Admin Assistant — staff-only (instructor rank or above). Powers the
+    M.O.R.E. Help Center Admin Assistant service at /assistant."""
+    from routers.roles import ROLE_RANK as _RR
+    if _RR.get(user.role, 0) < _RR.get("instructor", 99):
+        raise HTTPException(403, "Admin Assistant is a staff feature.")
     from ai.llm_gateway import call_llm as _call_llm
 
     messages = [{"role": h["role"], "content": h["content"]} for h in body.history]
