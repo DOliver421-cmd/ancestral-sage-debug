@@ -11,6 +11,8 @@ import asyncio
 import logging
 import uuid
 
+import pymongo
+
 from academy_content import ACADEMY_COURSES, PUBLISHED_COURSES
 
 logger = logging.getLogger("lcewai")
@@ -110,14 +112,17 @@ async def seed_academy(db) -> dict:
     """
     problems = validate_all()
     if problems:
-        # Fail loudly: a content bug must not ship silently to students.
         raise AcademyContentError("Academy content validation failed:\n- " + "\n- ".join(problems[:20]))
 
     seeded = updated = skipped = 0
+    # Pull existing catalog in one query to minimize round-trips.
+    existing_docs = await db.academy_courses.find({}, {"_id": 0}).to_list(500)
+    existing_by_slug = {d["slug"]: d for d in existing_docs}
+
+    bulk_ops = []
     for course in ACADEMY_COURSES:
-        existing = await db.academy_courses.find_one({"slug": course["slug"]})
+        existing = existing_by_slug.get(course["slug"])
         if existing and existing.get("_source_version") == course.get("_source_version"):
-            # Byte-identical to what we last wrote — nothing to do.
             skipped += 1
             continue
         doc = {
@@ -129,15 +134,19 @@ async def seed_academy(db) -> dict:
             ).isoformat(),
         }
         if existing:
-            # Keep the id stable; replace the content wholesale so removed
-            # lessons do not linger.
             doc["id"] = existing.get("id") or str(uuid.uuid4())
-            await db.academy_courses.replace_one({"slug": course["slug"]}, doc)
+            bulk_ops.append(
+                pymongo.ReplaceOne({"slug": course["slug"]}, doc, upsert=True)
+            )
             updated += 1
         else:
             doc["id"] = str(uuid.uuid4())
-            await db.academy_courses.insert_one(doc)
+            bulk_ops.append(
+                pymongo.InsertOne(doc)
+            )
             seeded += 1
+    if bulk_ops:
+        await db.academy_courses.bulk_write(bulk_ops, ordered=False)
     logger.info("Academy seed done: %d inserted, %d updated, %d unchanged", seeded, updated, skipped)
     return {"seeded": seeded, "updated": updated, "skipped": skipped}
 

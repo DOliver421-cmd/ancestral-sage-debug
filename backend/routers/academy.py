@@ -30,7 +30,7 @@ router = APIRouter(tags=["academy"])
 db = current_user = audit = notify = None
 
 GRADES = ["K", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "adult"]
-TRACK_KEYS = ["foundations", "builder", "artist", "scholar"]
+TRACK_KEYS = ["foundations", "builder", "artist", "scholar", "adult_ed", "life_skills", "leadership", "career", "entrepreneurship"]
 GRADE_RANK = {g: i for i, g in enumerate(GRADES)}
 
 
@@ -708,3 +708,163 @@ async def student_records(student_id: str, user=Depends(_dep_current_user)):
             "record, not a state-recognized transcript or credential."
         ),
     }
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# Academy-scoped communication (learner ↔ instructor)
+# ═════════════════════════════════════════════════════════════════════════════
+class AcademyMessage(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    to_user_id: str = Field(min_length=1)
+    subject: str = Field(min_length=1, max_length=200)
+    body: str = Field(min_length=1, max_length=5000)
+    academy_student_id: Optional[str] = Field(default=None)
+    course_slug: Optional[str] = Field(default=None)
+    kind: Literal["message", "intervention", "feedback"] = "message"
+    parent_message_id: Optional[str] = Field(default=None)
+
+
+@router.post("/academy/messages")
+async def send_academy_message(payload: AcademyMessage, user: User = Depends(_dep_current_user)):
+    now = _now()
+    msg = {
+        "id": str(uuid.uuid4()),
+        "from_user_id": user.id,
+        "to_user_id": payload.to_user_id,
+        "academy_student_id": payload.academy_student_id,
+        "course_slug": payload.course_slug,
+        "subject": payload.subject,
+        "body": payload.body,
+        "kind": payload.kind,
+        "parent_message_id": payload.parent_message_id,
+        "read": False,
+        "created_at": now,
+    }
+    await db.academy_messages.insert_one(msg)
+    if audit:
+        try:
+            await audit(user.id, "academy.message.send", target=payload.to_user_id, meta={"kind": payload.kind, "student_id": payload.academy_student_id})
+        except Exception:
+            logger.exception("audit failed")
+    return {"message": msg}
+
+
+@router.get("/academy/messages")
+async def list_academy_messages(
+    user: User = Depends(_dep_current_user),
+    academy_student_id: Optional[str] = None,
+    kind: Optional[str] = None,
+):
+    q = {"$or": [{"from_user_id": user.id}, {"to_user_id": user.id}]}
+    if academy_student_id:
+        q["academy_student_id"] = academy_student_id
+    if kind:
+        q["kind"] = kind
+    docs = await db.academy_messages.find(q, {"_id": 0}).sort("created_at", -1).to_list(200)
+    return {"messages": docs}
+
+
+@router.post("/academy/messages/{mid}/read")
+async def read_academy_message(mid: str, user: User = Depends(_dep_current_user)):
+    await db.academy_messages.update_one({"id": mid, "to_user_id": user.id}, {"$set": {"read": True}})
+    return {"ok": True}
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# Instructor Academy workflow
+# ═════════════════════════════════════════════════════════════════════════════
+@router.get("/academy/instructor/learners")
+async def instructor_learners(user: User = Depends(_require_rank("instructor", "admin"))):
+    """List Academy students visible to the instructor, with aggregate progress."""
+    students = await db.academy_students.find({"status": "active"}, {"_id": 0}).to_list(500)
+    out = []
+    for s in students:
+        progress_docs = await db.academy_progress.find({"student_id": s["id"]}, {"_id": 0}).to_list(1000)
+        lessons_passed = sum(1 for p in progress_docs if p.get("status") == "passed")
+        lessons_total = len(progress_docs)
+        avg_score = 0.0
+        scores = [p.get("best_score") for p in progress_docs if p.get("best_score") is not None]
+        if scores:
+            avg_score = round(sum(scores) / len(scores), 1)
+        out.append({
+            "id": s["id"],
+            "name": s.get("name"),
+            "grade": s.get("grade"),
+            "track": s.get("track"),
+            "course_slugs": s.get("course_slugs", []),
+            "lessons_passed": lessons_passed,
+            "lessons_total": lessons_total,
+            "avg_score": avg_score,
+            "updated_at": s.get("updated_at"),
+        })
+    return {"learners": out}
+
+
+@router.get("/academy/instructor/learners/{student_id}/progress")
+async def instructor_learner_progress(student_id: str, user: User = Depends(_require_rank("instructor", "admin"))):
+    student = await db.academy_students.find_one({"id": student_id}, {"_id": 0})
+    if not student:
+        raise HTTPException(404, "Student not found")
+    course_slugs = student.get("course_slugs", [])
+    courses = await db.academy_courses.find({"slug": {"$in": course_slugs}}, {"_id": 0}).to_list(100)
+    progress_docs = await db.academy_progress.find({"student_id": student_id}, {"_id": 0}).to_list(1000)
+    progress_map = {p["lesson_slug"]: p for p in progress_docs}
+    rows = []
+    for course in courses:
+        lessons = flatten_lessons(course)
+        passed = 0
+        for lesson in lessons:
+            p = progress_map.get(lesson["slug"], {})
+            if p.get("status") == "passed":
+                passed += 1
+        rows.append({
+            "course_slug": course["slug"],
+            "course_title": course.get("title"),
+            "lessons_total": len(lessons),
+            "lessons_passed": passed,
+            "percent": round(passed / len(lessons) * 100, 1) if lessons else 0.0,
+        })
+    return {
+        "student": student,
+        "courses": rows,
+        "progress_map": progress_map,
+    }
+
+
+@router.post("/academy/instructor/interventions")
+async def create_intervention(payload: dict, user: User = Depends(_require_rank("instructor", "admin"))):
+    """Record an instructor intervention for a learner."""
+    student_id = payload.get("student_id")
+    kind = payload.get("kind", "review")
+    note = payload.get("note", "")
+    course_slug = payload.get("course_slug")
+    if not student_id:
+        raise HTTPException(400, "student_id is required")
+    intervention = {
+        "id": str(uuid.uuid4()),
+        "instructor_id": user.id,
+        "student_id": student_id,
+        "kind": kind,
+        "note": note,
+        "course_slug": course_slug,
+        "outcome": None,
+        "created_at": _now(),
+        "updated_at": _now(),
+    }
+    await db.academy_interventions.insert_one(intervention)
+    if audit:
+        try:
+            await audit(user.id, "academy.intervention.create", target=student_id, meta={"kind": kind, "course_slug": course_slug})
+        except Exception:
+            logger.exception("audit failed")
+    return {"intervention": intervention}
+
+
+@router.get("/academy/instructor/interventions")
+async def list_interventions(user: User = Depends(_require_rank("instructor", "admin")), student_id: Optional[str] = None):
+    q = {"instructor_id": user.id}
+    if student_id:
+        q["student_id"] = student_id
+    docs = await db.academy_interventions.find(q, {"_id": 0}).sort("created_at", -1).to_list(200)
+    return {"interventions": docs}
+
