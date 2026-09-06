@@ -101,6 +101,7 @@ import VideoStudioPage from "./pages/VideoStudioPage";
 import UnifierPage from "./pages/UnifierPage";
 import ExecutiveCommandCenter from "./pages/ExecutiveCommandCenter";
 import OpsConsole from "./pages/OpsConsole";
+import ResourceFinder from "./pages/ResourceFinder";
 import Community from "./pages/Community";
 import Creators from "./pages/Creators";
 import GhostProducer from "./pages/GhostProducer";
@@ -333,6 +334,7 @@ function App() {
           <Route path="/admin/command" element={<BoundedAdmin roles={["executive_admin"]} label="Executive Command Center" backTo="/admin"><ExecutiveCommandCenter /></BoundedAdmin>} />
           <Route path="/admin/ops" element={<BoundedAdmin roles={["executive_admin"]} label="Ops Console" backTo="/admin/command"><OpsConsole /></BoundedAdmin>} />
           <Route path="/community" element={<Community />} />
+          <Route path="/finder" element={<ResourceFinder />} />
           <Route path="/creators" element={<Creators />} />
           <Route path="/instructor" element={<Protected roles={["instructor", "admin"]}><InstructorDashboard /></Protected>} />
           <Route path="/admin" element={<BoundedAdmin roles={["admin"]} label="Admin Dashboard"><AdminDashboard /></BoundedAdmin>} />

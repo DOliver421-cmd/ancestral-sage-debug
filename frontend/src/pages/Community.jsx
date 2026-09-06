@@ -4,7 +4,7 @@ import PublicNav from "../components/PublicNav";
 import BackButton from "../components/BackButton";
 import { api, BACKEND_URL } from "../lib/api";
 import { STARTER_LIBRARY } from "../lib/contentLibrary";
-import { HandHelping, Users, Sparkles, MessageSquare, Scale, HelpCircle, Clock, BookOpen, ArrowRight, Loader2, ShoppingBag, GraduationCap, FileText } from "lucide-react";
+import { Search as SearchIcon2, HandHelping, Users, Sparkles, MessageSquare, Scale, HelpCircle, Clock, BookOpen, ArrowRight, Loader2, ShoppingBag, GraduationCap, FileText } from "lucide-react";
 
 const CAT_ICONS = { skill_offer: BookOpen, need: HandHelping, community: Users, story: Sparkles };
 const CAT_COLORS = { skill_offer: "bg-emerald-50 text-emerald-700", need: "bg-amber-50 text-amber-700", community: "bg-blue-50 text-blue-700", story: "bg-purple-50 text-purple-700" };
@@ -52,6 +52,7 @@ export default function Community() {
             { to: "/more/chat/general", icon: MessageSquare, label: "Community Chat", desc: "5 rooms, real-time", color: "var(--wai-gold)" },
             { to: "/more/litigation", icon: Scale, label: "Legal Help", desc: "Know your rights", color: "var(--wai-gold)" },
             { to: "/helper", icon: HelpCircle, label: "Helper AI", desc: "Free guidance", color: "var(--wai-purple)" },
+            { to: "/finder", icon: SearchIcon2, label: "Resource Finder", desc: "Search everything at once", color: "var(--wai-purple)" },
           ].map((a) => (
             <Link key={a.to} to={a.to} className="card-flat p-5 group hover:shadow-md transition-all">
               <a.icon className="w-6 h-6" style={{ color: a.color }} />

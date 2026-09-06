@@ -253,6 +253,7 @@ _ADDITIONAL_API_ROUTER_MODULES = (
     ("misc", "/api"),
     ("ops_admin", "/api"),
     ("workspace", "/api"),
+    ("finder", "/api"),
 )
 
 # ── Feature Control Center enforcement (read side) ──────────────────────────
