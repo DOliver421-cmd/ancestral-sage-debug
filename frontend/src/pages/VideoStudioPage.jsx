@@ -12,7 +12,7 @@
  * which is fully wired to the real /api/video/* endpoints (projects, scenes,
  * audio, voice, templates, render, publish, share). No second system, no mocks.
  */
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { useAuth } from "../lib/auth";
 import { tierRank } from "../lib/tiers";
 import AppShell from "../components/AppShell";
