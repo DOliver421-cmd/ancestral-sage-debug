@@ -29,7 +29,7 @@ router = APIRouter(tags=["academy"])
 # ── Shared state, bound by server.py via bind() ──────────────────────────────
 db = current_user = audit = notify = None
 
-GRADES = ["K", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"]
+GRADES = ["K", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "adult"]
 TRACK_KEYS = ["foundations", "builder", "artist", "scholar"]
 GRADE_RANK = {g: i for i, g in enumerate(GRADES)}
 

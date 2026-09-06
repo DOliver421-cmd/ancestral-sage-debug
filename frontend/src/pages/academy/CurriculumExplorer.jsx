@@ -70,7 +70,7 @@ export default function CurriculumExplorer() {
               <span className="text-[11px] font-bold uppercase tracking-wide text-ink/50">Grade</span>
               <select className={`${selectCls} w-full mt-1`} value={grade} onChange={(e) => setGrade(e.target.value)} data-testid="filter-grade">
                 <option value="">All grades</option>
-                {meta.grades.map((g) => <option key={g} value={g}>{g === "K" ? "Kindergarten" : `Grade ${g}`}</option>)}
+                 {meta.grades.map((g) => <option key={g} value={g}>{g === "K" ? "Kindergarten" : g === "adult" ? "Adult" : `Grade ${g}`}</option>)}
               </select>
             </label>
             <label className="block">

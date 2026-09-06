@@ -12,23 +12,28 @@ import {
    Positioning: "WAI Homeschool Academy — Homeschool, done right." */
 
 const STEPS = [
-  { n: 1, icon: Users, title: "Create a parent account", desc: "One free account runs your whole homeschool — no per-child logins to babysit." },
-  { n: 2, icon: GraduationCap, title: "Add a student, pick a track", desc: "Choose a grade (K–12) and a pathway — Foundations, Builder/Trade, Artist, or Scholar. We enroll the right courses." },
-  { n: 3, icon: ListChecks, title: "Learn, master, and record", desc: "Lessons unlock as mastery is earned. Watch progress and print student records anytime." },
+  { n: 1, icon: Users, title: "Create an account", desc: "One free account manages every learner in your household — no per-child logins required." },
+  { n: 2, icon: GraduationCap, title: "Add a learner, pick a pathway", desc: "Choose a grade (K–12 or Adult) and a track — Foundations, Builder/Trade, Artist, Scholar, Adult Education, Life Skills, Leadership, Career, or Entrepreneurship. We enroll the right courses automatically." },
+  { n: 3, icon: ListChecks, title: "Learn, master, and record", desc: "Lessons unlock as mastery is earned. Watch progress and print records anytime." },
 ];
 
 const FEATURES = [
-  { icon: ShieldCheck, title: "Parent-managed", desc: "Student profiles live under your account. You choose the grade, the track, and the pace." },
+  { icon: ShieldCheck, title: "Account-managed", desc: "Student profiles live under your account. You choose the grade, the track, and the pace." },
   { icon: Target, title: "Mastery-based", desc: "Each lesson ends in a knowledge check. Score 80%+ and the next lesson unlocks; below it, review and try again." },
-  { icon: BookOpenCheck, title: "Real academics", desc: "Sequenced ELA, Math, Science, and Social Studies — plus trade and creative pathways. Content you can actually read and learn from." },
+  { icon: BookOpenCheck, title: "Real academics", desc: "Sequenced ELA, Math, Science, Social Studies — plus trade, creative, adult education, life skills, leadership, career, and entrepreneurship pathways. Content you can actually read and learn from." },
   { icon: FileText, title: "Printable records", desc: "Progress documentation based on completed work: courses, lessons, mastery scores, and dates." },
 ];
 
 const TRACK_CARDS = [
   { key: "foundations", icon: BookOpenCheck, desc: "K–8 core academics in English, Math, Science, and Social Studies.", status: "published" },
   { key: "builder", icon: Wrench, desc: "Trade-track math, science, and hands-on pathways — starting with Applied Electrical Engineering Year 1.", status: "published" },
-  { key: "artist", icon: Palette, desc: "Visual, performing, and digital arts built with academic rigor.", status: "planned" },
+  { key: "artist", icon: Palette, desc: "Visual, performing, and digital arts built with academic rigor.", status: "published" },
   { key: "scholar", icon: Award, desc: "College-preparatory high school academics — starting with Scholar Biology (Grade 9).", status: "published" },
+  { key: "adult_ed", icon: BookOpenCheck, desc: "High-school equivalency preparation and practical academics for adult learners.", status: "published" },
+  { key: "life_skills", icon: ShieldCheck, desc: "Independent living, workplace skills, and personal development for adults.", status: "published" },
+  { key: "leadership", icon: Target, desc: "Leadership training for workplace and community roles.", status: "published" },
+  { key: "career", icon: FileText, desc: "Career exploration, job skills, and professional development for the modern workforce.", status: "published" },
+  { key: "entrepreneurship", icon: Star, desc: "Start and grow a business with practical training in opportunity, operations, finance, and strategy.", status: "published" },
 ];
 
 export default function AcademyLanding() {

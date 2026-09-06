@@ -9,6 +9,11 @@ export const TRACK_META = {
   builder: { name: "Builder / Trade", grade: "6–12", tone: "amber" },
   artist: { name: "Artist", grade: "K–12", tone: "rose" },
   scholar: { name: "Scholar", grade: "9–12", tone: "blue" },
+  adult_ed: { name: "Adult Education / HSE", grade: "Adult", tone: "teal" },
+  life_skills: { name: "Life Skills", grade: "Adult", tone: "green" },
+  leadership: { name: "Leadership", grade: "Adult", tone: "orange" },
+  career: { name: "Career / Workforce", grade: "Adult", tone: "purple" },
+  entrepreneurship: { name: "Entrepreneurship", grade: "Adult", tone: "pink" },
 };
 
 export function TrackTag({ track, className = "" }) {
@@ -18,6 +23,11 @@ export function TrackTag({ track, className = "" }) {
     amber: "bg-amber-500/10 text-amber-700 border-amber-500/30",
     rose: "bg-rose-500/10 text-rose-700 border-rose-500/30",
     blue: "bg-blue-600/10 text-blue-700 border-blue-600/30",
+    teal: "bg-teal-500/10 text-teal-700 border-teal-500/30",
+    green: "bg-green-600/10 text-green-700 border-green-600/30",
+    orange: "bg-orange-500/10 text-orange-700 border-orange-500/30",
+    purple: "bg-purple-600/10 text-purple-700 border-purple-600/30",
+    pink: "bg-pink-500/10 text-pink-700 border-pink-500/30",
     ink: "bg-ink/5 text-ink border-ink/20",
   };
   return (

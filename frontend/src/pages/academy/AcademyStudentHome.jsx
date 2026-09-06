@@ -80,7 +80,7 @@ export default function AcademyStudentHome() {
             <div className="overline text-copper">Student dashboard</div>
             <h1 className="font-heading text-4xl font-bold text-ink mt-1 flex items-center gap-3">
               {student.name}'s Classroom
-              <span className="text-sm font-bold text-ink/45 font-body">· {student.grade === "K" ? "Kindergarten" : `Grade ${student.grade}`}</span>
+              <span className="text-sm font-bold text-ink/45 font-body">· {student.grade === "K" ? "Kindergarten" : student.grade === "adult" ? "Adult" : `Grade ${student.grade}`}</span>
             </h1>
             <div className="mt-2"><TrackTag track={student.track} /></div>
           </div>
