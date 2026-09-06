@@ -103,5 +103,5 @@ export const STARTER_LIBRARY = [
  * Normalize a starter-library slug into a readable title for the content file.
  */
 export function libraryContentPath(slug) {
-  return `/content/starter-library/${slug}.md`;
+  return `/api/media/content/starter-library/${slug}.md`;
 }
