@@ -100,6 +100,7 @@ const CUSTOMER_TIERS = [
     items: [
       { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard, testid: "nav-dashboard" },
       { to: "/studio", label: "Creator Studio", icon: Music, testid: "nav-creator-studio" },
+      { to: "/video-studio", label: "Video Studio", icon: Video, testid: "nav-video-studio" },
       { to: "/ai", label: "AI Tutor", icon: Sparkles, testid: "nav-ai" },
       { to: "/helper", label: "Personal Helper", icon: HelpCircle, testid: "nav-helper" },
       { to: "/site-guide", label: "Site Guide", icon: Map, testid: "nav-site-guide" },
@@ -177,6 +178,7 @@ const STAFF_SECTIONS = [
       { to: "/admin/iam", label: "IAM Console", icon: ShieldCheck, testid: "nav-iam" },
       { to: "/business-office", label: "AI Business Office", icon: Landmark, testid: "nav-business-office" },
       { to: "/studio", label: "Creator Studio", icon: Music, testid: "nav-admin-creator-studio" },
+      { to: "/video-studio", label: "Video Studio", icon: Video, testid: "nav-admin-video-studio" },
       { to: "/nam", label: "Hybrid NAM", icon: BrainCircuit, testid: "nav-hybrid-nam" },
       { to: "/admin/health", label: "System Health", icon: ShieldCheck, testid: "nav-health" },
       { to: "/admin/payments", label: "Payments", icon: Receipt, testid: "nav-admin-payments" },
