@@ -36,14 +36,23 @@ const TABS = [
   { id: "make", label: "Make" },
 ];
 
-const INK = "#1c1917";
-const MUTED = "rgba(28,25,23,0.55)";
-const CYAN = "#0e7490";
-const BORDER = "rgba(28,25,23,0.12)";
-const inputStyle = { width: "100%", boxSizing: "border-box", border: `1px solid ${BORDER}`, borderRadius: 8, padding: "10px 12px", color: INK, background: "#fff", fontSize: 12 };
-const btn = { border: "none", borderRadius: 8, padding: "10px 14px", background: CYAN, color: "#fff", fontWeight: 800, cursor: "pointer", fontSize: 12 };
-const btnGhost = { ...btn, background: "transparent", border: `1px solid ${CYAN}`, color: CYAN };
-const labelStyle = { color: MUTED, fontSize: 11, display: "block", marginBottom: 4 };
+// ── Pro workstation theme (dark studio chrome, high-contrast controls) ──────
+const INK = "#e7e5e4";
+const MUTED = "rgba(231,229,228,0.55)";
+const CYAN = "#22d3ee";
+const CYAN_DEEP = "#0891b2";
+const BG = "#0c0f14";
+const PANEL = "#141821";
+const PANEL2 = "#1a2029";
+const BORDER = "rgba(148,163,184,0.16)";
+const AMBER = "#fbbf24";
+const inputStyle = { width: "100%", boxSizing: "border-box", border: `1px solid ${BORDER}`, borderRadius: 8, padding: "9px 12px", color: INK, background: "#0a0d12", fontSize: 12, outline: "none" };
+const btn = { border: "none", borderRadius: 8, padding: "10px 16px", background: CYAN_DEEP, color: "#fff", fontWeight: 800, cursor: "pointer", fontSize: 12, letterSpacing: 0.2 };
+const btnGhost = { ...btn, background: "rgba(34,211,238,0.08)", border: `1px solid rgba(34,211,238,0.35)`, color: CYAN };
+const btnDanger = { ...btn, background: "rgba(239,68,68,0.12)", border: "1px solid rgba(239,68,68,0.4)", color: "#f87171" };
+const labelStyle = { color: MUTED, fontSize: 10, display: "block", marginBottom: 4, textTransform: "uppercase", letterSpacing: 1 };
+const panelStyle = { background: PANEL, border: `1px solid ${BORDER}`, borderRadius: 12, padding: 16 };
+const chip = { fontSize: 10, fontFamily: "'SF Mono', Consolas, monospace", padding: "2px 8px", borderRadius: 999, border: `1px solid ${BORDER}`, color: MUTED };
 
 const PANEL_KEY = "videostudio_project_broadcast";
 
@@ -53,7 +62,7 @@ function Field({ label, children }) {
 
 function Err({ msg }) {
   if (!msg) return null;
-  return <div role="alert" style={{ color: "#9a3412", background: "#fff7ed", border: "1px solid #fdba74", borderRadius: 8, padding: 10, fontSize: 12 }}>{msg}</div>;
+  return <div role="alert" style={{ color: "#f87171", background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.35)", borderRadius: 8, padding: 10, fontSize: 12 }}>{msg}</div>;
 }
 
 /** Broadcast project state to detached panel windows (spec §4). */
@@ -481,7 +490,7 @@ export default function VideoStudio({ user, panelMode = null }) {
   // ── Detached panel rendering (spec §4) ─────────────────────────────────────
   if (panelMode === "preview") {
     return (
-      <div style={{ padding: 16, fontFamily: "inherit", background: "#fff" }}>
+      <div style={{ padding: 16, fontFamily: "inherit", background: BG }}>
         <h3 style={{ margin: "0 0 10px", color: INK, fontSize: 15, fontWeight: 900 }}>Preview Panel</h3>
         <LivePreview project={project} previewUrl={previewUrl} />
         <p style={{ color: MUTED, fontSize: 11, marginTop: 8 }}>This panel mirrors the studio. Changes you make in the main window appear here automatically.</p>
@@ -490,7 +499,7 @@ export default function VideoStudio({ user, panelMode = null }) {
   }
   if (panelMode === "storyboard" || panelMode === "words" || panelMode === "media") {
     return (
-      <div style={{ padding: 16, background: "#fff" }}>
+      <div style={{ padding: 16, background: BG }}>
         <h3 style={{ margin: "0 0 10px", color: INK, fontSize: 15, fontWeight: 900 }}>{panelMode[0].toUpperCase() + panelMode.slice(1)} Panel</h3>
         {panelMode === "storyboard" && <StoryboardList scenes={scenes} busy={busy} onMove={moveScene} onDuplicate={duplicateScene} onDelete={deleteScene} readOnly />}
         {panelMode === "words" && <div style={{ color: MUTED, fontSize: 12 }}>Scene words editing stays in the main window; this panel mirrors the storyboard state live.</div>}
@@ -500,34 +509,49 @@ export default function VideoStudio({ user, panelMode = null }) {
   }
 
   return (
-    <div style={{ background: "#fff", border: `1px solid ${BORDER}`, borderRadius: 14, padding: 18 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, marginBottom: 12 }}>
-        <div>
-          <h3 style={{ margin: 0, color: INK, fontSize: 16, fontWeight: 900 }}>Video Studio</h3>
-          <div style={{ color: MUTED, fontSize: 12, marginTop: 4 }}>Plan it, build it scene by scene, make the MP4, publish it.</div>
+    <div style={{ background: BG, border: `1px solid ${BORDER}`, borderRadius: 16, overflow: "hidden", color: INK }}>
+      {/* ── Studio header bar: transport-style chrome ── */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "12px 18px", background: PANEL, borderBottom: `1px solid ${BORDER}` }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <span style={{ width: 10, height: 10, borderRadius: 999, background: project?.final_video_url ? "#34d399" : busy ? AMBER : CYAN, boxShadow: `0 0 8px ${project?.final_video_url ? "#34d399" : busy ? AMBER : CYAN}` }} />
+          <div>
+            <h3 style={{ margin: 0, fontSize: 15, fontWeight: 900, letterSpacing: 0.4 }}>VIDEO STUDIO</h3>
+            <div style={{ color: MUTED, fontSize: 11, marginTop: 1 }}>{project?.title || "No project open"}</div>
+          </div>
         </div>
-        <span style={{ fontFamily: "monospace", fontSize: 10, color: CYAN }}>{project?.status || "NO PROJECT OPEN"}</span>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          {scenes.length > 0 && <span style={chip}>{scenes.length} scenes · {scenes.reduce((a, s) => a + (s.duration || 0), 0)}s</span>}
+          <span style={{ ...chip, color: project?.final_video_url ? "#34d399" : busy ? AMBER : MUTED, borderColor: project?.final_video_url ? "rgba(52,211,153,0.4)" : BORDER }}>
+            {project?.status || "STANDBY"}
+          </span>
+        </div>
       </div>
 
       {/* Undo/redo + detachable panels (spec §4, §8) */}
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 10 }}>
-        <button onClick={undo} disabled={undoDepth === 0} title="Undo (Ctrl+Z)" style={{ ...btnGhost, padding: "4px 10px", opacity: undoDepth === 0 ? 0.4 : 1 }}>↶ Undo</button>
-        <button onClick={redo} disabled={redoDepth === 0} title="Redo (Ctrl+Y)" style={{ ...btnGhost, padding: "4px 10px", opacity: redoDepth === 0 ? 0.4 : 1 }}>↷ Redo</button>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 6, padding: "10px 18px", background: PANEL2, borderBottom: `1px solid ${BORDER}`, alignItems: "center" }}>
+        <button onClick={undo} disabled={undoDepth === 0} title="Undo (Ctrl+Z)" style={{ ...btnGhost, padding: "4px 10px", opacity: undoDepth === 0 ? 0.35 : 1 }}>↶ Undo</button>
+        <button onClick={redo} disabled={redoDepth === 0} title="Redo (Ctrl+Y)" style={{ ...btnGhost, padding: "4px 10px", opacity: redoDepth === 0 ? 0.35 : 1 }}>↷ Redo</button>
         <span style={{ flex: 1 }} />
-        <button onClick={() => detach("preview", "Preview")} style={{ ...btnGhost, padding: "4px 10px" }}>⧉ Pop out Preview</button>
-        <button onClick={() => detach("storyboard", "Storyboard")} style={{ ...btnGhost, padding: "4px 10px" }}>⧉ Pop out Storyboard</button>
+        <button onClick={() => detach("preview", "Preview")} title="Open Preview on a second screen" style={{ ...btnGhost, padding: "4px 10px" }}>⧉ Preview ↗</button>
+        <button onClick={() => detach("storyboard", "Storyboard")} title="Open Storyboard on a second screen" style={{ ...btnGhost, padding: "4px 10px" }}>⧉ Storyboard ↗</button>
       </div>
 
-      {/* Tab bar */}
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 14 }}>
+      {/* Tab rail */}
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 2, padding: "8px 12px", background: PANEL, borderBottom: `1px solid ${BORDER}` }}>
         {TABS.map((t) => (
           <button key={t.id} onClick={() => setTab(t.id)}
-            style={{ ...btnGhost, padding: "6px 11px", background: tab === t.id ? CYAN : "transparent", color: tab === t.id ? "#fff" : CYAN }}>
+            style={{
+              border: "none", borderRadius: 6, padding: "7px 13px", cursor: "pointer", fontSize: 11,
+              fontWeight: 800, letterSpacing: 0.6, textTransform: "uppercase",
+              background: tab === t.id ? CYAN_DEEP : "transparent",
+              color: tab === t.id ? "#fff" : MUTED,
+            }}>
             {t.label}
           </button>
         ))}
       </div>
 
+      <div style={{ padding: 18 }}>
       <Err msg={error} />
 
       {/* ── HOME ── */}
@@ -582,7 +606,7 @@ export default function VideoStudio({ user, panelMode = null }) {
           </div>
           <button onClick={savePlan} disabled={busy} style={btn}>{busy ? "Saving…" : "Save plan"}</button>
           {assistantResult && (
-            <div style={{ border: `1px solid ${BORDER}`, borderRadius: 8, padding: 12, background: "#f8fafc" }}>
+            <div style={{ border: `1px solid ${BORDER}`, borderRadius: 8, padding: 12, background: PANEL2 }}>
               <div style={{ fontSize: 11, color: MUTED, marginBottom: 6 }}>AI assistant — {assistantResult.action.replace(/_/g, " ")}</div>
               <div style={{ fontSize: 12, color: INK, whiteSpace: "pre-wrap", maxHeight: 200, overflowY: "auto" }}>{assistantResult.text}</div>
               <div style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
@@ -609,7 +633,7 @@ export default function VideoStudio({ user, panelMode = null }) {
           <label style={{ ...labelStyle }}>Upload scene media
             <input type="file" accept="image/*,video/*" onChange={(e) => uploadMedia(e, (url) => setScene((s) => ({ ...s, media_url: url })))} style={{ display: "block", marginTop: 6, width: "100%" }} />
           </label>
-          {scene.media_url && <div style={{ color: "#047857", fontSize: 12 }}>✓ Media ready — switch to Words to write this scene.</div>}
+          {scene.media_url && <div style={{ color: "#34d399", fontSize: 12 }}>✓ Media ready — switch to Words to write this scene.</div>}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
             <Field label="Duration (seconds)"><input type="number" min="1" max="60" value={scene.duration} onChange={(e) => setScene((s) => ({ ...s, duration: Number(e.target.value) }))} style={inputStyle} /></Field>
             <Field label="Media fit (spec §8)">
@@ -633,7 +657,7 @@ export default function VideoStudio({ user, panelMode = null }) {
             {stockResults?.configured === true && (stockResults.photos || []).length > 0 && (
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(110px, 1fr))", gap: 8 }}>
                 {stockResults.photos.map((p) => (
-                  <button key={p.id} onClick={() => importStock(p)} disabled={busy} style={{ border: `1px solid ${BORDER}`, borderRadius: 8, padding: 0, overflow: "hidden", cursor: "pointer", background: "#fff" }}>
+                  <button key={p.id} onClick={() => importStock(p)} disabled={busy} style={{ border: `1px solid ${BORDER}`, borderRadius: 8, padding: 0, overflow: "hidden", cursor: "pointer", background: PANEL2 }}>
                     <img src={p.preview} alt={p.label} style={{ width: "100%", height: 90, objectFit: "cover", display: "block" }} />
                     <div style={{ fontSize: 10, color: MUTED, padding: 4 }}>Use this</div>
                   </button>
@@ -668,7 +692,7 @@ export default function VideoStudio({ user, panelMode = null }) {
             <button onClick={() => runAssistant("stronger_opening", scene.text)} disabled={assistantBusy} style={{ ...btnGhost, padding: "5px 10px" }}>✨ Stronger opening</button>
           </div>
           {assistantResult && (assistantResult.action === "captions" || assistantResult.action === "stronger_opening") && (
-            <div style={{ border: `1px solid ${BORDER}`, borderRadius: 8, padding: 12, background: "#f8fafc" }}>
+            <div style={{ border: `1px solid ${BORDER}`, borderRadius: 8, padding: 12, background: PANEL2 }}>
               <div style={{ fontSize: 12, color: INK, whiteSpace: "pre-wrap" }}>{assistantResult.text}</div>
               <button onClick={() => { setScene((s) => ({ ...s, caption: assistantResult.text.split("\n")[0].slice(0, 2000) })); toast.success("First line set as the scene caption."); }} style={{ ...btnGhost, padding: "4px 10px", marginTop: 8 }}>Use first line as caption</button>
             </div>
@@ -696,7 +720,7 @@ export default function VideoStudio({ user, panelMode = null }) {
             <button onClick={() => runAssistant("break_into_scenes", voiceText)} disabled={assistantBusy} style={{ ...btnGhost, padding: "5px 10px" }}>✨ Turn into scenes</button>
           </div>
           {assistantResult && ["write_script", "shorten", "break_into_scenes"].includes(assistantResult.action) && (
-            <div style={{ border: `1px solid ${BORDER}`, borderRadius: 8, padding: 12, background: "#f8fafc" }}>
+            <div style={{ border: `1px solid ${BORDER}`, borderRadius: 8, padding: 12, background: PANEL2 }}>
               <div style={{ fontSize: 12, color: INK, whiteSpace: "pre-wrap", maxHeight: 180, overflowY: "auto" }}>{assistantResult.text}</div>
               <button onClick={() => { setVoiceText(assistantResult.text); toast.success("Script updated."); }} style={{ ...btnGhost, padding: "4px 10px", marginTop: 8 }}>Use this script</button>
             </div>
@@ -770,10 +794,10 @@ export default function VideoStudio({ user, panelMode = null }) {
       {tab === "make" && project && (
         <div style={{ display: "grid", gap: 12 }}>
           <button onClick={makeVideo} disabled={busy || !scenes.length || scenes.some((s) => !s.visual_url)}
-            style={{ ...btn, background: "#047857" }}>
+            style={{ ...btn, background: "#059669" }}>
             {busy ? "Making your video…" : scenes.length ? "Make my video" : "Add scenes first"}
           </button>
-          {scenes.some((s) => !s.visual_url) && <div style={{ color: "#9a3412", fontSize: 12 }}>Every scene needs media before the video can be made.</div>}
+          {scenes.some((s) => !s.visual_url) && <div style={{ color: AMBER, fontSize: 12 }}>Every scene needs media before the video can be made.</div>}
           {project.final_video_url && (
             <>
               <div style={{ borderTop: `1px solid ${BORDER}`, paddingTop: 12, display: "grid", gap: 10 }}>
@@ -809,6 +833,7 @@ export default function VideoStudio({ user, panelMode = null }) {
         </div>
       )}
       {tab === "make" && !project && <div style={{ color: MUTED, fontSize: 12 }}>Create or open a project first.</div>}
+      </div>
     </div>
   );
 }
