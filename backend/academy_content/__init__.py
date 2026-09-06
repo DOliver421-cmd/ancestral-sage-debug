@@ -29,6 +29,16 @@ from .math_grade4 import MATH_GRADE_4
 from .math_grade7 import MATH_GRADE_7
 from .biology_grade9 import BIOLOGY_GRADE_9
 from .electrical_year1 import ELECTRICAL_YEAR_1
+from .reading_foundations_kindergarten import READING_FOUNDATIONS_KINDERGARTEN
+from .reading_foundations_grade_2 import READING_FOUNDATIONS_GRADE_2
+from .math_grade3 import MATH_GRADE_3
+from .math_grade5 import MATH_GRADE_5
+from .math_grade6 import MATH_GRADE_6
+from .math_grade8 import MATH_GRADE_8
+from .science_grade5 import SCIENCE_GRADE_5
+from .social_studies_grade_7 import SOCIAL_STUDIES_GRADE_7
+from .algebra_1_grade_9 import ALGEBRA_1_GRADE_9
+from .visual_arts_foundations import VISUAL_ARTS_FOUNDATIONS
 
 PUBLISHED_COURSES = [
     READING_GRADE_1,
@@ -36,6 +46,16 @@ PUBLISHED_COURSES = [
     MATH_GRADE_7,
     BIOLOGY_GRADE_9,
     ELECTRICAL_YEAR_1,
+    READING_FOUNDATIONS_KINDERGARTEN,
+    READING_FOUNDATIONS_GRADE_2,
+    MATH_GRADE_3,
+    MATH_GRADE_5,
+    MATH_GRADE_6,
+    MATH_GRADE_8,
+    SCIENCE_GRADE_5,
+    SOCIAL_STUDIES_GRADE_7,
+    ALGEBRA_1_GRADE_9,
+    VISUAL_ARTS_FOUNDATIONS,
 ]
 
 # ── Planned catalog (honest placeholders — status "planned", zero lessons).
@@ -64,16 +84,6 @@ def _planned(slug, title, summary, description, subject, subject_label, track,
 
 PLANNED_COURSES = [
     # Foundations — K–2
-    _planned("reading-foundations-kindergarten", "Reading Foundations — Kindergarten",
-             "Letter recognition, phonemic awareness, and first sounds.",
-             "Kindergarten reading foundations: print awareness, letter names and sounds, rhyming, and blending first CVC words. Curriculum in development.",
-             "ela", "English Language Arts", "foundations", ["foundations", "builder", "artist", "scholar"],
-             ["K"], "Kindergarten"),
-    _planned("reading-foundations-grade-2", "Reading Foundations — Grade 2",
-             "Fluent decoding, vocabulary, and comprehension of short texts.",
-             "Second-grade reading: multisyllable words, prefixes and suffixes, fluency, and comprehension strategies. Curriculum in development.",
-             "ela", "English Language Arts", "foundations", ["foundations", "builder", "artist", "scholar"],
-             ["2"], "Grade 2"),
     _planned("math-grade-1", "Mathematics — Grade 1",
              "Addition and subtraction within 20, place value, and shapes.",
              "First-grade math: counting and place value to 120, addition and subtraction facts within 20, and basic geometry. Curriculum in development.",
@@ -90,20 +100,10 @@ PLANNED_COURSES = [
              "science", "Science", "foundations", ["foundations", "builder", "artist", "scholar"],
              ["2"], "Grade 2"),
     # Foundations — 3–5
-    _planned("math-grade-5", "Mathematics — Grade 5",
-             "Decimals, fractions with unlike denominators, volume, and graphing.",
-             "Fifth-grade math: decimals, fraction operations, volume, and coordinate graphing. Curriculum in development.",
-             "math", "Mathematics", "foundations", ["foundations", "builder", "artist", "scholar"],
-             ["5"], "Grade 5"),
     _planned("ela-grade-5", "English Language Arts — Grade 5",
              "Reading across genres, text evidence, and clear writing.",
              "Fifth-grade ELA: informational and literary reading, citing evidence, and structured writing. Curriculum in development.",
              "ela", "English Language Arts", "foundations", ["foundations", "builder", "artist", "scholar"],
-             ["5"], "Grade 5"),
-    _planned("science-grade-5", "Science — Grade 5",
-             "Matter and energy, ecosystems, and earth systems.",
-             "Fifth-grade science: structure of matter, energy flow in ecosystems, and earth's systems. Curriculum in development.",
-             "science", "Science", "foundations", ["foundations", "builder", "artist", "scholar"],
              ["5"], "Grade 5"),
     _planned("social-studies-grade-5", "Social Studies — Grade 5",
              "American history and civics foundations.",
@@ -111,27 +111,12 @@ PLANNED_COURSES = [
              "social_studies", "Social Studies", "foundations", ["foundations", "builder", "artist", "scholar"],
              ["5"], "Grade 5"),
     # Foundations — 6–8
-    _planned("math-grade-8", "Mathematics — Grade 8",
-             "Linear equations, functions, exponents, and the Pythagorean theorem.",
-             "Eighth-grade math: linear relationships, functions, irrational numbers, and geometry including the Pythagorean theorem. Curriculum in development.",
-             "math", "Mathematics", "foundations", ["foundations", "builder", "artist", "scholar"],
-             ["8"], "Grade 8"),
     _planned("science-grade-8", "Science — Grade 8",
              "Forces and motion, energy, and waves.",
              "Eighth-grade science: Newton's laws, energy transformations, and wave behavior — the bridge to high-school physics. Curriculum in development.",
              "science", "Science", "foundations", ["foundations", "builder", "artist", "scholar"],
-             ["8"], "Grade 8"),
-    _planned("social-studies-grade-7", "Social Studies — Grade 7",
-             "World geography and global cultures.",
-             "Seventh-grade social studies: world regions, cultures, trade, and human-environment interaction. Curriculum in development.",
-             "social_studies", "Social Studies", "foundations", ["foundations", "builder", "artist", "scholar"],
-             ["7"], "Grade 7"),
+              ["8"], "Grade 8"),
     # Scholar — 9–12
-    _planned("algebra-1-grade-9", "Algebra 1",
-             "Linear and quadratic expressions, equations, and functions.",
-             "Scholar-track Algebra 1: linear and quadratic functions, systems of equations, exponents, and modeling. Curriculum in development.",
-             "math", "Mathematics", "scholar", ["scholar", "foundations", "builder"],
-             ["9"], "Grade 9"),
     _planned("chemistry-grade-10", "Chemistry",
              "Atomic structure, the periodic table, and chemical reactions.",
              "Scholar-track Chemistry: matter, atomic theory, bonding, stoichiometry, and reactions. Curriculum in development.",
@@ -153,12 +138,6 @@ PLANNED_COURSES = [
              "Builder-track math: precision measurement, fractions and decimals on the job, geometry for layout, and estimating. Curriculum in development.",
              "math", "Mathematics", "builder", ["builder"],
              ["8"], "Grade 8"),
-    # Artist
-    _planned("visual-arts-foundations", "Visual Arts Foundations",
-             "Line, shape, color, and composition for young artists.",
-             "Artist-track foundations: drawing and painting basics, color theory, and looking at art across cultures. Curriculum in development.",
-             "art", "Arts", "artist", ["artist"],
-             ["3", "4", "5"], "Grades 3–5"),
     _planned("digital-art-grade-9", "Digital Art and Design",
              "Creating and communicating with digital tools.",
              "Artist-track digital art: image tools, design principles, portfolio building, and creative careers. Curriculum in development.",
