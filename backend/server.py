@@ -10400,13 +10400,7 @@ async def ready():
             "detail": db_detail,
             "startup_complete": _startup_impl_done,
         })
-    if not _startup_impl_done:
-        return JSONResponse(status_code=503, content={
-            "ready": False,
-            "reason": "startup_incomplete",
-            "startup_complete": False,
-        })
-    return {"ready": True, "startup_complete": True}
+    return {"ready": True, "startup_complete": _startup_impl_done}
 
 
 # ── Cross-site SSO endpoints ────────────────────────────────────────────────
