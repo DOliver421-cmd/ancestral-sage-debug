@@ -36,23 +36,29 @@ const TABS = [
   { id: "make", label: "Make" },
 ];
 
-// ── Pro workstation theme (dark studio chrome, high-contrast controls) ──────
-const INK = "#e7e5e4";
-const MUTED = "rgba(231,229,228,0.55)";
-const CYAN = "#22d3ee";
-const CYAN_DEEP = "#0891b2";
-const BG = "#0c0f14";
-const PANEL = "#141821";
-const PANEL2 = "#1a2029";
-const BORDER = "rgba(148,163,184,0.16)";
-const AMBER = "#fbbf24";
-const inputStyle = { width: "100%", boxSizing: "border-box", border: `1px solid ${BORDER}`, borderRadius: 8, padding: "9px 12px", color: INK, background: "#0a0d12", fontSize: 12, outline: "none" };
-const btn = { border: "none", borderRadius: 8, padding: "10px 16px", background: CYAN_DEEP, color: "#fff", fontWeight: 800, cursor: "pointer", fontSize: 12, letterSpacing: 0.2 };
-const btnGhost = { ...btn, background: "rgba(34,211,238,0.08)", border: `1px solid rgba(34,211,238,0.35)`, color: CYAN };
-const btnDanger = { ...btn, background: "rgba(239,68,68,0.12)", border: "1px solid rgba(239,68,68,0.4)", color: "#f87171" };
+// ── Studio theme — LIGHT ONLY (owner accessibility requirement, same tokens
+// as CreatorStudio: white background, black text, deep-teal accents). Dark
+// themes are banned site-wide; do not reintroduce them here. ──
+const INK = "#1c1917";
+const MUTED = "rgba(28,25,23,0.55)";
+const FADED = "rgba(28,25,23,0.45)";
+const CYAN = "#0e7490";
+const CYAN_DEEP = "#0e7490";
+const CYAN_SOFT = "rgba(14,116,144,0.10)";
+const BG = "#ffffff";
+const PANEL = "#ffffff";
+const PANEL2 = "#faf9f7";
+const BORDER = "rgba(28,25,23,0.12)";
+const AMBER = "#b45309";
+const GREEN = "#047857";
+const MONO = "'SF Mono', 'Cascadia Code', Consolas, monospace";
+const inputStyle = { width: "100%", boxSizing: "border-box", border: `1px solid ${BORDER}`, borderRadius: 8, padding: "9px 12px", color: INK, background: "#fff", fontSize: 12, outline: "none" };
+const btn = { border: "none", borderRadius: 8, padding: "10px 16px", background: CYAN, color: "#fff", fontWeight: 800, cursor: "pointer", fontSize: 12, letterSpacing: 0.2 };
+const btnGhost = { ...btn, background: "transparent", border: `1px solid ${CYAN}`, color: CYAN };
+const btnDanger = { ...btn, background: "#fff", border: "1px solid #dc2626", color: "#dc2626" };
 const labelStyle = { color: MUTED, fontSize: 10, display: "block", marginBottom: 4, textTransform: "uppercase", letterSpacing: 1 };
 const panelStyle = { background: PANEL, border: `1px solid ${BORDER}`, borderRadius: 12, padding: 16 };
-const chip = { fontSize: 10, fontFamily: "'SF Mono', Consolas, monospace", padding: "2px 8px", borderRadius: 999, border: `1px solid ${BORDER}`, color: MUTED };
+const chip = { fontSize: 10, fontFamily: MONO, padding: "2px 8px", borderRadius: 999, border: `1px solid ${BORDER}`, color: MUTED, background: "#fff" };
 
 const PANEL_KEY = "videostudio_project_broadcast";
 
@@ -62,7 +68,7 @@ function Field({ label, children }) {
 
 function Err({ msg }) {
   if (!msg) return null;
-  return <div role="alert" style={{ color: "#f87171", background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.35)", borderRadius: 8, padding: 10, fontSize: 12 }}>{msg}</div>;
+  return <div role="alert" style={{ color: "#b91c1c", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 8, padding: 10, fontSize: 12 }}>{msg}</div>;
 }
 
 /** Broadcast project state to detached panel windows (spec §4). */
@@ -513,7 +519,7 @@ export default function VideoStudio({ user, panelMode = null }) {
       {/* ── Studio header bar: transport-style chrome ── */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "12px 18px", background: PANEL, borderBottom: `1px solid ${BORDER}` }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <span style={{ width: 10, height: 10, borderRadius: 999, background: project?.final_video_url ? "#34d399" : busy ? AMBER : CYAN, boxShadow: `0 0 8px ${project?.final_video_url ? "#34d399" : busy ? AMBER : CYAN}` }} />
+          <span style={{ width: 10, height: 10, borderRadius: 999, background: project?.final_video_url ? GREEN : busy ? AMBER : CYAN, boxShadow: `0 0 0 3px ${project?.final_video_url ? "rgba(4,120,87,0.15)" : busy ? "rgba(180,83,9,0.15)" : "rgba(14,116,144,0.15)"}` }} />
           <div>
             <h3 style={{ margin: 0, fontSize: 15, fontWeight: 900, letterSpacing: 0.4 }}>VIDEO STUDIO</h3>
             <div style={{ color: MUTED, fontSize: 11, marginTop: 1 }}>{project?.title || "No project open"}</div>
@@ -521,7 +527,7 @@ export default function VideoStudio({ user, panelMode = null }) {
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           {scenes.length > 0 && <span style={chip}>{scenes.length} scenes · {scenes.reduce((a, s) => a + (s.duration || 0), 0)}s</span>}
-          <span style={{ ...chip, color: project?.final_video_url ? "#34d399" : busy ? AMBER : MUTED, borderColor: project?.final_video_url ? "rgba(52,211,153,0.4)" : BORDER }}>
+          <span style={{ ...chip, color: project?.final_video_url ? GREEN : busy ? AMBER : MUTED, borderColor: project?.final_video_url ? "rgba(4,120,87,0.4)" : BORDER }}>
             {project?.status || "STANDBY"}
           </span>
         </div>
@@ -633,7 +639,7 @@ export default function VideoStudio({ user, panelMode = null }) {
           <label style={{ ...labelStyle }}>Upload scene media
             <input type="file" accept="image/*,video/*" onChange={(e) => uploadMedia(e, (url) => setScene((s) => ({ ...s, media_url: url })))} style={{ display: "block", marginTop: 6, width: "100%" }} />
           </label>
-          {scene.media_url && <div style={{ color: "#34d399", fontSize: 12 }}>✓ Media ready — switch to Words to write this scene.</div>}
+          {scene.media_url && <div style={{ color: GREEN, fontSize: 12 }}>✓ Media ready — switch to Words to write this scene.</div>}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
             <Field label="Duration (seconds)"><input type="number" min="1" max="60" value={scene.duration} onChange={(e) => setScene((s) => ({ ...s, duration: Number(e.target.value) }))} style={inputStyle} /></Field>
             <Field label="Media fit (spec §8)">
@@ -794,7 +800,7 @@ export default function VideoStudio({ user, panelMode = null }) {
       {tab === "make" && project && (
         <div style={{ display: "grid", gap: 12 }}>
           <button onClick={makeVideo} disabled={busy || !scenes.length || scenes.some((s) => !s.visual_url)}
-            style={{ ...btn, background: "#059669" }}>
+            style={{ ...btn, background: GREEN }}>
             {busy ? "Making your video…" : scenes.length ? "Make my video" : "Add scenes first"}
           </button>
           {scenes.some((s) => !s.visual_url) && <div style={{ color: AMBER, fontSize: 12 }}>Every scene needs media before the video can be made.</div>}
