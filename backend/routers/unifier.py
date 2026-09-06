@@ -71,6 +71,54 @@ def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+def _get_context_doc(context_id: str, owner_id: str) -> dict | None:
+    if db is None:
+        return None
+    return db.arena_work_context.find_one({"id": context_id, "owner_id": owner_id}, {"_id": 0})
+
+
+async def _ensure_context_for_session(user_id: str, work_context_id: str | None, title_hint: str = "") -> str:
+    if work_context_id:
+        ctx = _get_context_doc(work_context_id, user_id)
+        if ctx:
+            return work_context_id
+    now = _now_iso()
+    ctx_doc = {
+        "id": str(uuid.uuid4()),
+        "owner_id": user_id,
+        "title": title_hint or "Unifier Session",
+        "status": "exploring",
+        "source_capability": "unifier",
+        "activity_history": [
+            {
+                "action_type": "context_created",
+                "description": f"Work context created via Unifier: {title_hint or 'Unifier Session'}",
+                "capability": "unifier",
+                "at": now,
+            }
+        ],
+        "created_at": now,
+        "updated_at": now,
+        "created_by": user_id,
+    }
+    if db is not None:
+        await db.arena_work_context.insert_one(ctx_doc)
+    return ctx_doc["id"]
+
+
+async def _append_context_event(context_id: str, owner_id: str, action_type: str, description: str, capability: str = "unifier", metadata: dict | None = None):
+    if db is None:
+        return
+    now = _now_iso()
+    await db.arena_work_context.update_one(
+        {"id": context_id, "owner_id": owner_id},
+        {
+            "$push": {"activity_history": {"action_type": action_type, "description": description, "capability": capability, "metadata": metadata or {}, "at": now}},
+            "$set": {"updated_at": now, "source_capability": capability},
+        },
+    )
+
+
 def _sessions():
     return db.unifier_sessions if db is not None else None
 
@@ -215,6 +263,10 @@ class UnifierSwapRequest(BaseModel):
     competitor_b: PersonaRef
 
 
+class UnifierSessionCreate(BaseModel):
+    work_context_id: str | None = None
+
+
 class UnifierChatRequest(BaseModel):
     message: str
     audio_response: bool = False
@@ -227,6 +279,7 @@ class UnifierPlanRequest(BaseModel):
     audience: str | None = None
     format: Literal["news", "ai_view", "soap", "gameshow", "programming", "other"] = "other"
     notes: str | None = None
+    work_context_id: str | None = None
 
 
 class UnifierPlanToProjectRequest(BaseModel):
@@ -234,6 +287,7 @@ class UnifierPlanToProjectRequest(BaseModel):
     category: Literal["launch", "create", "organize", "grow", "learn"] = "launch"
     priority: Literal["low", "normal", "high"] = "normal"
     desired_outcome: str = ""
+    work_context_id: str | None = None
 
 
 # ── Persona catalog ───────────────────────────────────────────────────────────
@@ -245,16 +299,26 @@ async def list_unifier_personas(user: Any = Depends(_unifier_user)):
 
 # ── Session lifecycle ────────────────────────────────────────────────────────
 @router.post("/unifier/sessions", status_code=201)
-async def create_unifier_session(user: Any = Depends(_unifier_user)):
+async def create_unifier_session(user: Any = Depends(_unifier_user), body: UnifierSessionCreate | None = None):
     _require_unifier_access(user)
     sessions = _sessions()
     if sessions is None:
         raise HTTPException(503, UNAVAILABLE_MSG)
     session_id = f"unifier_{uuid.uuid4().hex[:16]}"
     now = _now_iso()
+    user_id = getattr(user, "id", "")
+    work_context_id = None
+    if body and getattr(body, "work_context_id", None):
+        work_context_id = body.work_context_id
+        ctx = _get_context_doc(work_context_id, user_id)
+        if ctx:
+            await _append_context_event(work_context_id, user_id, "unifier_session_started", "Unifier session started", capability="unifier")
+    if not work_context_id:
+        work_context_id = await _ensure_context_for_session(user_id, None, title_hint="Unifier Session")
     doc = {
         "id": session_id,
-        "user_id": getattr(user, "id", ""),
+        "user_id": user_id,
+        "work_context_id": work_context_id,
         "judge": {"id": JUDGE_PERSONA_ID, "label": JUDGE_LABEL},
         "competitor_a": {"id": "director", "label": "Director"},
         "competitor_b": {"id": "ancestral_sage", "label": "Ancestral Sage"},
@@ -428,15 +492,16 @@ async def create_unifier_plan(
     _require_unifier_access(user)
     if body is None or not body.title.strip() or not body.objective.strip():
         raise HTTPException(400, "A plan needs a title and an objective.")
-    await _own_session(session_id, user)
+    session = await _own_session(session_id, user)
     plans = _plans()
     if plans is None:
         raise HTTPException(503, UNAVAILABLE_MSG)
     now = _now_iso()
+    user_id = getattr(user, "id", "")
     doc = {
         "id": f"unifier_plan_{uuid.uuid4().hex[:16]}",
         "session_id": session_id,
-        "user_id": getattr(user, "id", ""),
+        "user_id": user_id,
         "title": body.title.strip()[:200],
         "objective": body.objective.strip()[:2000],
         "audience": (body.audience or "").strip()[:300] or None,
@@ -444,11 +509,24 @@ async def create_unifier_plan(
         "notes": (body.notes or "").strip()[:2000] or None,
         "status": "draft",
         "project_id": None,
+        "work_context_id": getattr(body, "work_context_id", None) or session.get("work_context_id"),
         "created_at": now,
         "updated_at": now,
     }
     await plans.insert_one(doc)
     doc.pop("_id", None)
+    work_context_id = doc.get("work_context_id")
+    if work_context_id:
+        await _append_context_event(
+            work_context_id, user_id, "plan_created",
+            f"Plan created: {body.title.strip()[:200]}",
+            capability="unifier",
+            metadata={"plan_id": doc["id"], "session_id": session_id},
+        )
+        await db.arena_work_context.update_one(
+            {"id": work_context_id, "owner_id": user_id},
+            {"$set": {"updated_at": now, "source_capability": "unifier"}},
+        )
     return doc
 
 
@@ -596,6 +674,25 @@ async def unifier_plan_to_project(
         try:
             await audit(getattr(user, "id", ""), "unifier.plan_to_project",
                         meta={"plan_id": plan_id, "project_id": project_id})
+        except Exception:
+            pass
+    plan_work_context_id = getattr(body, "work_context_id", None) or plan.get("work_context_id")
+    if plan_work_context_id and db is not None:
+        try:
+            await db.arena_work_context.update_one(
+                {"id": plan_work_context_id, "owner_id": getattr(user, "id", "")},
+                {"$set": {"status": "planned", "updated_at": now, "source_capability": "unifier"}},
+            )
+            await db.arena_work_context.update_one(
+                {"id": plan_work_context_id, "owner_id": getattr(user, "id", "")},
+                {"$push": {"activity_history": {
+                    "action_type": "project_handed_off",
+                    "description": f"Plan handed off to member project: {project_id}",
+                    "capability": "unifier",
+                    "metadata": {"plan_id": plan_id, "project_id": project_id},
+                    "at": now,
+                }}},
+            )
         except Exception:
             pass
     return {"project_id": project_id, "plan_id": plan_id, "status": "in_project"}

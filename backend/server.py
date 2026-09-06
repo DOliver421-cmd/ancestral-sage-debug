@@ -1669,6 +1669,10 @@ async def ensure_indexes():
         await db.user_xp.create_index([("total_xp", -1)])
         # Escalation scan: open incidents ordered by creation time
         await db.incidents.create_index([("status", 1), ("created_at", 1)])
+        # Arena shared work context
+        await db.arena_work_context.create_index("owner_id")
+        await db.arena_work_context.create_index("status")
+        await db.arena_work_context.create_index([("updated_at", -1)])
         logger.info("Indexes ensured")
     except Exception:
         logger.exception("ensure_indexes failed (non-fatal)")
