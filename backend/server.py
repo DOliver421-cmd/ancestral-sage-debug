@@ -1371,6 +1371,18 @@ async def _on_startup_impl():
     except Exception as _e:
         logger.warning("STARTUP: seed_sites_inventory failed (non-fatal): %s", _e)
 
+    # ── Provider keys: load DB-stored gateway keys into the LLM gateway ────────
+    # Keys saved through the Provider Gateway live in db.api_keys. Without this
+    # call, they only load when a NEW key is saved (provider_gateway.py), so
+    # every restart/crash-recovery forgets all stored keys until a human saves
+    # another one. Loading at boot makes the stored keys actually usable.
+    try:
+        from ai.llm_gateway import reload_provider_keys as _reload_provider_keys
+        _loaded = await _reload_provider_keys(db)
+        logger.info("STARTUP: provider keys loaded from DB into gateway: %d", _loaded)
+    except Exception as _e:
+        logger.warning("STARTUP: provider key load failed (non-fatal): %s", _e)
+
     try:
         await backfill_verification_codes()
     except Exception as _e:
