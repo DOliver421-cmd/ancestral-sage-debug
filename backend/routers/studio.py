@@ -125,11 +125,31 @@ class VideoSceneBody(BaseModel):
     media_url: Optional[str] = Field(default=None, max_length=2000)
     text: str = Field(default="", max_length=5000)
     duration: int = Field(default=5, ge=1, le=60)
-    position: int = Field(default=0, ge=0, le=8)
+    position: int = Field(default=0, ge=0, le=98)
     text_placement: Optional[Literal["top", "center", "bottom"]] = "bottom"
     text_size: Optional[int] = Field(default=48, ge=16, le=160)
     caption: Optional[str] = Field(default=None, max_length=2000)
     transition: Optional[Literal["none", "fade", "slide"]] = "none"
+    fit: Optional[Literal["fit", "fill"]] = "fit"
+
+
+class VideoSceneReorderBody(BaseModel):
+    direction: Literal["up", "down"]
+
+
+class VideoAIAssistantBody(BaseModel):
+    """The spec §11 AI video assistant: one endpoint, action-switched."""
+    action: Literal[
+        "write_script",       # "Help me write it"
+        "break_into_scenes",  # "Turn this into scenes"
+        "shorten",            # "Make this shorter"
+        "captions",           # "Create captions"
+        "ideas",              # "Give me video ideas"
+        "stronger_opening",   # "Make a stronger opening"
+        "description",        # "Create a description"
+    ]
+    text: str = Field(default="", max_length=5000)
+    duration: int = Field(default=30, ge=5, le=180)
 
 
 class VideoAudioBody(BaseModel):
@@ -448,7 +468,7 @@ async def add_video_scene(project_id: str, body: VideoSceneBody, user: User = De
              "scene_order": body.position, "duration": body.duration, "visual_url": body.media_url,
              "script_text": body.text, "text_placement": body.text_placement or "bottom",
              "text_size": body.text_size or 48, "caption": body.caption,
-             "transition": body.transition or "none",
+             "transition": body.transition or "none", "fit": body.fit or "fit",
              "created_at": datetime.now(timezone.utc).isoformat()}
     await db.video_scenes.insert_one(scene_doc)
     await db.video_projects.update_one({"id": project_id, "user_id": user.id}, {"$set": {"updated_at": datetime.now(timezone.utc).isoformat(), "status": "Ready to Preview"}})
@@ -465,7 +485,8 @@ async def update_video_scene(project_id: str, scene_id: str, body: VideoSceneBod
         raise HTTPException(404, "Scene not found")
     updates = {"duration": body.duration, "script_text": body.text, "visual_url": body.media_url,
                "scene_order": body.position, "text_placement": body.text_placement or "bottom",
-               "text_size": body.text_size or 48, "caption": body.caption, "transition": body.transition or "none"}
+               "text_size": body.text_size or 48, "caption": body.caption, "transition": body.transition or "none",
+               "fit": body.fit or "fit"}
     await db.video_scenes.update_one({"id": scene_id, "project_id": project_id}, {"$set": updates})
     scene.update(updates)
     return _clean_video_doc(scene)
@@ -497,6 +518,164 @@ async def delete_video_scene(project_id: str, scene_id: str, user: User = Depend
     if not result.deleted_count:
         raise HTTPException(404, "Scene not found")
     return {"deleted": True}
+
+
+@router.post("/video/projects/{project_id}/scenes/{scene_id}/move")
+async def move_video_scene(project_id: str, scene_id: str, body: VideoSceneReorderBody, user: User = Depends(_dep_current_user)):
+    """Reorder a scene one slot up or down (spec §8 scene reorder)."""
+    await _owned_video_project(project_id, user)
+    scenes = await db.video_scenes.find(
+        {"project_id": project_id, "user_id": user.id}, {"_id": 0}
+    ).sort("scene_order", 1).to_list(100)
+    index = next((i for i, s in enumerate(scenes) if s["id"] == scene_id), -1)
+    if index < 0:
+        raise HTTPException(404, "Scene not found")
+    swap_with = index - 1 if body.direction == "up" else index + 1
+    if swap_with < 0 or swap_with >= len(scenes):
+        raise HTTPException(400, "That scene is already at the edge.")
+    a, b = scenes[index], scenes[swap_with]
+    await db.video_scenes.update_one({"id": a["id"]}, {"$set": {"scene_order": b["scene_order"]}})
+    await db.video_scenes.update_one({"id": b["id"]}, {"$set": {"scene_order": a["scene_order"]}})
+    await db.video_projects.update_one(
+        {"id": project_id, "user_id": user.id},
+        {"$set": {"updated_at": datetime.now(timezone.utc).isoformat()}},
+    )
+    refreshed = await db.video_scenes.find({"project_id": project_id, "user_id": user.id}, {"_id": 0}).sort("scene_order", 1).to_list(100)
+    return {"scenes": refreshed}
+
+
+# ── AI video assistant (spec §11) ────────────────────────────────────────────
+@router.post("/video/assistant")
+async def video_ai_assistant(body: VideoAIAssistantBody, user: User = Depends(_dep_current_user)):
+    """The spec's 7 assistant actions, real calls through the AI gateway."""
+    _video_access(user)
+    text = (body.text or "").strip()
+    prompts = {
+        "write_script": (
+            f"Write a punchy short-form video script (about {body.duration} seconds, "
+            f"roughly {body.duration * 3} words). Return ONLY the spoken script, no headings."
+            + (f"\n\nIdea from the creator: {text}" if text else "")
+        ),
+        "break_into_scenes": (
+            "Break this script into 3-5 short scenes. For each scene output exactly:\n"
+            "SCENE <number> (<seconds>s): <on-screen visual description> — TEXT: <short on-screen words>\n"
+            f"Script:\n{text}"
+        ),
+        "shorten": (
+            f"Cut this script down so it reads in about {body.duration} seconds "
+            f"(roughly {body.duration * 3} words). Keep the strongest lines. Return ONLY the script.\n\n{text}"
+        ),
+        "captions": (
+            "Write tight on-screen captions for this script — one caption per scene, "
+            "max 8 words each. Return one caption per line, nothing else.\n\n" + text
+        ),
+        "ideas": (
+            "Give me 5 short-form video ideas (TikTok/Reels/Shorts) as a numbered list, "
+            "one line each, punchy and specific."
+            + (f"\n\nTheme or niche: {text}" if text else "")
+        ),
+        "stronger_opening": (
+            "Rewrite the opening 3 seconds of this script so it hooks immediately. "
+            "Return ONLY the new opening line, nothing else.\n\n" + text
+        ),
+        "description": (
+            "Write a short publishing description (2-3 sentences) plus 5 relevant "
+            "hashtags for this video. Plain text.\n\n" + text
+        ),
+    }
+    from ai.llm_gateway import call_llm
+    result = await call_llm(
+        system=(
+            "You are the MoreHelp Video Studio assistant. You help creators make "
+            "short-form videos. Follow the requested format EXACTLY so the answer "
+            "can be used directly. Plain, punchy language. No preamble, no headings "
+            "unless the format requires them."
+        ),
+        messages=[{"role": "user", "content": prompts[body.action]}],
+        persona_label=f"video_assistant:{body.action}",
+        user_id=user.id,
+        max_tokens=900,
+    )
+    reply = (result or {}).get("text") or ""
+    if not reply.strip():
+        raise HTTPException(503, "The AI assistant could not answer right now. Try again.")
+    return {"action": body.action, "text": reply.strip()}
+
+
+# ── Free stock media: Pexels (spec §13, only when credentials exist) ─────────
+@router.get("/video/stock")
+async def search_stock_media(query: str, kind: str = "image", user: User = Depends(_dep_current_user)):
+    """Search Pexels free stock. Returns an explicit 'configured' flag so the UI
+    can honestly hide/mention the source instead of pretending. Never exposes
+    the API key."""
+    _video_access(user)
+    key = os.environ.get("PEXELS_API_KEY", "").strip()
+    if not key:
+        return {"configured": False, "photos": [], "videos": []}
+    if not query.strip():
+        raise HTTPException(400, "Type what to search for first.")
+    import httpx
+    headers = {"Authorization": key}
+    try:
+        if kind == "video":
+            async with httpx.AsyncClient(timeout=15) as client:
+                resp = await client.get("https://api.pexels.com/videos/search",
+                                        params={"query": query.strip(), "per_page": 12, "orientation": "portrait"}, headers=headers)
+            resp.raise_for_status()
+            items = [{"id": v["id"], "label": (v.get("url") or "").rsplit("/", 1)[-1] or f"Video {v['id']}",
+                      "preview": next((f["link"] for f in v.get("video_files", []) if f.get("width", 0) and f["width"] >= 640),
+                                       (v.get("video_files") or [{}])[0].get("link")),
+                      "download": next((f["link"] for f in v.get("video_files", []) if (f.get("width") or 0) <= 1280),
+                                        (v.get("video_files") or [{}])[0].get("link"))}
+                     for v in resp.json().get("videos", [])]
+            return {"configured": True, "photos": [], "videos": items}
+        else:
+            async with httpx.AsyncClient(timeout=15) as client:
+                resp = await client.get("https://api.pexels.com/v1/search",
+                                        params={"query": query.strip(), "per_page": 12, "orientation": "portrait"}, headers=headers)
+            resp.raise_for_status()
+            items = [{"id": p["id"], "label": (p.get("alt") or f"Photo {p['id']}")[:80],
+                      "preview": p.get("src", {}).get("medium"), "download": p.get("src", {}).get("large2x") or p.get("src", {}).get("large")}
+                     for p in resp.json().get("photos", [])]
+            return {"configured": True, "photos": items, "videos": []}
+    except httpx.HTTPError as exc:
+        raise HTTPException(502, "Stock search could not reach Pexels right now. Try again.") from exc
+
+
+@router.post("/video/stock/import")
+async def import_stock_media(body: dict, user: User = Depends(_dep_current_user)):
+    """Fetch a chosen stock asset server-side and store it as the user's own
+    MoreHelp media file (reuses the media GridFS store), so it flows through
+    the exact same render path as an upload."""
+    _video_access(user)
+    url = str(body.get("url") or "")
+    if not url.startswith(("http://", "https://")):
+        raise HTTPException(400, "Invalid stock media URL")
+    if "pexels.com" not in url:
+        raise HTTPException(400, "Only Pexels stock assets are supported")
+    import httpx
+    try:
+        async with httpx.AsyncClient(timeout=30, follow_redirects=True) as client:
+            resp = await client.get(url)
+        resp.raise_for_status()
+    except httpx.HTTPError as exc:
+        raise HTTPException(502, "The stock asset could not be fetched. Try another one.") from exc
+    contents = resp.content
+    if len(contents) > 50 * 1024 * 1024:
+        raise HTTPException(413, "That stock asset is too large")
+    content_type = resp.headers.get("content-type", "image/jpeg").split(";")[0].strip()
+    filename = ("stock_" + str(body.get("file_id") or uuid.uuid4().hex[:12]) +
+                (".mp4" if content_type.startswith("video/") else ".jpg"))
+    from motor.motor_asyncio import AsyncIOMotorGridFSBucket
+    gfs_id = await AsyncIOMotorGridFSBucket(db).upload_from_stream(
+        filename, contents,
+        metadata={"uploader": user.id, "filename": filename, "content_type": content_type,
+                  "duration_seconds": None, "preview_seconds": None, "preview_bytes": None,
+                  "source": "pexels"},
+    )
+    if audit:
+        await audit(user.id, "stock_media_imported", meta={"source": "pexels"})
+    return {"file_url": f"/api/media/file/{gfs_id}", "filename": filename, "content_type": content_type}
 
 
 async def _download_render_asset(url: str, workdir: str, index: int, user_id: str) -> tuple[str, bool]:
@@ -567,7 +746,11 @@ async def render_video_project(project_id: str, user: User = Depends(_dep_curren
                 path, is_video = await _download_render_asset(scene["visual_url"], workdir, index, user.id)
                 output = os.path.join(workdir, f"scene_{index}.mp4")
                 duration = str(scene.get("duration", 5))
-                vf = [f"scale={width}:{height}:force_original_aspect_ratio=decrease,pad={width}:{height}:(ow-iw)/2:(oh-ih)/2,format=yuv420p"]
+                # fit → letterbox inside the frame; fill → cover the frame, center-crop overflow.
+                if scene.get("fit") == "fill":
+                    vf = [f"scale={width}:{height}:force_original_aspect_ratio=increase,crop={width}:{height},format=yuv420p"]
+                else:
+                    vf = [f"scale={width}:{height}:force_original_aspect_ratio=decrease,pad={width}:{height}:(ow-iw)/2:(oh-ih)/2,format=yuv420p"]
                 vf.extend(_text_filter_for_scene(scene, width, height))
                 transition = scene.get("transition") or "none"
                 fade_in = "fade=t=in:st=0:d=0.5" if transition == "fade" else None
