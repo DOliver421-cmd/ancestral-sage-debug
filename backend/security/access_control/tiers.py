@@ -193,11 +193,14 @@ CONTROL_REGISTRY: Dict[str, dict] = {
     "gateway_key_management": {
         "label": "Gateway API Key Management",
         "category": "Site Control",
-        "source": "server.py",
+        "source": "routers/provider_gateway.py",
         "description": "Push, revoke and toggle live LLM provider keys without redeploy.",
         "required_tier": "executive",
         "min_role": "executive_admin",
-        "routes": ["/api/admin/gateway/keys", "/api/admin/gateway/keys/"],
+        # Real key-management surface (verified: routers/provider_gateway.py).
+        # The old '/api/admin/gateway/keys' path never existed and made the
+        # drift-net test flag a route with no handler.
+        "routes": ["/api/providers/keys", "/api/providers/keys/*"],
     },
     "exec_command_center": {
         "label": "Exec Command Center",

@@ -1,5 +1,5 @@
 {
-  "total": 760,
+  "total": 824,
   "routes": [
     {
       "method": "DELETE",
@@ -138,6 +138,15 @@
     },
     {
       "method": "DELETE",
+      "path": "/api/exec/control/user-route-access",
+      "module": "server.inline",
+      "auth": [
+        "_require_executive"
+      ],
+      "name": "reset_user_route_access"
+    },
+    {
+      "method": "DELETE",
       "path": "/api/executive/archive/{asset_id}",
       "module": "routers.executive_pipeline",
       "auth": [
@@ -180,6 +189,15 @@
         "_dep_current_user"
       ],
       "name": "delete_project"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/providers/keys/by-provider/{provider_type}",
+      "module": "routers.provider_gateway",
+      "auth": [
+        "_user"
+      ],
+      "name": "provider_key_revoke"
     },
     {
       "method": "DELETE",
@@ -247,11 +265,47 @@
     {
       "method": "DELETE",
       "path": "/api/sovereign/memory",
-      "module": "server.inline",
+      "module": "routers.sovereign",
       "auth": [
         "dep"
       ],
       "name": "sovereign_memory_clear"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/unifier/plans/{plan_id}",
+      "module": "routers.unifier",
+      "auth": [
+        "_unifier_user"
+      ],
+      "name": "delete_unifier_plan"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/video/projects/{project_id}",
+      "module": "routers.studio",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "delete_video_project"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/video/projects/{project_id}/audio/{track_id}",
+      "module": "routers.studio",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "delete_video_audio"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/video/projects/{project_id}/scenes/{scene_id}",
+      "module": "routers.studio",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "delete_video_scene"
     },
     {
       "method": "GET",
@@ -419,9 +473,9 @@
     {
       "method": "GET",
       "path": "/api/adaptive/me",
-      "module": "server.inline",
+      "module": "routers.admin",
       "auth": [
-        "current_user"
+        "_dep_current_user"
       ],
       "name": "adaptive_recommendations"
     },
@@ -437,7 +491,7 @@
     {
       "method": "GET",
       "path": "/api/admin/ai-costs",
-      "module": "server.inline",
+      "module": "routers.misc",
       "auth": [
         "dep"
       ],
@@ -454,6 +508,15 @@
     },
     {
       "method": "GET",
+      "path": "/api/admin/audit/export",
+      "module": "routers.misc",
+      "auth": [
+        "dep"
+      ],
+      "name": "export_audit_log"
+    },
+    {
+      "method": "GET",
       "path": "/api/admin/checkouts",
       "module": "server.inline",
       "auth": [
@@ -464,7 +527,7 @@
     {
       "method": "GET",
       "path": "/api/admin/cohorts",
-      "module": "server.inline",
+      "module": "routers.admin",
       "auth": [
         "dep"
       ],
@@ -478,6 +541,15 @@
         "dep"
       ],
       "name": "control_panel_data"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/courses",
+      "module": "routers.admin",
+      "auth": [
+        "dep"
+      ],
+      "name": "admin_list_courses"
     },
     {
       "method": "GET",
@@ -581,7 +653,7 @@
     {
       "method": "GET",
       "path": "/api/admin/recent-activity",
-      "module": "server.inline",
+      "module": "routers.admin",
       "auth": [
         "dep"
       ],
@@ -635,7 +707,7 @@
     {
       "method": "GET",
       "path": "/api/admin/stats",
-      "module": "server.inline",
+      "module": "routers.admin",
       "auth": [
         "dep"
       ],
@@ -1735,8 +1807,35 @@
     },
     {
       "method": "GET",
-      "path": "/api/exec/analytics",
+      "path": "/api/exec/access-control",
       "module": "server.inline",
+      "auth": [
+        "_require_executive"
+      ],
+      "name": "access_control_overview"
+    },
+    {
+      "method": "GET",
+      "path": "/api/exec/access-control/incidents",
+      "module": "server.inline",
+      "auth": [
+        "_require_executive"
+      ],
+      "name": "access_control_incidents"
+    },
+    {
+      "method": "GET",
+      "path": "/api/exec/access-control/ui",
+      "module": "server.inline",
+      "auth": [
+        "_require_executive"
+      ],
+      "name": "access_control_ui"
+    },
+    {
+      "method": "GET",
+      "path": "/api/exec/analytics",
+      "module": "routers.exec",
       "auth": [
         "dep"
       ],
@@ -1745,7 +1844,7 @@
     {
       "method": "GET",
       "path": "/api/exec/audio",
-      "module": "server.inline",
+      "module": "routers.exec",
       "auth": [
         "dep"
       ],
@@ -1754,9 +1853,9 @@
     {
       "method": "GET",
       "path": "/api/exec/audio/{asset_id}",
-      "module": "server.inline",
+      "module": "routers.exec",
       "auth": [
-        "current_user"
+        "_dep_current_user"
       ],
       "name": "serve_audio"
     },
@@ -1841,8 +1940,17 @@
     },
     {
       "method": "GET",
-      "path": "/api/exec/dashboard",
+      "path": "/api/exec/control/user-route-access",
       "module": "server.inline",
+      "auth": [
+        "_require_executive"
+      ],
+      "name": "user_route_access_overview"
+    },
+    {
+      "method": "GET",
+      "path": "/api/exec/dashboard",
+      "module": "routers.exec",
       "auth": [
         "dep"
       ],
@@ -1859,8 +1967,17 @@
     },
     {
       "method": "GET",
+      "path": "/api/exec/manuals",
+      "module": "routers.exec_command",
+      "auth": [
+        "dep"
+      ],
+      "name": "exec_manuals"
+    },
+    {
+      "method": "GET",
       "path": "/api/exec/merch",
-      "module": "server.inline",
+      "module": "routers.exec",
       "auth": [
         "dep"
       ],
@@ -1886,8 +2003,17 @@
     },
     {
       "method": "GET",
-      "path": "/api/exec/personas",
+      "path": "/api/exec/panel/heartbeat-secret",
       "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "exec_panel_heartbeat_secret"
+    },
+    {
+      "method": "GET",
+      "path": "/api/exec/personas",
+      "module": "routers.exec",
       "auth": [
         "dep"
       ],
@@ -1896,7 +2022,7 @@
     {
       "method": "GET",
       "path": "/api/exec/products",
-      "module": "server.inline",
+      "module": "routers.exec",
       "auth": [
         "dep"
       ],
@@ -1905,7 +2031,7 @@
     {
       "method": "GET",
       "path": "/api/exec/scout/leads",
-      "module": "server.inline",
+      "module": "routers.exec",
       "auth": [
         "dep"
       ],
@@ -1914,7 +2040,7 @@
     {
       "method": "GET",
       "path": "/api/exec/scout/status",
-      "module": "server.inline",
+      "module": "routers.exec",
       "auth": [
         "dep"
       ],
@@ -1922,8 +2048,17 @@
     },
     {
       "method": "GET",
+      "path": "/api/exec/site-report",
+      "module": "routers.exec",
+      "auth": [
+        "dep"
+      ],
+      "name": "exec_site_report"
+    },
+    {
+      "method": "GET",
       "path": "/api/exec/staff-meetings",
-      "module": "server.inline",
+      "module": "routers.exec",
       "auth": [
         "dep"
       ],
@@ -1932,11 +2067,11 @@
     {
       "method": "GET",
       "path": "/api/exec/system",
-      "module": "server.inline",
+      "module": "routers.exec_command",
       "auth": [
         "dep"
       ],
-      "name": "exec_system_info"
+      "name": "exec_system_overview"
     },
     {
       "method": "GET",
@@ -2285,7 +2420,7 @@
       "path": "/api/media/content/{file_path:path}",
       "module": "routers.media",
       "auth": [
-        "_dep_current_user"
+        "_optional_current_user"
       ],
       "name": "get_content_file"
     },
@@ -2369,68 +2504,77 @@
     {
       "method": "GET",
       "path": "/api/more/admin/flags",
-      "module": "server.inline",
+      "module": "routers.community",
       "auth": [
-        "current_user"
+        "_dep_current_user"
       ],
       "name": "more_admin_flags"
     },
     {
       "method": "GET",
       "path": "/api/more/admin/moderation-log",
-      "module": "server.inline",
+      "module": "routers.community",
       "auth": [
-        "current_user"
+        "_dep_current_user"
       ],
       "name": "more_moderation_log"
     },
     {
       "method": "GET",
       "path": "/api/more/admin/moderation-stats",
-      "module": "server.inline",
+      "module": "routers.community",
       "auth": [
-        "current_user"
+        "_dep_current_user"
       ],
       "name": "more_moderation_stats"
     },
     {
       "method": "GET",
       "path": "/api/more/admin/queue",
-      "module": "server.inline",
+      "module": "routers.community",
       "auth": [
-        "current_user"
+        "_dep_current_user"
       ],
       "name": "more_admin_review_queue"
     },
     {
       "method": "GET",
       "path": "/api/more/chat/{session_id}",
-      "module": "server.inline",
+      "module": "routers.community",
       "auth": [
-        "current_user"
+        "_dep_current_user"
       ],
       "name": "more_chat_get"
     },
     {
       "method": "GET",
-      "path": "/api/more/department/integrity",
-      "module": "server.inline",
+      "path": "/api/more/department/history",
+      "module": "routers.community",
       "auth": [
-        "current_user"
+        "_dep_current_user"
+      ],
+      "name": "more_department_history"
+    },
+    {
+      "method": "GET",
+      "path": "/api/more/department/integrity",
+      "module": "routers.community",
+      "auth": [
+        "_dep_current_user"
       ],
       "name": "more_department_integrity"
     },
     {
       "method": "GET",
       "path": "/api/more/needs",
-      "module": "server.inline",
+      "module": "routers.community",
       "auth": [],
       "name": "more_list_needs"
     },
     {
       "method": "GET",
       "path": "/api/more/posts",
-      "module": "server.inline",
+      "module": "routers.community",
       "auth": [],
       "name": "more_list_posts"
     },
@@ -2742,10 +2886,19 @@
     },
     {
       "method": "GET",
-      "path": "/api/partnership/status",
-      "module": "server.inline",
+      "path": "/api/partnership/ledger",
+      "module": "routers.sovereign",
       "auth": [
-        "current_user"
+        "_dep_current_user"
+      ],
+      "name": "partnership_ledger"
+    },
+    {
+      "method": "GET",
+      "path": "/api/partnership/status",
+      "module": "routers.sovereign",
+      "auth": [
+        "_dep_current_user"
       ],
       "name": "partnership_status"
     },
@@ -2902,7 +3055,7 @@
     {
       "method": "GET",
       "path": "/api/puzzles/next",
-      "module": "server.inline",
+      "module": "routers.sovereign",
       "auth": [],
       "name": "puzzles_next"
     },
@@ -3169,11 +3322,20 @@
     {
       "method": "GET",
       "path": "/api/sovereign/memory",
-      "module": "server.inline",
+      "module": "routers.sovereign",
       "auth": [
         "dep"
       ],
       "name": "sovereign_memory_list"
+    },
+    {
+      "method": "GET",
+      "path": "/api/sovereign/pipeline",
+      "module": "routers.sovereign",
+      "auth": [
+        "dep"
+      ],
+      "name": "sovereign_pipeline_list"
     },
     {
       "method": "GET",
@@ -3267,6 +3429,51 @@
     },
     {
       "method": "GET",
+      "path": "/api/unifier/media/{file_id}",
+      "module": "routers.unifier",
+      "auth": [
+        "_unifier_user"
+      ],
+      "name": "get_unifier_media"
+    },
+    {
+      "method": "GET",
+      "path": "/api/unifier/personas",
+      "module": "routers.unifier",
+      "auth": [
+        "_unifier_user"
+      ],
+      "name": "list_unifier_personas"
+    },
+    {
+      "method": "GET",
+      "path": "/api/unifier/plans",
+      "module": "routers.unifier",
+      "auth": [
+        "_unifier_user"
+      ],
+      "name": "list_unifier_plans"
+    },
+    {
+      "method": "GET",
+      "path": "/api/unifier/plans/{plan_id}",
+      "module": "routers.unifier",
+      "auth": [
+        "_unifier_user"
+      ],
+      "name": "get_unifier_plan"
+    },
+    {
+      "method": "GET",
+      "path": "/api/unifier/sessions/{session_id}",
+      "module": "routers.unifier",
+      "auth": [
+        "_unifier_user"
+      ],
+      "name": "get_unifier_session"
+    },
+    {
+      "method": "GET",
       "path": "/api/verify/{code}",
       "module": "server.inline",
       "auth": [],
@@ -3281,19 +3488,87 @@
     },
     {
       "method": "GET",
-      "path": "/api/xp/leaderboard",
-      "module": "server.inline",
+      "path": "/api/video/files/{file_id}",
+      "module": "routers.studio",
       "auth": [
-        "current_user"
+        "_dep_current_user"
+      ],
+      "name": "download_video_file"
+    },
+    {
+      "method": "GET",
+      "path": "/api/video/projects",
+      "module": "routers.studio",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "list_video_projects"
+    },
+    {
+      "method": "GET",
+      "path": "/api/video/projects/{project_id}",
+      "module": "routers.studio",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "get_video_project"
+    },
+    {
+      "method": "GET",
+      "path": "/api/video/projects/{project_id}/audio",
+      "module": "routers.studio",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "list_video_audio"
+    },
+    {
+      "method": "GET",
+      "path": "/api/video/projects/{project_id}/render-jobs/{job_id}",
+      "module": "routers.studio",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "get_video_render_job"
+    },
+    {
+      "method": "GET",
+      "path": "/api/video/shared/{token}",
+      "module": "routers.studio",
+      "auth": [],
+      "name": "get_shared_video"
+    },
+    {
+      "method": "GET",
+      "path": "/api/video/stock",
+      "module": "routers.studio",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "search_stock_media"
+    },
+    {
+      "method": "GET",
+      "path": "/api/video/templates",
+      "module": "routers.studio",
+      "auth": [],
+      "name": "list_video_templates"
+    },
+    {
+      "method": "GET",
+      "path": "/api/xp/leaderboard",
+      "module": "routers.community",
+      "auth": [
+        "_dep_current_user"
       ],
       "name": "xp_leaderboard"
     },
     {
       "method": "GET",
       "path": "/api/xp/me",
-      "module": "server.inline",
+      "module": "routers.community",
       "auth": [
-        "current_user"
+        "_dep_current_user"
       ],
       "name": "my_xp"
     },
@@ -3461,6 +3736,24 @@
     },
     {
       "method": "PATCH",
+      "path": "/api/exec/control/route-access",
+      "module": "server.inline",
+      "auth": [
+        "_require_executive"
+      ],
+      "name": "set_route_access"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/exec/control/user-route-access",
+      "module": "server.inline",
+      "auth": [
+        "_require_executive"
+      ],
+      "name": "set_user_route_access"
+    },
+    {
+      "method": "PATCH",
       "path": "/api/executive/projects/{project_id}",
       "module": "routers.executive_pipeline",
       "auth": [
@@ -3515,6 +3808,15 @@
     },
     {
       "method": "PATCH",
+      "path": "/api/providers/keys/by-provider/{provider_type}/status",
+      "module": "routers.provider_gateway",
+      "auth": [
+        "_user"
+      ],
+      "name": "provider_key_status"
+    },
+    {
+      "method": "PATCH",
       "path": "/api/providers/{provider_id}/status",
       "module": "routers.billing",
       "auth": [
@@ -3551,6 +3853,15 @@
     },
     {
       "method": "PATCH",
+      "path": "/api/sovereign/pipeline/{record_id}",
+      "module": "routers.sovereign",
+      "auth": [
+        "dep"
+      ],
+      "name": "sovereign_pipeline_update"
+    },
+    {
+      "method": "PATCH",
       "path": "/api/supervisor/greeter/config",
       "module": "routers.supervisor",
       "auth": [
@@ -3566,6 +3877,51 @@
         "dep"
       ],
       "name": "supervisor_update_visitor_flow"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/unifier/plans/{plan_id}",
+      "module": "routers.unifier",
+      "auth": [
+        "_unifier_user"
+      ],
+      "name": "patch_unifier_plan"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/unifier/sessions/{session_id}",
+      "module": "routers.unifier",
+      "auth": [
+        "_unifier_user"
+      ],
+      "name": "patch_unifier_session"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/video/projects/{project_id}",
+      "module": "routers.studio",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "update_video_project"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/video/projects/{project_id}/audio/{track_id}",
+      "module": "routers.studio",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "update_video_audio"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/video/projects/{project_id}/scenes/{scene_id}",
+      "module": "routers.studio",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "update_video_scene"
     },
     {
       "method": "POST",
@@ -3773,6 +4129,15 @@
         "dep"
       ],
       "name": "control_panel_set_broadcast"
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/courses/{course_id}/moderate",
+      "module": "routers.admin",
+      "auth": [
+        "dep"
+      ],
+      "name": "admin_moderate_course"
     },
     {
       "method": "POST",
@@ -4467,6 +4832,13 @@
     },
     {
       "method": "POST",
+      "path": "/api/auth/factory-reset",
+      "module": "server.inline",
+      "auth": [],
+      "name": "factory_reset"
+    },
+    {
+      "method": "POST",
       "path": "/api/auth/forgot-password",
       "module": "server.inline",
       "auth": [],
@@ -4591,7 +4963,7 @@
     {
       "method": "POST",
       "path": "/api/bug-report",
-      "module": "server.inline",
+      "module": "routers.misc",
       "auth": [],
       "name": "submit_bug_report"
     },
@@ -4661,7 +5033,7 @@
     {
       "method": "POST",
       "path": "/api/consent/cookie",
-      "module": "server.inline",
+      "module": "routers.misc",
       "auth": [],
       "name": "log_cookie_consent"
     },
@@ -4862,7 +5234,7 @@
     {
       "method": "POST",
       "path": "/api/exec/checkout/conversion",
-      "module": "server.inline",
+      "module": "routers.exec",
       "auth": [
         "dep"
       ],
@@ -5060,7 +5432,7 @@
     {
       "method": "POST",
       "path": "/api/exec/merch/create",
-      "module": "server.inline",
+      "module": "routers.exec",
       "auth": [
         "dep"
       ],
@@ -5094,7 +5466,7 @@
     {
       "method": "POST",
       "path": "/api/exec/personas/{name}/activate",
-      "module": "server.inline",
+      "module": "routers.exec",
       "auth": [
         "dep"
       ],
@@ -5103,7 +5475,7 @@
     {
       "method": "POST",
       "path": "/api/exec/personas/{name}/deactivate",
-      "module": "server.inline",
+      "module": "routers.exec",
       "auth": [
         "dep"
       ],
@@ -5112,7 +5484,7 @@
     {
       "method": "POST",
       "path": "/api/exec/personas/{name}/evolve",
-      "module": "server.inline",
+      "module": "routers.exec",
       "auth": [
         "dep"
       ],
@@ -5139,7 +5511,7 @@
     {
       "method": "POST",
       "path": "/api/exec/products/create",
-      "module": "server.inline",
+      "module": "routers.exec",
       "auth": [
         "dep"
       ],
@@ -5148,7 +5520,7 @@
     {
       "method": "POST",
       "path": "/api/exec/products/publish-all",
-      "module": "server.inline",
+      "module": "routers.exec",
       "auth": [
         "dep"
       ],
@@ -5157,7 +5529,7 @@
     {
       "method": "POST",
       "path": "/api/exec/scout/craft-response",
-      "module": "server.inline",
+      "module": "routers.exec",
       "auth": [
         "dep"
       ],
@@ -5166,7 +5538,7 @@
     {
       "method": "POST",
       "path": "/api/exec/scout/match-all",
-      "module": "server.inline",
+      "module": "routers.exec",
       "auth": [
         "dep"
       ],
@@ -5175,7 +5547,7 @@
     {
       "method": "POST",
       "path": "/api/exec/scout/run",
-      "module": "server.inline",
+      "module": "routers.exec",
       "auth": [
         "dep"
       ],
@@ -5184,7 +5556,7 @@
     {
       "method": "POST",
       "path": "/api/exec/staff-meeting",
-      "module": "server.inline",
+      "module": "routers.exec",
       "auth": [
         "dep"
       ],
@@ -5301,9 +5673,9 @@
     {
       "method": "POST",
       "path": "/api/help/guide",
-      "module": "server.inline",
+      "module": "routers.misc",
       "auth": [
-        "current_user"
+        "_dep_current_user_optional"
       ],
       "name": "help_guide"
     },
@@ -5549,81 +5921,81 @@
     {
       "method": "POST",
       "path": "/api/more/admin/queue/{content_type}/{content_id}/approve",
-      "module": "server.inline",
+      "module": "routers.community",
       "auth": [
-        "current_user"
+        "_dep_current_user"
       ],
       "name": "more_admin_approve"
     },
     {
       "method": "POST",
       "path": "/api/more/admin/queue/{content_type}/{content_id}/reject",
-      "module": "server.inline",
+      "module": "routers.community",
       "auth": [
-        "current_user"
+        "_dep_current_user"
       ],
       "name": "more_admin_reject"
     },
     {
       "method": "POST",
       "path": "/api/more/appeal",
-      "module": "server.inline",
+      "module": "routers.community",
       "auth": [
-        "current_user"
+        "_dep_current_user"
       ],
       "name": "more_appeal_decision"
     },
     {
       "method": "POST",
       "path": "/api/more/chat/send",
-      "module": "server.inline",
+      "module": "routers.community",
       "auth": [
-        "current_user"
+        "_dep_current_user"
       ],
       "name": "more_chat_send"
     },
     {
       "method": "POST",
       "path": "/api/more/department/chat",
-      "module": "server.inline",
+      "module": "routers.community",
       "auth": [
-        "current_user"
+        "_dep_current_user"
       ],
       "name": "more_department_chat"
     },
     {
       "method": "POST",
       "path": "/api/more/flag",
-      "module": "server.inline",
+      "module": "routers.community",
       "auth": [
-        "current_user"
+        "_dep_current_user"
       ],
       "name": "more_flag_content"
     },
     {
       "method": "POST",
       "path": "/api/more/need",
-      "module": "server.inline",
+      "module": "routers.community",
       "auth": [
-        "current_user"
+        "_dep_current_user"
       ],
       "name": "more_create_need"
     },
     {
       "method": "POST",
       "path": "/api/more/post",
-      "module": "server.inline",
+      "module": "routers.community",
       "auth": [
-        "current_user"
+        "_dep_current_user"
       ],
       "name": "more_create_post"
     },
     {
       "method": "POST",
       "path": "/api/more/purge",
-      "module": "server.inline",
+      "module": "routers.community",
       "auth": [
-        "current_user"
+        "_dep_current_user"
       ],
       "name": "more_manual_purge"
     },
@@ -6126,7 +6498,7 @@
     {
       "method": "POST",
       "path": "/api/puzzles/answer",
-      "module": "server.inline",
+      "module": "routers.sovereign",
       "auth": [],
       "name": "puzzles_answer"
     },
@@ -6329,7 +6701,7 @@
     {
       "method": "POST",
       "path": "/api/sovereign/chat",
-      "module": "server.inline",
+      "module": "routers.sovereign",
       "auth": [
         "dep"
       ],
@@ -6338,11 +6710,29 @@
     {
       "method": "POST",
       "path": "/api/sovereign/memory",
-      "module": "server.inline",
+      "module": "routers.sovereign",
       "auth": [
         "dep"
       ],
       "name": "sovereign_memory_add"
+    },
+    {
+      "method": "POST",
+      "path": "/api/sovereign/pipeline",
+      "module": "routers.sovereign",
+      "auth": [
+        "dep"
+      ],
+      "name": "sovereign_pipeline_add"
+    },
+    {
+      "method": "POST",
+      "path": "/api/sovereign/upload",
+      "module": "routers.sovereign",
+      "auth": [
+        "dep"
+      ],
+      "name": "sovereign_upload_file"
     },
     {
       "method": "POST",
@@ -6493,6 +6883,51 @@
     },
     {
       "method": "POST",
+      "path": "/api/unifier/plans/{plan_id}/to-project",
+      "module": "routers.unifier",
+      "auth": [
+        "_unifier_user"
+      ],
+      "name": "unifier_plan_to_project"
+    },
+    {
+      "method": "POST",
+      "path": "/api/unifier/sessions",
+      "module": "routers.unifier",
+      "auth": [
+        "_unifier_user"
+      ],
+      "name": "create_unifier_session"
+    },
+    {
+      "method": "POST",
+      "path": "/api/unifier/sessions/{session_id}/chat",
+      "module": "routers.unifier",
+      "auth": [
+        "_unifier_user"
+      ],
+      "name": "unifier_chat"
+    },
+    {
+      "method": "POST",
+      "path": "/api/unifier/sessions/{session_id}/plans",
+      "module": "routers.unifier",
+      "auth": [
+        "_unifier_user"
+      ],
+      "name": "create_unifier_plan"
+    },
+    {
+      "method": "POST",
+      "path": "/api/unifier/sessions/{session_id}/upload",
+      "module": "routers.unifier",
+      "auth": [
+        "_unifier_user"
+      ],
+      "name": "upload_unifier_media"
+    },
+    {
+      "method": "POST",
       "path": "/api/users/accept-terms",
       "module": "server.inline",
       "auth": [
@@ -6513,6 +6948,141 @@
       "module": "routers.system_rollback",
       "auth": [],
       "name": "ingest_visual_state"
+    },
+    {
+      "method": "POST",
+      "path": "/api/video/assistant",
+      "module": "routers.studio",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "video_ai_assistant"
+    },
+    {
+      "method": "POST",
+      "path": "/api/video/projects",
+      "module": "routers.studio",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "create_video_project"
+    },
+    {
+      "method": "POST",
+      "path": "/api/video/projects/{project_id}/audio",
+      "module": "routers.studio",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "add_video_audio"
+    },
+    {
+      "method": "POST",
+      "path": "/api/video/projects/{project_id}/autosave",
+      "module": "routers.studio",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "autosave_video_project"
+    },
+    {
+      "method": "POST",
+      "path": "/api/video/projects/{project_id}/duplicate",
+      "module": "routers.studio",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "duplicate_video_project"
+    },
+    {
+      "method": "POST",
+      "path": "/api/video/projects/{project_id}/publish",
+      "module": "routers.studio",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "publish_video_project"
+    },
+    {
+      "method": "POST",
+      "path": "/api/video/projects/{project_id}/render",
+      "module": "routers.studio",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "render_video_project"
+    },
+    {
+      "method": "POST",
+      "path": "/api/video/projects/{project_id}/scenes",
+      "module": "routers.studio",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "add_video_scene"
+    },
+    {
+      "method": "POST",
+      "path": "/api/video/projects/{project_id}/scenes/{scene_id}/duplicate",
+      "module": "routers.studio",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "duplicate_video_scene"
+    },
+    {
+      "method": "POST",
+      "path": "/api/video/projects/{project_id}/scenes/{scene_id}/move",
+      "module": "routers.studio",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "move_video_scene"
+    },
+    {
+      "method": "POST",
+      "path": "/api/video/projects/{project_id}/share",
+      "module": "routers.studio",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "share_video_project"
+    },
+    {
+      "method": "POST",
+      "path": "/api/video/projects/{project_id}/thumbnail",
+      "module": "routers.studio",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "set_video_thumbnail"
+    },
+    {
+      "method": "POST",
+      "path": "/api/video/stock/import",
+      "module": "routers.studio",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "import_stock_media"
+    },
+    {
+      "method": "POST",
+      "path": "/api/video/templates/{slug}/use",
+      "module": "routers.studio",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "use_video_template"
+    },
+    {
+      "method": "POST",
+      "path": "/api/video/voice",
+      "module": "routers.studio",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "generate_voice"
     },
     {
       "method": "PUT",

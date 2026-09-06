@@ -110,7 +110,8 @@ async def upload_track(
     if duration_seconds <= 0:
         raise HTTPException(400, "duration_seconds is required for audio uploads")
 
-    contents = await file.read()
+    # Read with cap — a hostile multi-GB upload must not land in memory first.
+    contents = await file.read(MAX_UPLOAD_MB * 1024 * 1024 + 1)
     if len(contents) > MAX_UPLOAD_MB * 1024 * 1024:
         raise HTTPException(413, f"File too large (max {MAX_UPLOAD_MB}MB)")
 
@@ -190,7 +191,8 @@ async def upload_image(
 ):
     if not file.content_type or not file.content_type.lower().startswith("image/"):
         raise HTTPException(400, "File must be an image")
-    contents = await file.read()
+    # Read with cap — see the audio upload handler above.
+    contents = await file.read(MAX_UPLOAD_MB * 1024 * 1024 + 1)
     if len(contents) > MAX_UPLOAD_MB * 1024 * 1024:
         raise HTTPException(413, f"File too large (max {MAX_UPLOAD_MB}MB)")
 
@@ -394,7 +396,9 @@ async def create_video(
         if part is None:
             break
         if isinstance(part, UploadFile):
-            data = await part.read()
+            data = await part.read(MAX_UPLOAD_MB * 1024 * 1024 + 1)
+            if len(data) > MAX_UPLOAD_MB * 1024 * 1024:
+                raise HTTPException(413, f"Scene image too large (max {MAX_UPLOAD_MB}MB)")
             if data:
                 images.append(data)
                 image_names.append(part.filename or f"scene_{idx}.png")
@@ -402,7 +406,9 @@ async def create_video(
 
     snd_data = None
     if soundtrack is not None:
-        snd_data = await soundtrack.read()
+        snd_data = await soundtrack.read(MAX_UPLOAD_MB * 1024 * 1024 + 1)
+        if len(snd_data) > MAX_UPLOAD_MB * 1024 * 1024:
+            raise HTTPException(413, f"Soundtrack too large (max {MAX_UPLOAD_MB}MB)")
 
     if not images:
         raise HTTPException(400, "Add at least one image (image_0, image_1, ...)")

@@ -294,12 +294,20 @@ async def hybrid_nam_upload(
 
     _touch_session()
 
+    # Size cap BEFORE reading: same treatment as every other upload surface
+    # (director upload, saga, unifier). 25 MB matches the unifier's cap.
+    _MAX_UPLOAD_BYTES = 25 * 1024 * 1024
     try:
-        content = await file.read()
+        content = await file.read(_MAX_UPLOAD_BYTES + 1)
     except Exception as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Failed to read uploaded file: {exc}",
+        )
+    if len(content) > _MAX_UPLOAD_BYTES:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail="File too large. Max 25 MB.",
         )
 
     if not content:

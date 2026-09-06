@@ -378,7 +378,8 @@ async def upload_media_file(
     exact time boundary. Full playback is never granted by the upload itself.
     """
     max_mb = 50
-    contents = await file.read()
+    # Read with cap — a 2GB hostile upload must not land in memory before 413.
+    contents = await file.read(max_mb * 1024 * 1024 + 1)
     if len(contents) > max_mb * 1024 * 1024:
         raise HTTPException(413, f"File too large (max {max_mb}MB)")
     is_audio = (file.content_type or "").lower().startswith("audio/")
@@ -558,13 +559,18 @@ async def get_content_file(
 ):
     """Serve static content files (starter-library ebooks, etc.) from the content/ directory.
 
-    The file_path is relative to the project root (e.g. 'content/starter-library/the-small-start.md').
+    Accepts paths relative to the project root ('content/starter-library/x.md')
+    or bare library paths ('starter-library/x.md'), which are normalized under
+    content/ so the frontend's canonical link format always resolves.
     Only files under the content/ directory are served.
     """
     from fastapi.responses import FileResponse
-    # Security: only serve files under content/
-    if not file_path.startswith("content/") or ".." in file_path:
+    # Security: reject traversal and absolute paths up front
+    if ".." in file_path or file_path.startswith("/"):
         raise HTTPException(403, "Access denied")
+    # Normalize: bare library paths are treated as content/ children.
+    if not file_path.startswith("content/"):
+        file_path = "content/" + file_path
     # Resolve content paths relative to the repository root. This router lives
     # in backend/routers/, while the seeded manuscripts live in content/.
     backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))

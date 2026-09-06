@@ -35,6 +35,10 @@ WORKDIR /app
 
 COPY backend/ /app/backend/
 
+# Copy the seeded content (starter-library manuscripts) into the image —
+# served by GET /api/media/content/{path}
+COPY content/ /app/content/
+
 # Copy the built React app into the location server.py checks first
 COPY --from=frontend-builder /frontend/build /app/frontend/build
 
