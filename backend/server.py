@@ -1362,6 +1362,14 @@ async def _on_startup_impl():
         logger.warning("STARTUP: seed_academy failed (non-fatal): %s", _e)
 
     try:
+        from simulation import get_engine as _get_sim_engine
+        _sim = _get_sim_engine(db, app)
+        await _sim.ensure_indexes()
+        logger.info("STARTUP: simulation indexes ensured")
+    except Exception as _e:
+        logger.warning("STARTUP: simulation engine init failed (non-fatal): %s", _e)
+
+    try:
         await seed_users()
     except Exception as _e:
         logger.warning("STARTUP: seed_users failed (non-fatal): %s", _e)
