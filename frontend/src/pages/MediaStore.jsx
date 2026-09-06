@@ -11,6 +11,7 @@ import {
   Download, RefreshCw, Tag, ExternalLink,
 } from "lucide-react";
 import SharePanel from "../components/SharePanel";
+import SaveButton from "../components/SaveButton";
 import QRCodeButton from "../components/QRCodeButton";
 
 const TYPE_LABELS = {
@@ -248,6 +249,9 @@ function BrowseTab({ user }) {
               </div>
               <div className="absolute top-1.5 right-1.5 bg-white/90 backdrop-blur rounded-lg shadow-sm">
                 <SharePanel compact url={`/store?product=${product.id}`} title={product.title || "Digital product"} />
+              </div>
+              <div className="absolute top-1.5 right-12 bg-white/90 backdrop-blur rounded-lg shadow-sm">
+                <SaveButton kind="product" refId={product.id} title={product.title || "Digital product"} url={`/store?product=${product.id}`} />
               </div>
             </div>
 

@@ -26,6 +26,7 @@ const TABS = [
 
 const TOOLS = [
   { name: "Provider Gateway", desc: "Platform-wide LLM keys (Groq, Cerebras, Gemini…)", path: "/admin/providers" },
+  { name: "Ops Console", desc: "Notifications, email delivery, health & audit", path: "/admin/ops" },
   { name: "Site Control Panel", desc: "Site-wide flags, mode, and toggles", path: "/admin/control" },
   { name: "Sovereign Command", desc: "Exec control panel — panels, failover, heartbeat", path: "/admin/exec-control" },
   { name: "Exec System", desc: "Users, roles, KPIs, emergency breaker panel", path: "/admin/system" },

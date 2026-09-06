@@ -19,6 +19,7 @@ import { toast } from "sonner";
 import AppShell from "../components/AppShell";
 import { FEATURE_TIER_RANK, FEATURE_TIER_LABEL, canAccess } from "../lib/tiers";
 import SharePanel from "../components/SharePanel";
+import WorkspacePanel from "../components/WorkspacePanel";
 import {
   Music, BookOpen, Users, Edit3, Camera, Send, Mic, MicOff,
   Volume2, VolumeX, Play, Pause, Settings, ExternalLink,
@@ -1196,6 +1197,7 @@ export default function UnifiedProfile() {
     { key: "publish",  label: "Publish", ownerOnly: true },
     { key: "learn",    label: "Learn",   ownerOnly: true },
     { key: "settings", label: "Settings", ownerOnly: true },
+    { key: "workspace", label: "Workspace", ownerOnly: true },
     ...(isAdmin && isOwner ? [{ key: "control", label: "Control", ownerOnly: true }] : []),
   ].filter(t => !t.ownerOnly || isOwner);
 
@@ -1483,6 +1485,11 @@ export default function UnifiedProfile() {
               {/* ══ SETTINGS tab ══ */}
               {activeTab === "settings" && isOwner && (
                 <SettingsTab profile={profile} onSaved={reloadProfile} />
+              )}
+
+              {/* WORKSPACE tab (personal workspace: saved items + notes/plans) */}
+              {activeTab === "workspace" && isOwner && (
+                <WorkspacePanel />
               )}
 
               {/* ══ CONTROL tab (admin/exec only) ══ */}

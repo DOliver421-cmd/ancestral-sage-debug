@@ -251,6 +251,8 @@ _ADDITIONAL_API_ROUTER_MODULES = (
     ("exec_command", "/api"),
     ("sovereign", "/api"),
     ("misc", "/api"),
+    ("ops_admin", "/api"),
+    ("workspace", "/api"),
 )
 
 # ── Feature Control Center enforcement (read side) ──────────────────────────
@@ -294,7 +296,7 @@ async def add_security_headers(request: Request, call_next):
         "font-src 'self' data: https://fonts.gstatic.com https://cdn.fontshare.com; "
         "img-src 'self' data: https:; "
         "connect-src 'self' https:; "
-        "frame-src 'self' https://bandcamp.com https://namoshun.gumroad.com https://gumroad.com https://wai-institute-production.up.railway.app https://www.youtube.com https://www.youtube-nocookie.com; "
+        "frame-src 'self' https://bandcamp.com https://namoshun.gumroad.com https://gumroad.com https://wai-institute-production.up.railway.app https://www.youtube.com https://www.youtube-nocookie.com https://waiinstitutepremiumservices.bolt.host; "
         "frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
     )
     # Referrer policy (limit referrer disclosure)
@@ -10527,6 +10529,8 @@ def _bind_router_dependencies(router_module):
         "_jwt_algo": JWT_ALGO,
         "_gmail": _send_via_gmail,
         "_resend": _send_via_resend,
+        "require_role": require_role,
+        "_require_role": require_role,
     }
     values = [available[parameter.name] for parameter in inspect.signature(bind).parameters.values()]
     bind(*values)
