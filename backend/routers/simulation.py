@@ -31,22 +31,36 @@ router = APIRouter(tags=["simulation"])
 
 # ── Shared state ─────────────────────────────────────────────────────────────
 db = current_user = audit = None
-_sim_sim_app = None
+_sim_app = None
 
 
-def bind(_db, _current_user, _audit=None, _sim_app=None):
+def bind(_db, _current_user, _audit=None, _app=None):
     """Called by server.py at include time to inject shared dependencies."""
-    global db, current_user, audit, _sim_sim_app
+    global db, current_user, audit, _sim_app
     db = _db
     current_user = _current_user
     audit = _audit
-    _sim_sim_app = _sim_app
+    _sim_app = _app
+
 
 
 async def _dep_current_user(authorization: Optional[str] = None):
     if current_user is None:
         raise HTTPException(503, "Service starting up")
     return await current_user(authorization)
+
+
+async def _get_engine() -> SimulationEngine:
+    if not hasattr(_get_engine, "_cached"):
+        if db is None or _sim_app is None:
+            raise HTTPException(503, "Simulation engine not initialized")
+        _get_engine._cached = get_engine(db, _sim_app)
+        try:
+            await _get_engine._cached.ensure_indexes()
+        except Exception as _e:
+            logger.warning("simulation ensure_indexes failed (non-fatal): %s", _e)
+    return _get_engine._cached
+
 
 
 # ── Pydantic schemas ─────────────────────────────────────────────────────────
@@ -141,14 +155,16 @@ def _doc_to_event(doc: dict) -> EventOut:
 # ── Profiles ─────────────────────────────────────────────────────────────────
 @router.get("/simulation/profiles")
 async def list_profiles(user=Depends(require_rank("admin"))):
-    engine = get_engine(db, _sim_app)
+    engine = await _get_engine()
+
     profiles = await engine.list_profiles()
     return {"profiles": [_doc_to_profile(p.to_doc()) for p in profiles]}
 
 
 @router.post("/simulation/profiles")
 async def create_profile(body: ProfileCreate, user=Depends(require_rank("admin"))):
-    engine = get_engine(db, _sim_app)
+    engine = await _get_engine()
+
     profile = await engine.create_profile(
         name=body.name,
         type=body.type,
@@ -161,7 +177,8 @@ async def create_profile(body: ProfileCreate, user=Depends(require_rank("admin")
 
 @router.get("/simulation/profiles/{profile_id}")
 async def get_profile(profile_id: str, user=Depends(require_rank("admin"))):
-    engine = get_engine(db, _sim_app)
+    engine = await _get_engine()
+
     profile = await engine.get_profile(profile_id)
     if not profile:
         raise HTTPException(404, "Profile not found")
@@ -179,7 +196,8 @@ async def list_scenarios(user=Depends(require_rank("admin"))):
 # ── Runs ─────────────────────────────────────────────────────────────────────
 @router.post("/simulation/runs")
 async def create_run(body: RunCreate, user=Depends(require_rank("admin"))):
-    engine = get_engine(db, _sim_app)
+    engine = await _get_engine()
+
     run = await engine.create_run(
         name=body.name,
         description=body.description,
@@ -199,14 +217,16 @@ async def create_run(body: RunCreate, user=Depends(require_rank("admin"))):
 
 @router.get("/simulation/runs")
 async def list_runs(user=Depends(require_rank("admin")), status: Optional[str] = None):
-    engine = get_engine(db, _sim_app)
+    engine = await _get_engine()
+
     runs = await engine.list_runs(status=status)
     return {"runs": [_doc_to_run(r.to_doc()) for r in runs]}
 
 
 @router.get("/simulation/runs/{run_id}")
 async def get_run(run_id: str, user=Depends(require_rank("admin"))):
-    engine = get_engine(db, _sim_app)
+    engine = await _get_engine()
+
     run = await engine.get_run(run_id)
     if not run:
         raise HTTPException(404, "Run not found")
@@ -215,7 +235,8 @@ async def get_run(run_id: str, user=Depends(require_rank("admin"))):
 
 @router.post("/simulation/runs/{run_id}/start")
 async def start_run(run_id: str, user=Depends(require_rank("admin"))):
-    engine = get_engine(db, _sim_app)
+    engine = await _get_engine()
+
     run = await engine.get_run(run_id)
     if not run:
         raise HTTPException(404, "Run not found")
@@ -228,7 +249,8 @@ async def start_run(run_id: str, user=Depends(require_rank("admin"))):
 
 @router.post("/simulation/runs/{run_id}/stop")
 async def stop_run(run_id: str, user=Depends(require_rank("admin"))):
-    engine = get_engine(db, _sim_app)
+    engine = await _get_engine()
+
     run = await engine.get_run(run_id)
     if not run:
         raise HTTPException(404, "Run not found")
@@ -239,7 +261,8 @@ async def stop_run(run_id: str, user=Depends(require_rank("admin"))):
 # ── Events ───────────────────────────────────────────────────────────────────
 @router.get("/simulation/runs/{run_id}/events")
 async def get_events(run_id: str, user=Depends(require_rank("admin")), event_type: Optional[str] = None, limit: int = 500):
-    engine = get_engine(db, _sim_app)
+    engine = await _get_engine()
+
     run = await engine.get_run(run_id)
     if not run:
         raise HTTPException(404, "Run not found")
@@ -249,7 +272,8 @@ async def get_events(run_id: str, user=Depends(require_rank("admin")), event_typ
 
 @router.get("/simulation/runs/{run_id}/analytics")
 async def get_run_analytics(run_id: str, user=Depends(require_rank("admin"))):
-    engine = get_engine(db, _sim_app)
+    engine = await _get_engine()
+
     run = await engine.get_run(run_id)
     if not run:
         raise HTTPException(404, "Run not found")

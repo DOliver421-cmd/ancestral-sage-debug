@@ -25,13 +25,19 @@ from collections import defaultdict
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
-import httpx
-import jwt
+
 from fastapi import FastAPI, HTTPException
 
 from roles import Role
 
 logger = logging.getLogger("lcewai.simulation")
+
+# Optional httpx — only needed for in-process ASGI simulation calls.
+try:
+    import httpx as _httpx
+except Exception:
+    _httpx = None
+
 
 # ── Built-in student profiles ────────────────────────────────────────────────
 STUDENT_PROFILES: Dict[str, Dict[str, Any]] = {
@@ -468,13 +474,17 @@ class SimulationEngine:
         }
         return jwt.encode(payload, secret, algorithm=algo)
 
-    async def _api_call(self, method: str, path: str, user: Dict[str, Any], json_data: Optional[Dict] = None, params: Optional[Dict] = None) -> httpx.Response:
+    async def _api_call(self, method: str, path: str, user: Dict[str, Any], json_data: Optional[Dict] = None, params: Optional[Dict] = None):
+        if _httpx is None:
+            raise RuntimeError("httpx is required for simulation API calls")
+
         token = await self._make_token(user)
         headers = {"Authorization": f"Bearer {token}"}
         if json_data is not None:
             headers["Content-Type"] = "application/json"
-        transport = httpx.ASGITransport(app=self.app)
-        async with httpx.AsyncClient(transport=transport, base_url="http://academy.internal") as client:
+        transport = _httpx.ASGITransport(app=self.app)
+        async with _httpx.AsyncClient(transport=transport, base_url="http://academy.internal") as client:
+
             response = await client.request(method, path, headers=headers, json=json_data, params=params)
         return response
 
