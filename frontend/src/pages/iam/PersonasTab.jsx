@@ -1,157 +1,290 @@
+/**
+ * PersonaManagementConsole — Full CRUD for AI personas inside IAM.
+ *
+ * This replaces the old read-only enable/disable decoy with a complete
+ * create, edit, reorder, and archive control panel. Every mutation is
+ * audit-logged and requires executive admin privileges.
+ */
+
 import { useCallback, useEffect, useState } from "react";
 import { api } from "../../lib/api";
-import { useAuth } from "../../lib/auth";
-import { RefreshCw, Loader2, Bot, ShieldCheck, Power, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
+import {
+  Plus, Save, Trash2, RefreshCw, ChevronUp, ChevronDown,
+  CheckCircle2, XCircle, Loader2,
+} from "lucide-react";
 
-const TIER_LABEL = {
-  governance: "Governance",
-  director: "Director",
-  executive: "Executive",
-  assistant: "Assistant",
-  production: "Production",
+const COPPER = "#C0572D";
+const GREEN = "#1B4332";
+const BONE = "#FDFBF5";
+
+const EMPTY = {
+  persona_id: "",
+  name: "",
+  system_prompt: "",
+  priority: 100,
+  active: true,
+  allowed_roles: ["admin", "executive_admin"],
+  model_override: "",
 };
 
-const levelColor = {
-  governance: "#7f1d1d",
-  director: "#92400e",
-  executive: "#1e40af",
-  assistant: "#15803d",
-  production: "#6d28d9",
-};
-
-/**
- * Personas — an IAM surface to see, enable/disable, and read live source status
- * for every system persona. Backed by /ai/personas/exec (source of truth =
- * load_personas() + PERSONA_META). Hybrid Nam, Conspiracy Brother, Griot and
- * the Unified Mind are all real, chaired prompts here — nothing is a decoy.
- */
 export default function PersonasTab() {
-  const { user } = useAuth();
-  const [rows, setRows] = useState(null);
-  const [error, setError] = useState(null);
-  const [saving, setSaving] = useState(null);
-  const isExec = user?.role === "executive_admin" || user?.role === "admin";
+  const [list, setList] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [editing, setEditing] = useState(null);
+  const [form, setForm] = useState({ ...EMPTY });
+  const [error, setError] = useState("");
 
-  const load = useCallback(() => {
-    setError(null);
-    setRows(null);
-    api.get("/ai/personas/exec")
-      .then((r) => setRows(Array.isArray(r.data?.personas) ? r.data.personas : []))
-      .catch((e) => {
-        setError(e?.response?.data?.detail || "Could not load the persona roster.");
-        setRows([]);
-      });
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const { data } = await api.get("/admin/personas");
+      setList(data || []);
+    } catch {
+      toast.error("Could not load personas.");
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => { load(); }, [load]);
 
-  async function toggle(row) {
-    if (!isExec) return;
-    setSaving(row.slug);
+  const startCreate = () => {
+    setEditing("create");
+    setForm({ ...EMPTY });
+    setError("");
+  };
+
+  const startEdit = (p) => {
+    setEditing(p.persona_id);
+    setForm({
+      persona_id: p.persona_id,
+      name: p.name,
+      system_prompt: p.system_prompt,
+      priority: p.priority,
+      active: p.active,
+      allowed_roles: p.allowed_roles || [],
+      model_override: p.model_override || "",
+    });
+    setError("");
+  };
+
+  const cancel = () => {
+    setEditing(null);
+    setForm({ ...EMPTY });
+    setError("");
+  };
+
+  const save = async () => {
+    setSaving(true);
+    setError("");
     try {
-      await api.post(`/ai/personas/${row.slug}/toggle`, { enabled: !row.enabled });
-      toast.success(`${row.name} ${row.enabled ? "disabled" : "enabled"}`);
-      load();
-    } catch (e) {
-      toast.error(e?.response?.data?.detail || "Could not update persona state");
+      if (!form.persona_id.trim() || !form.name.trim() || !form.system_prompt.trim()) {
+        throw new Error("persona_id, name, and system_prompt are required.");
+      }
+      if (editing === "create") {
+        await api.post("/personas", form);
+        toast.success("Persona created.");
+      } else {
+        await api.put(`/personas/${form.persona_id}`, form);
+        toast.success("Persona updated.");
+      }
+      await load();
+      cancel();
+    } catch (err) {
+      const msg = err?.response?.data?.detail || err?.message || "Save failed.";
+      setError(msg);
+      toast.error(msg);
     } finally {
-      setSaving(null);
+      setSaving(false);
     }
-  }
+  };
+
+  const archive = async (p) => {
+    if (!confirm(`Archive persona "${p.name}"? This sets active=false.`)) return;
+    try {
+      await api.delete(`/personas/${p.persona_id}`);
+      toast.success("Persona archived.");
+      await load();
+    } catch {
+      toast.error("Archive failed.");
+    }
+  };
+
+  const movePriority = async (p, delta) => {
+    const newPriority = Math.max(0, p.priority + delta);
+    try {
+      await api.put(`/personas/${p.persona_id}/priority`, { priority: newPriority });
+      await load();
+    } catch {
+      toast.error("Priority update failed.");
+    }
+  };
+
+  const setField = (key, value) => {
+    setForm((f) => ({ ...f, [key]: value }));
+  };
 
   return (
     <div className="mt-4">
-      <div className="flex items-center justify-between mb-3">
+      {/* Header */}
+      <div className="flex items-center justify-between flex-wrap gap-3 mb-6">
         <div>
-          <p className="text-xs text-ink/60">
-            The system's authored personas, read live from <code className="font-mono">persona_loader</code>.
-            Each entry is a chaired prompt with a source status — enabling/disabling persists server-side.
+          <div className="overline text-copper text-xs tracking-widest">AI Governance</div>
+          <h2 className="font-heading text-2xl font-bold mt-1">Persona Management</h2>
+          <p className="text-sm text-ink/50 mt-1">
+            Create, edit, reorder, and archive AI personas. Every change is audit-logged.
           </p>
         </div>
-        <button onClick={load} className="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-sm border border-ink/20 hover:border-copper transition-colors bg-white text-ink">
-          <RefreshCw className="w-3.5 h-3.5" /> Reload
+        <button
+          onClick={startCreate}
+          className="flex items-center gap-2 text-xs font-black uppercase tracking-widest px-5 py-2.5 rounded-xl text-white"
+          style={{ background: GREEN }}
+        >
+          <Plus className="w-4 h-4" /> New Persona
         </button>
       </div>
 
-      {error && (
-        <div className="mb-3 rounded-lg border border-destructive/40 bg-destructive/5 px-4 py-3 text-sm text-destructive">
-          {error}
+      {/* Editor */}
+      {editing && (
+        <div className="card-flat rounded-2xl p-6 border bg-white mb-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-heading font-bold text-lg">
+              {editing === "create" ? "Create Persona" : `Edit: ${form.persona_id}`}
+            </h3>
+            <button onClick={cancel} className="text-xs text-ink/50 hover:text-ink">Cancel</button>
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-4">
+            <label className="block">
+              <span className="text-xs font-bold text-ink/60">Persona ID (slug)</span>
+              <input
+                value={form.persona_id}
+                onChange={(e) => setField("persona_id", e.target.value)}
+                disabled={editing !== "create"}
+                className="mt-1 w-full px-3 py-2 bg-white border border-ink/15 rounded-lg text-sm disabled:bg-ink/5"
+                placeholder="e.g. revenue_director"
+              />
+            </label>
+
+            <label className="block">
+              <span className="text-xs font-bold text-ink/60">Name</span>
+              <input
+                value={form.name}
+                onChange={(e) => setField("name", e.target.value)}
+                className="mt-1 w-full px-3 py-2 bg-white border border-ink/15 rounded-lg text-sm"
+                placeholder="Display name"
+              />
+            </label>
+
+            <label className="block md:col-span-2">
+              <span className="text-xs font-bold text-ink/60">System Prompt</span>
+              <textarea
+                value={form.system_prompt}
+                onChange={(e) => setField("system_prompt", e.target.value)}
+                rows={8}
+                className="mt-1 w-full px-3 py-2 bg-white border border-ink/15 rounded-lg text-sm font-mono"
+                placeholder="Full markdown directive text..."
+              />
+            </label>
+
+            <label className="block">
+              <span className="text-xs font-bold text-ink/60">Priority</span>
+              <input
+                type="number"
+                value={form.priority}
+                onChange={(e) => setField("priority", parseInt(e.target.value || "0", 10))}
+                className="mt-1 w-full px-3 py-2 bg-white border border-ink/15 rounded-lg text-sm"
+              />
+            </label>
+
+            <label className="block">
+              <span className="text-xs font-bold text-ink/60">Model Override (optional)</span>
+              <input
+                value={form.model_override}
+                onChange={(e) => setField("model_override", e.target.value)}
+                className="mt-1 w-full px-3 py-2 bg-white border border-ink/15 rounded-lg text-sm"
+                placeholder="e.g. claude-3-opus"
+              />
+            </label>
+
+            <label className="block flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={form.active}
+                onChange={(e) => setField("active", e.target.checked)}
+                className="accent-[#1B4332]"
+              />
+              <span className="text-xs font-bold text-ink/60">Active</span>
+            </label>
+          </div>
+
+          {error && (
+            <div className="mt-4 text-xs font-bold text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+              {error}
+            </div>
+          )}
+
+          <div className="mt-4 flex items-center gap-3">
+            <button
+              onClick={save}
+              disabled={saving}
+              className="flex items-center gap-2 text-xs font-black uppercase tracking-widest px-5 py-2.5 rounded-xl text-white disabled:opacity-50"
+              style={{ background: GREEN }}
+            >
+              {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+              Save
+            </button>
+          </div>
         </div>
       )}
 
-      {!rows ? (
-        <div className="flex items-center justify-center py-16 text-ink/40">
-          <Loader2 className="w-5 h-5 animate-spin mr-2" /> Loading personas…
-        </div>
-      ) : rows.length === 0 ? (
-        <div className="rounded-lg border border-ink/10 bg-white px-4 py-10 text-center text-sm text-ink/50">
-          No personas matched the source registry.
+      {/* List */}
+      {loading ? (
+        <div className="flex items-center justify-center py-20">
+          <Loader2 className="w-6 h-6 animate-spin text-copper" />
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {rows.map((row) => (
-            <div key={row.slug} className="rounded-lg border border-ink/10 bg-white p-4 flex flex-col gap-3">
-              <div className="flex items-start justify-between gap-2">
-                <div className="flex items-center gap-2 min-w-0">
-                  <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: levelColor[row.level] || "#6b7280" }} />
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-1.5">
-                      <Bot className="w-3.5 h-3.5 text-copper flex-shrink-0" />
-                      <span className="font-heading font-bold text-ink truncate">{row.name}</span>
-                    </div>
-                    <span className="text-[10px] text-ink/40 font-mono uppercase tracking-wider">{row.slug}</span>
+        <div className="space-y-3">
+          {list.map((p) => (
+            <div key={p.persona_id} className="card-flat rounded-2xl p-5 border bg-white">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-heading font-bold text-lg">{p.name}</span>
+                    <span className="text-xs font-mono text-ink/40">/{p.persona_id}</span>
+                    <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${p.active ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}`}>
+                      {p.active ? "Active" : "Archived"}
+                    </span>
+                    <span className="text-xs text-ink/40">priority: {p.priority}</span>
                   </div>
+                  <p className="text-xs text-ink/40 mt-1 line-clamp-2 font-mono">
+                    {p.system_prompt.slice(0, 160)}...
+                  </p>
                 </div>
-                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap ${row.enabled ? "bg-green-50 text-green-700 border border-green-200" : "bg-ink/5 text-ink/40 border border-ink/10"}`}>
-                  {row.enabled ? "● Active" : "○ Disabled"}
-                </span>
-              </div>
-
-              <p className="text-xs text-ink/60 leading-relaxed line-clamp-2">{row.domain || "No domain description."}</p>
-
-              <div className="flex flex-wrap gap-1.5">
-                <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-ink/5" style={{ color: levelColor[row.level] }}>
-                  {TIER_LABEL[row.level] || row.level}
-                </span>
-                <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-ink/5 text-ink/60">{row.department}</span>
-                {row.source_status === "active" ? (
-                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-green-50 text-green-700">Source: loaded</span>
-                ) : (
-                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-destructive/10 text-destructive">Source: missing</span>
-                )}
-              </div>
-
-              {Array.isArray(row.capabilities) && row.capabilities.length > 0 && (
-                <div className="text-[10px] text-ink/45">
-                  <span className="font-bold uppercase tracking-wider mr-1">Caps:</span>
-                  {row.capabilities.join(" · ")}
+                <div className="flex items-center gap-1 flex-shrink-0">
+                  <button onClick={() => movePriority(p, -1)} className="p-2 rounded-lg hover:bg-bone" title="Increase priority">
+                    <ChevronUp className="w-4 h-4 text-ink/50" />
+                  </button>
+                  <button onClick={() => movePriority(p, 1)} className="p-2 rounded-lg hover:bg-bone" title="Decrease priority">
+                    <ChevronDown className="w-4 h-4 text-ink/50" />
+                  </button>
+                  <button onClick={() => startEdit(p)} className="p-2 rounded-lg hover:bg-bone text-xs font-bold" style={{ color: GREEN }}>
+                    Edit
+                  </button>
+                  <button onClick={() => archive(p)} className="p-2 rounded-lg hover:bg-bone" title="Archive">
+                    <Trash2 className="w-4 h-4 text-red-500" />
+                  </button>
                 </div>
-              )}
-
-              {isExec && (
-                <button
-                  onClick={() => toggle(row)}
-                  disabled={saving === row.slug}
-                  className={`mt-auto inline-flex items-center justify-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-sm border transition-colors ${
-                    row.enabled
-                      ? "border-ink/15 text-ink/50 hover:text-destructive hover:border-destructive/40"
-                      : "bg-copper text-bone border-copper hover:bg-copper/90"
-                  } disabled:opacity-50`}
-                >
-                  {saving === row.slug ? <Loader2 className="w-3 h-3 animate-spin" /> : row.enabled ? <Power className="w-3 h-3" /> : <CheckCircle2 className="w-3 h-3" />}
-                  {row.enabled ? "Disable" : "Enable"}
-                </button>
-              )}
+              </div>
             </div>
           ))}
+          {list.length === 0 && (
+            <p className="text-sm text-ink/40 italic py-8 text-center">No personas defined. Click "New Persona" to create one.</p>
+          )}
         </div>
       )}
-
-      <p className="mt-4 text-[11px] text-ink/40 flex items-center gap-1.5">
-        <ShieldCheck className="w-3.5 h-3.5" />
-        Enable/disable requires executive admin. State persists in the platform config database and survives redeploys.
-      </p>
     </div>
   );
 }

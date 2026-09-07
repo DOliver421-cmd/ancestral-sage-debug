@@ -22,7 +22,7 @@ import logging
 from datetime import datetime, timezone
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Header
 from pydantic import BaseModel, ConfigDict, Field
 
 from routers.roles import Role, ROLE_RANK
@@ -54,7 +54,7 @@ class User(BaseModel):
     feature_tier: str = "free"
 
 
-async def _dep_current_user(authorization: Optional[str] = None) -> User:
+async def _dep_current_user(authorization: Optional[str] = Header(None)) -> User:
     return await current_user(authorization)
 
 
