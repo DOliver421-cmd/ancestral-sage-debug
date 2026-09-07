@@ -462,6 +462,7 @@ class RegisterReq(BaseModel):
     """Public self-registration. SECURITY: role and associate are NOT accepted
     from clients here. Public sign-ups are always students with no cohort
     assignment. Admins assign cohorts via /api/admin/associate."""
+    model_config = ConfigDict(extra="ignore")
     email: EmailStr
     full_name: str = Field(..., min_length=1, max_length=500)
     password: str = Field(..., min_length=8, max_length=128)
@@ -1813,14 +1814,14 @@ async def register(body: RegisterReq, request: Request):
     await check_rate(f"register:{body.email}", max_calls=5, window_sec=60)
     _rip = (request.client.host if request.client else "anon")
     await check_rate(f"register:ip:{_rip}", max_calls=10, window_sec=60)
-    if await db.users.find_one({"email": body.email}):
-        raise HTTPException(400, "Email already registered")
 
-    # Legal consent gates
     if not body.agreed_terms:
         raise HTTPException(400, "You must agree to the Terms of Service and Privacy Policy to create an account.")
     if not body.over_13:
         raise HTTPException(400, "You must be at least 13 years old to create an account. If you are under 13, please ask a parent or guardian to contact us.")
+
+    if await db.users.find_one({"email": body.email}):
+        raise HTTPException(400, "Email already registered")
 
     # Public self-registration is always a student. Higher-privilege accounts
     # must be created by an admin (POST /api/admin/users).
