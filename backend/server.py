@@ -41,7 +41,11 @@ from pathlib import Path
 from typing import List, Optional, Literal
 
 import jwt
-from dotenv import load_dotenv
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except Exception:
+    pass
 from fastapi import Depends, FastAPI, APIRouter, File, HTTPException, Header, Request, UploadFile
 from fastapi.responses import StreamingResponse, JSONResponse
 from motor.motor_asyncio import AsyncIOMotorClient
