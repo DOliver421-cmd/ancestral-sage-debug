@@ -218,7 +218,7 @@ FEATURE_MIN_TIER: dict = {
     "posts": "member",
     "publisher_ai": "member",
     "lounge": "member",
-    "courses": "plus",
+    "courses": "free",
     "tracks": "plus",
     "studio": "free",
     "band": "plus",

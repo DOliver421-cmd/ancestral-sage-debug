@@ -265,6 +265,7 @@ async def _identity_chain(identity_id: str, depth: int = 0) -> list:
         ident = await db.iam_identities.find_one({"id": current_id})
         if not ident:
             break
+        ident.pop("_id", None)
         chain.append(ident)
         current_id = ident.get("parent_id") or ident.get("created_by")
         if ident.get("kind") == "human":
@@ -358,6 +359,7 @@ async def list_identities(kind: Optional[str] = None, q: Optional[str] = "",
         if r.get("token_hash"):
             r["has_token"] = True
             r.pop("token_hash", None)
+        r.pop("_id", None)
     return {"identities": rows, "total": len(rows)}
 
 
@@ -412,9 +414,11 @@ async def get_identity(identity_id: str, actor: dict = Depends(_dep_current_user
     if not ident:
         raise HTTPException(404, "Identity not found")
     ident.pop("token_hash", None)
+    ident.pop("_id", None)
     delegations = await db.iam_delegations.find({"delegate_id": identity_id}).sort("created_at", -1).to_list(200)
     for d in delegations:
         d["active"] = _delegation_active(d)
+        d.pop("_id", None)
     chain = await _identity_chain(identity_id)
     return {"identity": ident, "delegations": delegations, "chain": chain}
 
@@ -543,6 +547,7 @@ async def create_delegation(body: DelegationCreate, actor: dict = Depends(_dep_c
         "created_by": actor.id,
     }
     await db.iam_delegations.insert_one(doc)
+    doc.pop("_id", None)
     doc["active"] = True
     return {"delegation": doc}
 
@@ -566,6 +571,7 @@ async def list_delegations(delegate_id: Optional[str] = None, principal_id: Opti
         query["revoked_at"] = None
     rows = await db.iam_delegations.find(query).sort("created_at", -1).to_list(500)
     for d in rows:
+        d.pop("_id", None)
         d["active"] = _delegation_active(d)
     return {"delegations": rows, "total": len(rows)}
 
@@ -621,6 +627,8 @@ async def list_actions(actor_id: Optional[str] = None, resource_type: Optional[s
                         {"$and": [{"resource_type": {"$in": [k[0] for k in keys] or ["__none__"]}},
                                   {"resource_key": {"$in": [k[1] for k in keys] or ["__none__"]}}]}]
     rows = await db.iam_actions.find(query).sort("created_at", -1).limit(min(max(limit, 1), 500)).to_list(500)
+    for a in rows:
+        a.pop("_id", None)
     return {"actions": rows, "total": len(rows)}
 
 
@@ -725,7 +733,7 @@ async def who_can_do_what(identity_id: Optional[str] = None,
             if r.get("owner_id") == ident.get("owner_id"):
                 domains.add(r["resource_type"])
         out.append({
-            "identity": {k: v for k, v in ident.items() if k != "token_hash"},
+            "identity": {k: v for k, v in ident.items() if k not in ("token_hash", "_id")},
             "owner_id": ident.get("owner_id"),
             "acting_for": acting_for,
             "authority_by_domain": authority,
