@@ -125,3 +125,5 @@ Noisy Assets/
 # Daytona CLI binary (downloaded per-session, not repo code)
 .daytona-bin/
 backend/logs/access_denials.log
+data/db/
+backend/logs/
