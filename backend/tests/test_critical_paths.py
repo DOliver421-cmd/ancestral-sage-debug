@@ -8,7 +8,7 @@ BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "http://localhost:8001").rstr
 API = f"{BASE_URL}/api"
 
 ADMIN = ("admin@lcewai.org", "Admin@LCE2026")
-EXEC = ("exec@lcewai.org", "Exec@LCE2026")
+EXEC = ("exec@lcewai.org", "Executive@LCE2026")
 STUDENT = ("student@lcewai.org", "Learn@LCE2026")
 
 

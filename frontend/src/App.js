@@ -359,7 +359,7 @@ function App() {
           <Route path="/instructor" element={<Protected roles={["instructor", "admin"]}><InstructorDashboard /></Protected>} />
           <Route path="/admin" element={<BoundedAdmin roles={["admin"]} label="Admin Dashboard"><AdminDashboard /></BoundedAdmin>} />
           <Route path="/admin/users" element={<BoundedAdmin roles={["admin"]} label="Admin Dashboard"><AdminDashboard /></BoundedAdmin>} />
-          <Route path="/admin/iam" element={<BoundedAdmin roles={["admin"]} label="IAM Console" backTo="/admin"><IAMConsole /></BoundedAdmin>} />
+           <Route path="/admin/iam" element={<BoundedAdmin roles={["admin", "executive_admin"]} label="IAM Console" backTo="/admin"><IAMConsole /></BoundedAdmin>} />
           <Route path="/admin/accounts" element={<BoundedAdmin roles={["admin"]} label="Account Controls" backTo="/admin"><AccountControls /></BoundedAdmin>} />
           <Route path="/admin/account-controls" element={<Navigate to="/admin/accounts" replace />} />
           <Route path="/admin/associate" element={<BoundedAdmin roles={["admin"]} label="Admin Dashboard"><AdminDashboard /></BoundedAdmin>} />
@@ -403,7 +403,7 @@ function App() {
           <Route path="/settings" element={<Protected><Settings /></Protected>} />
           <Route path="/my-position" element={<Protected><MyPosition /></Protected>} />
            <Route path="/personas" element={<AdminPage><Personas /></AdminPage>} />
-           <Route path="/personas/:slug" element={<AdminPage><PersonaProfile /></AdminPage>} />
+           <Route path="/personas/:slug" element={<BoundedAdmin roles={["admin", "executive_admin"]} label="Persona Profile" backTo="/personas"><PersonaProfile /></BoundedAdmin>} />
            <Route path="/admin/personas" element={<BoundedAdmin roles={["admin", "executive_admin"]} label="Persona Management" backTo="/admin"><PersonaManagementConsole /></BoundedAdmin>} />
           <Route path="/admin/system" element={<Navigate to="/admin/command" replace />} />
           {/* Site Control Panel — executive_admin only, not linked from any nav */}

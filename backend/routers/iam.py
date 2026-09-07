@@ -140,6 +140,7 @@ async def _ensure_human_identity(user) -> dict:
         if updates:
             await db.iam_identities.update_one({"id": ident["id"]}, {"$set": updates})
             ident.update(updates)
+    ident.pop("_id", None)
     return ident
 
 
@@ -334,8 +335,7 @@ async def list_identities(kind: Optional[str] = None, q: Optional[str] = "",
     if q:
         rows = [r for r in rows if q.lower() in (r.get("name", "") + " " + r.get("description", "")).lower()]
     # Merge in platform users as human identities (synced, never duplicated)
-    humans = await db.users.find({}, {"_id": 0, "password_hash": 0, "email": 1,
-                                      "full_name": 1, "role": 1, "is_active": 1, "id": 1}).to_list(2000)
+    humans = await db.users.find({}, {"email": 1, "full_name": 1, "role": 1, "is_active": 1, "id": 1}).to_list(2000)
     existing = {r.get("owner_id") for r in rows if r.get("kind") == "human"}
     for u in humans:
         if u.get("id") in existing:

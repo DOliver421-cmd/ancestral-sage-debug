@@ -135,6 +135,8 @@ class TestHierarchyGuards:
             "email": email,
             "full_name": "Reg Test",
             "password": "TestPass12",
+            "agreed_terms": True,
+            "over_13": True,
             "role": "admin",  # ← should be ignored
         })
         assert r.status_code == 200
