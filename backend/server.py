@@ -41,7 +41,6 @@ from pathlib import Path
 from typing import List, Optional, Literal
 
 import jwt
-from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, APIRouter, File, HTTPException, Header, Request, UploadFile
 from fastapi.responses import StreamingResponse, JSONResponse
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -88,7 +87,11 @@ from recovery import (
 from security.field_authorization import FieldAuthorization
 
 ROOT_DIR = Path(__file__).parent
-load_dotenv(ROOT_DIR / '.env', override=True)  # .env is source of truth (overrides empty/stale shell vars; no .env in Docker image so prod is unaffected)
+try:
+    from dotenv import load_dotenv
+    load_dotenv(ROOT_DIR / '.env', override=True)  # .env is source of truth (overrides empty/stale shell vars; no .env in Docker image so prod is unaffected)
+except ImportError:
+    pass  # python-dotenv not installed; rely on environment variables
 
 # ── MongoDB dual-connection (primary + Atlas backup) ──────────────────────────
 # Primary:  MONGO_URL          (Railway or any MongoDB host)
