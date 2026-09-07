@@ -127,3 +127,5 @@ Noisy Assets/
 backend/logs/access_denials.log
 data/db/
 backend/logs/
+backend/logs/
+mongod.log*
