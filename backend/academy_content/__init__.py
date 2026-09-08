@@ -60,6 +60,9 @@ from .mens_life_skills import MENS_LIFE_SKILLS
 from .leadership_foundations import LEADERSHIP_FOUNDATIONS
 from .career_workforce import CAREER_WORKFORCE
 from .entrepreneurship_foundations import ENTREPRENEURSHIP_FOUNDATIONS
+from .african_kingdoms import AFRICAN_KINGDOMS
+from .african_american_literature import AFRICAN_AMERICAN_LITERATURE
+from .ethnomathematics_stem import ETHNOMATHEMATICS_STEM
 
 PUBLISHED_COURSES = [
     READING_GRADE_1,
@@ -98,6 +101,9 @@ PUBLISHED_COURSES = [
     LEADERSHIP_FOUNDATIONS,
     CAREER_WORKFORCE,
     ENTREPRENEURSHIP_FOUNDATIONS,
+    AFRICAN_KINGDOMS,
+    AFRICAN_AMERICAN_LITERATURE,
+    ETHNOMATHEMATICS_STEM,
 ]
 
 # ── Planned catalog (honest placeholders — status "planned", zero lessons).
