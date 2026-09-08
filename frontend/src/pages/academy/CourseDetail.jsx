@@ -4,6 +4,7 @@ import { api } from "../../lib/api";
 import { useAuth } from "../../lib/auth";
 import { PublicHeader, AcademyFooter, TrackTag, LiveChip } from "./academyKit";
 import { ArrowRight, Lock, BookOpen, Clock, Target, ChevronDown, AlertCircle, GraduationCap } from "lucide-react";
+import LessonVideo from "./LessonVideo";
 
 /* /academy/courses/:slug — public course page (full lesson content is gated
    to an enrolled student owner via content_visible). */
@@ -93,6 +94,9 @@ export default function CourseDetail() {
           <div className="grid lg:grid-cols-3 gap-8">
             {/* Unit / lesson map */}
             <div className="lg:col-span-2 space-y-4">
+              {(data.enrichment_videos || []).filter((v) => v.placement === "start").map((v) => (
+                <LessonVideo key={v.video_id} video={v} />
+              ))}
               <h2 className="font-heading text-2xl font-bold text-ink">Course map</h2>
               {data.units.map((unit, ui) => {
                 const open = openUnits.includes(unit.slug) || ui === 0;

@@ -89,6 +89,7 @@ import AcademyStudentHome from "./pages/academy/AcademyStudentHome";
 import AcademyLesson from "./pages/academy/AcademyLesson";
 import AcademyRecords from "./pages/academy/AcademyRecords";
 import AcademyCompliance from "./pages/academy/AcademyCompliance";
+import AcademyBuildTracker from "./pages/academy/AcademyBuildTracker";
 import SimulationDashboard from "./pages/simulation/SimulationDashboard";
 import OurLegacy from "./pages/OurLegacy";
 import VonnsSaga from "./pages/VonnsSaga";
@@ -331,6 +332,7 @@ function App() {
           <Route path="/academy/learn/:courseSlug/:lessonSlug" element={<Protected><AcademyLesson /></Protected>} />
           <Route path="/academy/records" element={<Protected><AcademyRecords /></Protected>} />
           <Route path="/academy/compliance" element={<Protected><AcademyCompliance /></Protected>} />
+          <Route path="/academy/build" element={<Protected roles={["instructor", "support_staff", "oversight", "admin", "executive_admin"]}><AcademyBuildTracker /></Protected>} />
           <Route path="/simulation" element={<Protected><SimulationDashboard /></Protected>} />
           {/* Our Legacy, Our Future — the flagship book + campaign (public) */}
           <Route path="/our-legacy" element={<OurLegacy />} />

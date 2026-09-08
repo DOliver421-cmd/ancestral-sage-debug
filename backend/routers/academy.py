@@ -361,6 +361,14 @@ async def course_detail(slug: str, user=Depends(_dep_optional_user)):
         "objectives": course.get("learning_objectives", []),
         "units": units_out,
         "content_visible": include_content,
+        "enrichment_videos": [
+            v for v in course.get("enrichment_videos", [])
+            if v.get("status") == "ready"
+        ],
+        "enrichment_note": (
+            "Curated, publicly accessible educational resources from their creators — not MoreHelp content. "
+            "Videos play on-site and never navigate you away."
+        ),
     }
     return payload
 
@@ -575,6 +583,10 @@ async def course_learn(slug: str, student: Optional[str] = None, user=Depends(_d
             "grade_label": course.get("grade_label"),
             "passing_score": _passing_score(course),
             "objectives": course.get("learning_objectives", []),
+            "enrichment_videos": [
+                v for v in course.get("enrichment_videos", [])
+                if v.get("status") == "ready"
+            ],
         },
         "units": units_out,
         "current_lesson": {

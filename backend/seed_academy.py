@@ -16,6 +16,7 @@ import uuid
 import pymongo
 
 from academy_content import ACADEMY_COURSES, PUBLISHED_COURSES
+from academy_content.enrichment import validate_enrichment, videos_for
 
 logger = logging.getLogger("lcewai")
 
@@ -91,11 +92,16 @@ def validate_all() -> list:
     """Validate every course in the catalog. Returns all problems found."""
     problems = []
     slugs = []
+    unit_slugs_by_course = {}
     for course in ACADEMY_COURSES:
         problems += validate_course(course)
         if course["slug"] in slugs:
             problems.append(f"duplicate course slug {course['slug']}")
         slugs.append(course["slug"])
+        unit_slugs_by_course[course["slug"]] = [
+            u for u in course.get("units", []) if u.get("slug")
+        ]
+    problems += validate_enrichment(set(slugs), unit_slugs_by_course)
     return problems
 
 
@@ -131,6 +137,7 @@ async def seed_academy(db) -> dict:
         doc = {
             **course,
             "units": [] if course["status"] == "planned" else course["units"],
+            "enrichment_videos": videos_for(course["slug"]),
             "_source_version": content_version,
             "_updated_at": __import__("datetime").datetime.now(
                 __import__("datetime").timezone.utc

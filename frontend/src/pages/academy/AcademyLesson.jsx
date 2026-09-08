@@ -3,6 +3,7 @@ import { Link, useParams, useSearchParams, useNavigate, useBeforeUnload } from "
 import { api } from "../../lib/api";
 import AppShell from "../../components/AppShell";
 import { ProgressBar } from "./academyKit";
+import LessonVideo from "./LessonVideo";
 import {
   ArrowRight, ArrowLeft, BookOpen, CheckCircle2, Lightbulb, Lock, PlayCircle,
   RefreshCw, Sparkles, Target, XCircle, Bot, Send, GraduationCap, AlertCircle,
@@ -111,6 +112,17 @@ export default function AcademyLesson() {
     if (!data || !lesson) return [];
     const unit = (data.units || []).find((u) => u.slug === lesson.unitSlug);
     return unit ? unit.lessons : [];
+  }, [data, lesson]);
+
+  // Enrichment videos: "start" placement plays with lesson 1; unit videos
+  // appear above any lesson in their assigned unit (mid-course placement).
+  const startVideos = useMemo(() => {
+    if (!lesson || lesson.order !== 1) return [];
+    return ((data?.course?.enrichment_videos || [])).filter((v) => v.placement === "start");
+  }, [data, lesson]);
+  const unitPlacementVideos = useMemo(() => {
+    if (!data || !lesson) return [];
+    return ((data?.course?.enrichment_videos || [])).filter((v) => v.placement === `unit:${lesson.unitSlug}`);
   }, [data, lesson]);
 
   const submit = async () => {
@@ -230,6 +242,15 @@ export default function AcademyLesson() {
                   <h1 className="font-heading text-3xl font-bold text-ink mt-2">{lesson.title}</h1>
                   <p className="text-ink/60 mt-2 leading-relaxed">{lesson.summary}</p>
                 </div>
+
+                {/* Enrichment videos (start-of-course + unit placements) */}
+                {[...startVideos, ...unitPlacementVideos].length > 0 && (
+                  <div className="space-y-4">
+                    {[...startVideos, ...unitPlacementVideos].map((v) => (
+                      <LessonVideo key={v.video_id} video={v} compact />
+                    ))}
+                  </div>
+                )}
 
                 {/* Content */}
                 <div className="space-y-5">
