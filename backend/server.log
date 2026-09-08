@@ -1,0 +1,224 @@
+WARNING:lcewai:STARTUP: ANTHROPIC_API_KEY is not set; M.O.R.E. moderation and Department AI will be limited.
+/workspace/75f42b9a-7fc8-4e41-bbf8-fead61f4b387/sessions/agent_011760f1-bd5a-47b4-9a0f-e2361e835b94/backend/server.py:1252: DeprecationWarning: 
+        on_event is deprecated, use lifespan event handlers instead.
+
+        Read more about it in the
+        [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+        
+  @app.on_event("startup")
+/workspace/75f42b9a-7fc8-4e41-bbf8-fead61f4b387/sessions/agent_011760f1-bd5a-47b4-9a0f-e2361e835b94/backend/server.py:1283: DeprecationWarning: 
+        on_event is deprecated, use lifespan event handlers instead.
+
+        Read more about it in the
+        [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+        
+  @app.on_event("shutdown")
+INFO:revenue_operations_integration:✅ Billing router loaded
+INFO:revenue_operations_integration:✅ CRM router loaded
+INFO:revenue_operations_integration:✅ Course licensing router loaded
+INFO:revenue_operations_integration:✅ Creator course router loaded
+INFO:lcewai:Revenue operations routers included
+INFO:lcewai:Social publisher router included
+INFO:lcewai:Playlist curation router included
+INFO:lcewai:Sovereign + puzzle/points endpoints registered
+INFO:lcewai:Emergency Breaker Panel + Gateway endpoints registered
+INFO:lcewai:Emergency UI gateway: /emergency
+INFO:lcewai:Registered 20 user-administration endpoints from routers/users.py
+INFO:lcewai:Registered 6 persona-CRUD endpoints from routers/personas.py
+INFO:lcewai:Registered platform-flag endpoints from routers/commerce.py
+INFO:lcewai:Registered /admin/broadcast from routers/exec_control.py
+INFO:lcewai:Billing admin routes registered
+INFO:lcewai:Provider gateway routes registered
+INFO:lcewai:Team operations routes registered
+INFO:lcewai:Sovereign + puzzle/points endpoints registered
+INFO:lcewai.access_control:AccessGateway denial buffer attached (encryption=OFF - AUDIT_ENCRYPTION_KEY missing)
+INFO:lcewai.access_control:AccessGateway active: 30 controls monitored across 4 tiers
+INFO:lcewai.access_control:AccessGateway: 325 intentionally-public route(s) excluded from gating
+INFO:lcewai.access_control:AccessGateway: 887 route(s) carry handler-derived requirements (never stricter than the handler)
+INFO:access_control.wiring:AccessGateway mounted: 887 handler-derived requirements, 325 intentionally-public exclusions
+/workspace/75f42b9a-7fc8-4e41-bbf8-fead61f4b387/sessions/agent_011760f1-bd5a-47b4-9a0f-e2361e835b94/backend/server.py:10687: DeprecationWarning: 
+        on_event is deprecated, use lifespan event handlers instead.
+
+        Read more about it in the
+        [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+        
+  @app.on_event("shutdown")
+WARNING:lcewai:STARTUP: ANTHROPIC_API_KEY is not set; M.O.R.E. moderation and Department AI will be limited.
+INFO:revenue_operations_integration:✅ Billing router loaded
+INFO:revenue_operations_integration:✅ CRM router loaded
+INFO:revenue_operations_integration:✅ Course licensing router loaded
+INFO:revenue_operations_integration:✅ Creator course router loaded
+INFO:lcewai:Revenue operations routers included
+INFO:lcewai:Social publisher router included
+INFO:lcewai:Playlist curation router included
+INFO:lcewai:Sovereign + puzzle/points endpoints registered
+INFO:lcewai:Emergency Breaker Panel + Gateway endpoints registered
+INFO:lcewai:Emergency UI gateway: /emergency
+INFO:lcewai:Registered 20 user-administration endpoints from routers/users.py
+INFO:lcewai:Registered 6 persona-CRUD endpoints from routers/personas.py
+INFO:lcewai:Registered platform-flag endpoints from routers/commerce.py
+INFO:lcewai:Registered /admin/broadcast from routers/exec_control.py
+INFO:lcewai.access_control:AccessGateway denial buffer attached (encryption=OFF - AUDIT_ENCRYPTION_KEY missing)
+INFO:lcewai.access_control:AccessGateway active: 30 controls monitored across 4 tiers
+INFO:lcewai.access_control:AccessGateway: 325 intentionally-public route(s) excluded from gating
+INFO:lcewai.access_control:AccessGateway: 887 route(s) carry handler-derived requirements (never stricter than the handler)
+INFO:access_control.wiring:AccessGateway mounted: 887 handler-derived requirements, 325 intentionally-public exclusions
+INFO:     Started server process [5331]
+INFO:     Waiting for application startup.
+INFO:lcewai:STARTUP: No MONGO_BACKUP_URL set — single-DB mode.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+INFO:lcewai:Indexes ensured
+INFO:lcewai:STARTUP: sovereign/partnership/puzzle indexes ensured
+INFO:lcewai:Seeded 14 modules
+INFO:lcewai:Academy seed done: 36 inserted, 0 updated, 0 unchanged
+INFO:lcewai:STARTUP: academy curriculum seed — {'seeded': 36, 'updated': 0, 'skipped': 0}
+INFO:lcewai:STARTUP: exec seat created — delon.oliver@lightningcityelectric.com
+INFO:lcewai:STARTUP: exec seat created — youpickeddoliver@gmail.com
+INFO:lcewai:STARTUP: exec seat created — souppoetry@gmail.com
+INFO:lcewai:Initialized recovery codes for 3 executive account(s)
+INFO:lcewai:STARTUP: Hybrid NAM knowledge seed done — 0 seeded, 0 skipped, 31 failed.
+INFO:lcewai.knowledge_finder:knowledge_finder: loaded 21 docs from kb_documents.json
+INFO:lcewai.knowledge_finder:knowledge_finder: index has 215 documents
+INFO:lcewai:STARTUP: provider keys loaded from DB into gateway: 0
+INFO:billing.course_licensing:✅ Course licensing collections initialized
+INFO:billing.creator_courses:✅ Creator course collections initialized
+INFO:revenue_operations_integration:✅ Revenue operations collections and indexes initialized
+INFO:revenue_operations_integration:✅ Revenue services initialized
+INFO:lcewai:STARTUP: Revenue operations system initialized
+INFO:revenue_operations_integration:Revenue job scheduler disabled (set JOBS_ENABLED=true to enable)
+INFO:lcewai.persona_manager:PersonaManager: activated new persona director
+INFO:lcewai.persona_manager:PersonaManager: activated new persona nam_oshun
+INFO:lcewai.persona_manager:PersonaManager: activated new persona assistant_director
+INFO:lcewai.persona_manager:PersonaManager: activated new persona ancestral_sage
+INFO:lcewai.persona_manager:PersonaManager: activated new persona savant_scholar
+INFO:lcewai.persona_manager:PersonaManager: activated new persona apprentice
+INFO:lcewai.persona_manager:PersonaManager: activated new persona revenue_director
+INFO:lcewai.persona_manager:PersonaManager: activated new persona wai_success_engine
+INFO:lcewai.persona_manager:PersonaManager: activated new persona product_designer
+INFO:lcewai.persona_manager:PersonaManager: activated new persona risk_officer
+INFO:lcewai.persona_manager:PersonaManager: activated new persona strategic_navigator
+INFO:lcewai.persona_manager:PersonaManager: activated new persona confidentiality_sentinel
+INFO:lcewai.persona_manager:PersonaManager: activated new persona elder_council
+INFO:lcewai.persona_manager:PersonaManager: activated new persona cipher
+INFO:lcewai.persona_manager:PersonaManager: activated new persona oracle
+INFO:lcewai.persona_manager:PersonaManager: activated new persona ambassador
+INFO:lcewai.persona_manager:PersonaManager: activated new persona architect
+INFO:lcewai.persona_manager:PersonaManager: activated new persona griot
+INFO:lcewai.persona_manager:PersonaManager: activated new persona conspiracy_brother
+INFO:lcewai.persona_manager:PersonaManager: activated new persona unified
+INFO:lcewai.persona_manager:PersonaManager.bootstrap: 20 personas bootstrapped
+INFO:lcewai.persona_manager:PersonaManager: activated new persona poor_righteous_teacher
+INFO:lcewai.system_activation:system_activation: bootstrapped poor_righteous_teacher
+INFO:lcewai.persona_manager:PersonaManager: activated new persona the_9
+INFO:lcewai.system_activation:system_activation: bootstrapped the_9
+INFO:lcewai.system_activation:WAI-Institute system activated in 0.18s — personas: 20
+INFO:lcewai:WAI autonomous pipeline activated — 20 personas bootstrapped
+INFO:lcewai.system_activation:Cultural Scout scheduler started — interval: 6h
+WARNING:lcewai:STARTUP: PipelineManager init failed (non-fatal): No module named 'src'
+INFO:lcewai.system_activation:Cultural Scout disabled (set SCOUT_ENABLED=true to enable)
+INFO:billing.discount_service:Discount collection indexes ensured
+INFO:lcewai:STARTUP: Discount management system initialized
+INFO:lcewai.prompt_guard:PROMPT GUARD: Running startup integrity check...
+CRITICAL:lcewai.prompt_guard:PROMPT GUARD CRITICAL: 'ancestral_sage' prompt hash MISMATCH. Unauthorized modification detected. Falling back to RESTRICTED mode.
+CRITICAL:lcewai.prompt_guard:PROMPT GUARD CRITICAL: 'director' prompt hash MISMATCH. Unauthorized modification detected. Falling back to RESTRICTED mode.
+CRITICAL:lcewai.prompt_guard:PROMPT GUARD CRITICAL: 'assistant_director' prompt hash MISMATCH. Unauthorized modification detected. Falling back to RESTRICTED mode.
+CRITICAL:lcewai.prompt_guard:PROMPT GUARD CRITICAL: 'more_department' prompt hash MISMATCH. Unauthorized modification detected. Falling back to RESTRICTED mode.
+CRITICAL:lcewai.prompt_guard:PROMPT GUARD INTEGRITY ALERT (EXEC_EMAIL not set — not emailed): [GOVERNANCE INTEGRITY] Prompt hash failure — ancestral_sage, director, assistant_director, more_department | D. Oliver —
+
+SITUATION
+One or more AI persona prompts failed their SHA-256 integrity check at server startup. This indicates the prompt file(s) may have been modified without authorization.
+
+KEY FINDI
+INFO:lcewai.prompt_guard:PROMPT GUARD: Enrolled baseline hash for 'ancestral_sage'
+INFO:lcewai.prompt_guard:PROMPT GUARD: Enrolled baseline hash for 'director'
+INFO:lcewai.prompt_guard:PROMPT GUARD: Enrolled baseline hash for 'assistant_director'
+INFO:lcewai.prompt_guard:PROMPT GUARD: Enrolled baseline hash for 'more_department'
+INFO:lcewai.prompt_guard:PROMPT GUARD: Enrolled baseline hash for 'sovereign'
+INFO:lcewai.prompt_guard:PROMPT GUARD: Enrolled baseline hash for 'prt'
+INFO:lcewai.prompt_guard:PROMPT GUARD: Enrolled baseline hash for 'oliver_guardian'
+INFO:lcewai.prompt_guard:PROMPT GUARD: Enrolled baseline hash for 'orchestrator'
+INFO:lcewai.prompt_guard:PROMPT GUARD: All prompt integrity checks passed.
+INFO:lcewai:STARTUP: All prompt integrity baselines enrolled successfully.
+WARNING:lcewai:DEV_RETURN_RESET_TOKEN=1 is set — /api/auth/forgot-password will return raw reset tokens in the response. THIS IS UNSAFE FOR PRODUCTION. Remove DEV_RETURN_RESET_TOKEN from .env before deploying to a public environment.
+INFO:lcewai:STARTUP: Failover watchdog launched (interval=60, threshold=3)
+INFO:lcewai:STARTUP: GDPR purge cron launched (24h interval)
+INFO:lcewai:STARTUP: Memory consolidation cron launched (24h interval)
+INFO:lcewai:STARTUP COMPLETE — Version: 4.0.1 | DB: primary | Frontend: railway-nginx
+INFO:failover_watchdog:Watchdog started — interval=60s, threshold=3, primary=http://localhost:8080
+INFO:lcewai:GET /health → 404 (798ms)
+INFO:     127.0.0.1:60916 - "GET /health HTTP/1.1" 404 Not Found
+INFO:lcewai:GET /api/health → 200 (7ms)
+INFO:     127.0.0.1:35052 - "GET /api/health HTTP/1.1" 200 OK
+INFO:lcewai:GET /api/health → 200 (5ms)
+INFO:     127.0.0.1:32926 - "GET /api/health HTTP/1.1" 200 OK
+INFO:lcewai:GET /api/version → 200 (2ms)
+INFO:     127.0.0.1:32932 - "GET /api/version HTTP/1.1" 200 OK
+INFO:lcewai:POST /api/auth/register → 422 (11ms)
+INFO:     127.0.0.1:32948 - "POST /api/auth/register HTTP/1.1" 422 Unprocessable Entity
+WARNING:lcewai.access_control:ACCESS_DENIED control=route:GET:/api/auth/me path=/api/auth/me method=GET actor=None reason=unauthenticated
+INFO:     127.0.0.1:32952 - "GET /api/auth/me HTTP/1.1" 401 Unauthorized
+INFO:lcewai:POST /api/auth/forgot-password → 200 (6ms)
+INFO:     127.0.0.1:32958 - "POST /api/auth/forgot-password HTTP/1.1" 200 OK
+INFO:lcewai:GET /api/consent → 404 (4ms)
+INFO:     127.0.0.1:32970 - "GET /api/consent HTTP/1.1" 404 Not Found
+INFO:lcewai:GET /api/modules → 200 (7ms)
+INFO:     127.0.0.1:32972 - "GET /api/modules HTTP/1.1" 200 OK
+WARNING:lcewai.access_control:ACCESS_DENIED control=route:GET:/api/modules/* path=/api/modules/999 method=GET actor=None reason=unauthenticated
+INFO:     127.0.0.1:32980 - "GET /api/modules/999 HTTP/1.1" 401 Unauthorized
+WARNING:lcewai.access_control:ACCESS_DENIED control=route:GET:/api/progress/me path=/api/progress/me method=GET actor=None reason=unauthenticated
+INFO:     127.0.0.1:32996 - "GET /api/progress/me HTTP/1.1" 401 Unauthorized
+WARNING:lcewai.access_control:ACCESS_DENIED control=route:POST:/api/progress/start path=/api/progress/start method=POST actor=None reason=unauthenticated
+INFO:     127.0.0.1:33002 - "POST /api/progress/start HTTP/1.1" 401 Unauthorized
+WARNING:lcewai.access_control:ACCESS_DENIED control=route:POST:/api/progress/quiz path=/api/progress/quiz method=POST actor=None reason=unauthenticated
+INFO:     127.0.0.1:33010 - "POST /api/progress/quiz HTTP/1.1" 401 Unauthorized
+WARNING:lcewai.access_control:ACCESS_DENIED control=route:POST:/api/ai/chat path=/api/ai/chat method=POST actor=None reason=unauthenticated
+INFO:     127.0.0.1:33018 - "POST /api/ai/chat HTTP/1.1" 401 Unauthorized
+INFO:lcewai:GET /api/ai/consent/health → 200 (5ms)
+INFO:     127.0.0.1:33024 - "GET /api/ai/consent/health HTTP/1.1" 200 OK
+WARNING:lcewai.access_control:ACCESS_DENIED control=admin_user_management path=/api/admin/users method=GET actor=None reason=unauthenticated
+INFO:     127.0.0.1:33032 - "GET /api/admin/users HTTP/1.1" 401 Unauthorized
+WARNING:lcewai.access_control:ACCESS_DENIED control=admin_dashboard_moderation path=/api/admin/stats method=GET actor=None reason=unauthenticated
+INFO:     127.0.0.1:33036 - "GET /api/admin/stats HTTP/1.1" 401 Unauthorized
+WARNING:lcewai.access_control:ACCESS_DENIED control=admin_dashboard_moderation path=/api/admin/recent-activity method=GET actor=None reason=unauthenticated
+INFO:     127.0.0.1:33046 - "GET /api/admin/recent-activity HTTP/1.1" 401 Unauthorized
+WARNING:lcewai.access_control:ACCESS_DENIED control=admin_dashboard_moderation path=/api/admin/cohorts method=GET actor=None reason=unauthenticated
+INFO:     127.0.0.1:33054 - "GET /api/admin/cohorts HTTP/1.1" 401 Unauthorized
+WARNING:lcewai.access_control:ACCESS_DENIED control=route:GET:/api/admin/rbac/matrix path=/api/admin/rbac/matrix method=GET actor=None reason=unauthenticated
+INFO:     127.0.0.1:33070 - "GET /api/admin/rbac/matrix HTTP/1.1" 401 Unauthorized
+WARNING:lcewai.access_control:ACCESS_DENIED control=commerce_governance_audit path=/api/admin/audit method=GET actor=None reason=unauthenticated
+INFO:     127.0.0.1:33078 - "GET /api/admin/audit HTTP/1.1" 401 Unauthorized
+WARNING:lcewai.access_control:ACCESS_DENIED control=commerce_tools_instructor path=/api/admin/sites method=GET actor=None reason=unauthenticated
+INFO:     127.0.0.1:33094 - "GET /api/admin/sites HTTP/1.1" 401 Unauthorized
+WARNING:lcewai.access_control:ACCESS_DENIED control=commerce_tools_instructor path=/api/admin/inventory method=GET actor=None reason=unauthenticated
+INFO:     127.0.0.1:33108 - "GET /api/admin/inventory HTTP/1.1" 401 Unauthorized
+WARNING:lcewai.access_control:ACCESS_DENIED control=exec_command_center path=/api/exec/system method=GET actor=None reason=unauthenticated
+INFO:     127.0.0.1:33124 - "GET /api/exec/system HTTP/1.1" 401 Unauthorized
+INFO:lcewai:POST /api/staff/meeting → 404 (5ms)
+INFO:     127.0.0.1:33126 - "POST /api/staff/meeting HTTP/1.1" 404 Not Found
+INFO:lcewai:GET /api/admin/iam/identities → 404 (7ms)
+INFO:     127.0.0.1:33142 - "GET /api/admin/iam/identities HTTP/1.1" 404 Not Found
+WARNING:lcewai.access_control:ACCESS_DENIED control=route:GET:/api/admin/personas path=/api/admin/personas method=GET actor=None reason=unauthenticated
+INFO:     127.0.0.1:33156 - "GET /api/admin/personas HTTP/1.1" 401 Unauthorized
+WARNING:lcewai.access_control:ACCESS_DENIED control=route:POST:/api/personas path=/api/personas method=POST actor=None reason=unauthenticated
+INFO:     127.0.0.1:33170 - "POST /api/personas HTTP/1.1" 401 Unauthorized
+INFO:lcewai:GET /api/personas/stack → 401 (4ms)
+INFO:     127.0.0.1:33184 - "GET /api/personas/stack HTTP/1.1" 401 Unauthorized
+WARNING:failover_watchdog:Watchdog: primary unhealthy (1/3 failures)
+INFO:lcewai:POST /api/auth/login → 401 (9ms)
+INFO:     127.0.0.1:44608 - "POST /api/auth/login HTTP/1.1" 401 Unauthorized
+WARNING:failover_watchdog:Watchdog: primary unhealthy (2/3 failures)
+WARNING:failover_watchdog:Watchdog: primary unhealthy (3/3 failures)
+INFO:emergency_panel:Failover: primary → emergency (Watchdog: 3x consecutive health failure)
+INFO:failover_watchdog:Watchdog: failover complete — {'ok': True, 'previous': 'primary', 'active': 'emergency', 'reason': 'Watchdog: 3x consecutive health failure'}
+WARNING:failover_watchdog:Watchdog: primary unhealthy (1/3 failures)
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:lcewai:Supervised task 'rate_limiter_cleanup' cancelled cleanly.
+INFO:lcewai:Supervised task 'failover_watchdog' cancelled cleanly.
+INFO:lcewai:Supervised task 'gdpr_purge_loop' cancelled cleanly.
+INFO:lcewai:Supervised task 'memory_consolidation_loop' cancelled cleanly.
+INFO:lcewai:SHUTDOWN: all background tasks cancelled.
+INFO:revenue_operations_integration:✅ Revenue operations job scheduler stopped
+INFO:     Application shutdown complete.
+INFO:     Finished server process [5331]
