@@ -7601,6 +7601,23 @@ async def more_department_integrity(user: User = Depends(current_user)):
     }
 
 
+@api_router.get("/more/department/history")
+async def more_department_history(limit: int = 60, user: User = Depends(current_user)):
+    """Recent M.O.R.E. Department AI exchanges for the MoreOps console.
+
+    Reads the same chat_history rows that /more/department/chat writes (mode
+    'more_department'), newest last so the UI can replay the conversation in
+    order. Capped at 200 rows regardless of the requested limit.
+    """
+    if ROLE_RANK.get(user.role, 0) < ROLE_RANK.get("admin", 3):
+        raise HTTPException(403, "Admin access required")
+    safe_limit = max(1, min(int(limit or 60), 200))
+    docs = await db.chat_history.find(
+        {"mode": "more_department", "user_id": user.id}, {"_id": 0}
+    ).sort("created_at", -1).to_list(safe_limit)
+    return {"history": list(reversed(docs))}
+
+
 # ─── STRIPE PAYMENTS ──────────────────────────────────────────────────────────
 import stripe as _stripe
 

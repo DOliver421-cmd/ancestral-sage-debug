@@ -7,11 +7,20 @@ import { api } from "../lib/api";
 
 export default function Landing() {
   const [featuredCourses, setFeaturedCourses] = useState(null);
+  const [siteAssets, setSiteAssets] = useState(null);
 
   useEffect(() => {
     api.get("/creator/courses/published?limit=4")
       .then(r => setFeaturedCourses(r.data.courses || []))
       .catch(() => setFeaturedCourses([]));
+  }, []);
+
+  // Executive-assigned imagery (hero + gallery). Silent on failure — the
+  // landing page is fully designed without any uploaded assets.
+  useEffect(() => {
+    api.get("/site-assets")
+      .then(r => setSiteAssets(r.data.assets || {}))
+      .catch(() => setSiteAssets({}));
   }, []);
 
   useEffect(() => {
@@ -82,6 +91,17 @@ export default function Landing() {
               <span className="text-copper">Together We Give</span><br />
               <span className="text-copper">The World Something Beautiful.</span>
             </h1>
+
+            {siteAssets?.hero?.file_url && (
+              <div className="mt-10 mb-4 rounded-lg overflow-hidden border border-ink/10 shadow-lg max-w-4xl mx-auto">
+                <img
+                  src={siteAssets.hero.file_url}
+                  alt={siteAssets.hero.label || "Community"}
+                  className="w-full object-cover"
+                  onError={(e) => { e.target.closest("div").style.display = "none"; }}
+                />
+              </div>
+ )}
 
             <p className="text-xl text-ink/70 leading-relaxed mb-8 max-w-2xl mx-auto">
               You're the healers. The teachers. The artists. The ones building culture. Let's stop pretending that's not the most valuable work. We're here to make sure you own it, keep the money it makes, and build community on your terms.
