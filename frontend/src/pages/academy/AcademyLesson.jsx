@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link, useParams, useSearchParams } from "react-router-dom";
+import { Link, useParams, useSearchParams, useNavigate, useBeforeUnload } from "react-router-dom";
 import { api } from "../../lib/api";
 import AppShell from "../../components/AppShell";
 import { ProgressBar } from "./academyKit";
@@ -42,6 +42,7 @@ export default function AcademyLesson() {
   const [coachText, setCoachText] = useState("");
   const [coachBusy, setCoachBusy] = useState(false);
   const coachRef = useRef(null);
+  const nav = useNavigate();
   const sessionId = useMemo(() => `academy-${studentId || "anon"}-${courseSlug}-${lessonSlug}-${Math.random().toString(36).slice(2, 10)}`, [studentId, courseSlug, lessonSlug]);
 
   const load = () => {
@@ -60,6 +61,16 @@ export default function AcademyLesson() {
     if (coachRef.current) coachRef.current.scrollTop = coachRef.current.scrollHeight;
   }, [coachMsgs]);
 
+  // ── Browser-level protection (owner policy: don't lose lesson work) ─────
+  // A plain tab close / refresh mid-lesson warns before discarding the
+  // session. In-app navigation is handled by the soft guard below.
+  useBeforeUnload((e) => {
+    if (phase === "armed" && !result?.ok) {
+      e.preventDefault();
+      e.returnValue = ""; // Chrome requires returnValue for the dialog
+    }
+  });
+
   const lesson = useMemo(() => {
     if (!data) return null;
     for (const u of data.units || []) {
@@ -76,6 +87,26 @@ export default function AcademyLesson() {
   const activeStudent = studentId || data?.student_id || null;
 
   const questions = lesson?.check?.questions || [];
+
+  // ── Course progress (soft completion guard) ─────────────────────────────
+  const allLessons = useMemo(() => (data?.units || []).flatMap((u) => u.lessons || []), [data]);
+  const coursePct = allLessons.length
+    ? Math.round((allLessons.filter((l) => l.passed).length / allLessons.length) * 100)
+    : 0;
+  // Show the finish-strong nudge when leaving with under 80% mastery —
+  // nudging, never jailing: "I'll come back" always remains available.
+  const [showStayPrompt, setShowStayPrompt] = useState(false);
+  const [pendingNav, setPendingNav] = useState(null);
+  const attemptInProgress = phase === "armed" && !result?.ok;
+  const guardLeave = (to) => {
+    if (coursePct >= 80 || !attemptInProgress) {
+      if (to) nav(to); else nav(-1);
+      return;
+    }
+    setPendingNav(to);
+    setShowStayPrompt(true);
+  };
+
   const unitLessons = useMemo(() => {
     if (!data || !lesson) return [];
     const unit = (data.units || []).find((u) => u.slug === lesson.unitSlug);
@@ -159,9 +190,9 @@ export default function AcademyLesson() {
         {/* Top bar */}
         <div className="flex flex-wrap items-center justify-between gap-3 max-w-5xl">
           <div className="flex items-center gap-2 text-sm">
-            <Link to={activeStudent ? `/academy/student/${activeStudent}` : "/academy/parent"} className="inline-flex items-center gap-1.5 font-bold text-copper hover:text-ink transition-colors">
+            <button onClick={() => guardLeave(activeStudent ? `/academy/student/${activeStudent}` : "/academy/parent")} className="inline-flex items-center gap-1.5 font-bold text-copper hover:text-ink transition-colors">
               <ArrowLeft className="w-4 h-4" /> Classroom
-            </Link>
+            </button>
             <span className="text-ink/30">/</span>
             <span className="font-bold text-ink">{data.course.title}</span>
             <span className="text-ink/30">/</span>
@@ -422,6 +453,37 @@ export default function AcademyLesson() {
           </aside>
         </div>
       </div>
+
+      {/* ── Soft completion guard (owner policy: finish strong, never trapped) ── */}
+      {showStayPrompt && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-ink/70 p-4" role="dialog" aria-modal="true" data-testid="stay-prompt">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8 text-center">
+            <div className="w-14 h-14 rounded-full bg-copper/15 flex items-center justify-center mx-auto">
+              <Target className="w-7 h-7 text-copper" />
+            </div>
+            <h2 className="font-heading text-2xl font-bold text-ink mt-4">Finish strong?</h2>
+            <p className="text-ink/60 mt-2 leading-relaxed">
+              You&apos;re <span className="font-black text-copper">{coursePct}%</span> of the way through{" "}
+              <span className="font-bold">{data.course.title}</span> and this lesson&apos;s knowledge check isn&apos;t done yet.
+              Your progress saves automatically — but mastery comes from finishing.
+            </p>
+            <div className="mt-6 space-y-2">
+              <button
+                onClick={() => { setShowStayPrompt(false); setPendingNav(null); window.scrollTo({ top: 0, behavior: "smooth" }); }}
+                className="w-full px-5 py-3 bg-ink text-signal font-black rounded-xl hover:bg-ink/85 transition-colors"
+                data-testid="stay-continue">
+                Keep learning
+              </button>
+              <button
+                onClick={() => { setShowStayPrompt(false); const dest = pendingNav; setPendingNav(null); if (dest) nav(dest); else nav(-1); }}
+                className="w-full px-5 py-3 border-2 border-ink/15 text-ink/70 font-bold rounded-xl hover:border-ink/40 hover:text-ink transition-colors"
+                data-testid="leave-anyway">
+                I&apos;ll come back later
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </AppShell>
   );
 }

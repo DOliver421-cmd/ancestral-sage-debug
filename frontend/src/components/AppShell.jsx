@@ -14,6 +14,7 @@ import {
   Gamepad2, Star, Radio, Globe, ChevronLeft, ChevronRight, Share2,
   Map, BrainCircuit, CreditCard, BarChart3, Wrench, ExternalLink,
   Lock, Search, HeartPulse, Landmark, TicketPercent, Menu, Swords,
+  ArrowLeft, Home,
 } from "lucide-react";
 import { isWaiDoor, MORE_HOME } from "../lib/domain";
 import NotificationBell from "./NotificationBell";
@@ -349,6 +350,26 @@ export default function AppShell({ children }) {
               <ChevronRight className="w-4 h-4" />
             </button>
           )}
+        </div>
+
+        {/* Back + Home — always available (owner mandate: navigation never dead-ends). */}
+        <div className={`shrink-0 flex gap-1.5 py-2 border-b border-white/10 ${collapsed ? "flex-col items-center px-1" : "px-4"}`}>
+          <button
+            onClick={() => nav(-1)}
+            data-testid="sidebar-back-button"
+            title="Go back"
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold text-white/70 hover:text-white bg-white/5 hover:bg-white/10 transition-colors ${collapsed ? "justify-center px-0 w-9" : ""}`}>
+            <ArrowLeft className="w-3.5 h-3.5 shrink-0" />
+            {!collapsed && "Back"}
+          </button>
+          <Link
+            to="/"
+            data-testid="sidebar-home-button"
+            title="Home"
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold text-white/70 hover:text-white bg-white/5 hover:bg-white/10 transition-colors ${collapsed ? "justify-center px-0 w-9" : ""}`}>
+            <Home className="w-3.5 h-3.5 shrink-0" />
+            {!collapsed && "Home"}
+          </Link>
         </div>
 
         {/* M.O.R.E. Institute card */}

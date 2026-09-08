@@ -1,6 +1,6 @@
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { WAI_LOGO, BRAND, WAI_INSTITUTE_URL } from "../../lib/brand";
-import { HelpCircle, Globe, LogIn, UserPlus, ArrowRight, GraduationCap } from "lucide-react";
+import { HelpCircle, Globe, LogIn, UserPlus, ArrowRight, ArrowLeft, Home, GraduationCap } from "lucide-react";
 
 /* Shared presentational helpers for the Academy pages. */
 
@@ -62,22 +62,38 @@ export function ProgressBar({ pct, tone = "bg-copper" }) {
 }
 
 export function PublicHeader({ current = "home" }) {
+  const nav = useNavigate();
   const link = "flex items-center gap-2 text-sm font-bold text-white/70 hover:text-white transition-colors";
   const item = (to, label, Icon) => (
     <Link key={to} to={to} className={link} data-testid={`academy-nav-${label.toLowerCase().replace(/\s+/g, "-")}`}>
       <Icon className="w-4 h-4" /> {label}
     </Link>
   );
+  const backHome = (
+    <div className="flex items-center gap-1.5">
+      <button onClick={() => nav(-1)} title="Go back" data-testid="academy-back-button"
+        className="p-2 rounded-lg text-white/70 hover:text-white hover:bg-white/10 transition-colors">
+        <ArrowLeft className="w-4 h-4" />
+      </button>
+      <Link to="/" title="Home" data-testid="academy-home-button"
+        className="p-2 rounded-lg text-white/70 hover:text-white hover:bg-white/10 transition-colors">
+        <Home className="w-4 h-4" />
+      </Link>
+    </div>
+  );
   return (
     <header className="bg-ink text-white sticky top-0 z-40 shadow-lg shadow-ink/10">
       <div className="max-w-7xl mx-auto px-6 py-3 flex flex-wrap items-center justify-between gap-3">
-        <Link to="/wai-institute" className="flex items-center gap-3" data-testid="academy-nav-home">
-          <img src={WAI_LOGO} alt={BRAND.short} className="w-9 h-9 object-contain" />
-          <div>
-            <div className="text-[9px] font-black uppercase tracking-[0.25em] text-signal">WAI Institute · Homeschool Academy</div>
-            <div className="font-heading font-bold text-sm leading-tight">Homeschool, done right.</div>
-          </div>
-        </Link>
+        <div className="flex items-center gap-3">
+          {backHome}
+          <Link to="/wai-institute" className="flex items-center gap-3" data-testid="academy-nav-home">
+            <img src={WAI_LOGO} alt={BRAND.short} className="w-9 h-9 object-contain" />
+            <div>
+              <div className="text-[9px] font-black uppercase tracking-[0.25em] text-signal">WAI Institute · Homeschool Academy</div>
+              <div className="font-heading font-bold text-sm leading-tight">Homeschool, done right.</div>
+            </div>
+          </Link>
+        </div>
         <nav className="flex flex-wrap items-center gap-4">
           {item("/academy/curriculum", "Curriculum", GraduationCap)}
           <Link to="/help-center" className={link}><HelpCircle className="w-4 h-4" /> Help</Link>
