@@ -32,7 +32,7 @@ education/ecommerce core.
 ### Education core (the launch product)
 | Feature | Evidence |
 |---|---|
-| **39 published Academy courses** incl. the 3 culturally responsive courses (African Kingdoms & Empires; African American Literature Foundations; Ethnomathematics & Black Pioneers in STEM) | All pass `seed_academy.validate_course` with **0 problems** — every lesson has learn content + knowledge check + explanations; lesson orders globally unique |
+| **46 published Academy courses** incl. the 6 culturally responsive courses (African Kingdoms & Empires; African American Literature Foundations; Ethnomathematics & Black Pioneers in STEM; Global African Diaspora; Diaspora Mathematics; African Philosophy & Ethics) + 4 free student handbooks (Elementary, Middle, High School, Adult) | All pass `seed_academy.validate_course` with **0 problems** — every lesson has learn content + knowledge check + explanations; lesson orders globally unique; 54 total valid (46 published, 8 planned) |
 | Academy student CRUD, dashboards, lesson view, grading | `routers/academy.py` (21 routes) ↔ `frontend/src/pages/academy/*` — every call resolves |
 | **Florida compliance toolkit** — Notice of Intent (s. 1002.41), quarterly report, annual evaluation, transcript, IHIP-style plan (honestly labeled NY-style) | `POST/GET /api/academy/compliance/*` + `AcademyCompliance.jsx`; **5/5 unit tests pass** |
 | Classic LMS modules + quiz progress | `/modules`, `/progress/me`, `/progress/quiz` inline in server.py; used by `ModuleView`, `ModulesList`, `StudentDashboard` — all wired |
@@ -68,7 +68,7 @@ education/ecommerce core.
 | Audit encryption | Optional via `AUDIT_ENCRYPTION_KEY`, warns when unencrypted |
 | Rate limiting | `check_rate` dependency wired through router bind |
 
-### Platform / ops
+| Site Guide + Help (combined feature) | One floating widget on every page: "This Page" route-aware help (`/help/guide`) + "Ask the Guide" persona chat (`/site-guide/chat`, gated member+/BYOK/staff). `/site-guide` redirects into the widget; guide KB, FAQ, and page index include all Homeschool Academy pages | Staff build tracker (`/academy/build`) | Live catalog + video enrichment + build checklist, role rank ≥ instructor |
 | Feature | Evidence |
 |---|---|
 | Feature flags & page gates (exec UI) | `/exec/control/*` (26 routes) ↔ ExecControlPanel/ExecBusinessOffice |
@@ -108,7 +108,7 @@ Center **only after** their UI is verified in a browser:
 Every item below is something **every button does what it says** (verified by
 the trace + passing tests above):
 
-**FREE (public)** — Landing, course catalog browsing (39 courses visible), starter library content, cookie consent, registration/auth.
+**FREE (public)** — Landing, course catalog browsing (46 courses visible incl. the 4 free student handbooks), on-site curated educational video embeds, starter library content, cookie consent, registration/auth.
 
 **MEMBER (entry, e.g. $X/mo)** — Full Academy access: enroll students, lessons, knowledge checks, progress dashboards; compliance document generator (Notice of Intent, quarterly reports, annual evaluation, transcript); classic modules + quizzes.
 

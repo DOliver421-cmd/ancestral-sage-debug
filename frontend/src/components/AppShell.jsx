@@ -103,7 +103,7 @@ const CUSTOMER_TIERS = [
       { to: "/studio", label: "Creator Studio", icon: Music, testid: "nav-creator-studio" },
       { to: "/ai", label: "AI Tutor", icon: Sparkles, testid: "nav-ai" },
       { to: "/helper", label: "Personal Helper", icon: HelpCircle, testid: "nav-helper" },
-      { to: "/site-guide", label: "Site Guide", icon: Map, testid: "nav-site-guide" },
+      { to: "/site-guide", label: "Help & Guide", icon: Map, testid: "nav-site-guide" },
       { to: "/byok", label: "My AI Keys", icon: BrainCircuit, testid: "nav-byok" },
       { to: "/modules", label: "Modules", icon: BookOpen, testid: "nav-modules" },
       { to: "/competencies", label: "Competencies", icon: Target, testid: "nav-competencies" },

@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { BrowserRouter, Routes, Route, Navigate, useLocation, useParams } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate, useParams } from "react-router-dom";
 import { Toaster } from "sonner";
 import "./App.css";
 import { AuthProvider, useAuth } from "./lib/auth";
@@ -150,7 +150,13 @@ import Jamil from "./pages/Jamil";
 import ProjectDashboard from "./pages/ProjectDashboard";
 import AITeamBridge from "./pages/AITeamBridge";
 import BYOK from "./pages/BYOK";
-import SiteGuide from "./pages/SiteGuide";
+// SiteGuide page retired — /site-guide now opens the combined HelpGuide widget
+// (one help + guide feature). Keeping a redirect component for old links/bookmarks.
+function SiteGuideRedirect() {
+  const nav = useNavigate();
+  useEffect(() => { nav("/?guide=1", { replace: true }); }, [nav]);
+  return null;
+}
 import SiteSearch, { SiteSearchModal } from "./components/SiteSearch";
 import AccountControls from "./pages/AccountControls";
 import CreatorPayoutDashboard from "./pages/CreatorPayoutDashboard";
@@ -308,7 +314,7 @@ function App() {
           <Route path="/classic/:slug" element={<ClassicToolRoute />} />
           {/* Site search + Site Guide persona */}
           <Route path="/search" element={<SiteSearch />} />
-          <Route path="/site-guide" element={<SiteGuide />} />
+          <Route path="/site-guide" element={<SiteGuideRedirect />} />
           {/* AI Business Office — the revenue engine command center */}
           <Route path="/business-office" element={<BoundedAdmin roles={["admin"]} label="AI Business Office" backTo="/admin"><BusinessOffice /></BoundedAdmin>} />
           <Route path="/admin/business-office" element={<BoundedAdmin roles={["admin"]} label="AI Business Office" backTo="/admin"><BusinessOffice /></BoundedAdmin>} />

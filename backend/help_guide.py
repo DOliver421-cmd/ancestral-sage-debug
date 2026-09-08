@@ -13,6 +13,129 @@ logger = logging.getLogger("lcewai.help_guide")
 
 _ROUTE_HELP: dict = {
     # ── Public routes ──────────────────────────────────────────────────────────
+    # ── Homeschool Academy ─────────────────────────────────────────────────────
+    "/wai-institute": {
+        "title": "Homeschool Academy Gateway",
+        "summary": "Mastery-paced K–12 + adult homeschool, built right into MoreHelp.",
+        "details": [
+            "Browse the full course catalog free — no account needed to look.",
+            "Create a parent account, add student profiles, and pick grades/tracks.",
+            "Lessons unlock in order: pass each knowledge check at 80%+.",
+            "Four free student handbooks live in the course catalog.",
+        ],
+        "tips": {
+            "student": "Start at /academy/curriculum to see every course by grade and track.",
+            "instructor": "The staff build tracker is at /academy/build.",
+            "admin": "The staff build tracker is at /academy/build.",
+        },
+        "related": ["/academy/curriculum", "/academy/parent", "/academy/compliance"],
+        "common_tasks": ["/academy/curriculum", "/register"],
+    },
+    "/academy": {
+        "title": "Homeschool Academy",
+        "summary": "Everything for homeschooling families: curriculum, dashboards, records, and Florida compliance paperwork.",
+        "details": [
+            "Parent dashboard (/academy/parent): add students, enroll, monitor mastery progress.",
+            "Student classroom (/academy/student): next lesson, progress bars, mastery scores.",
+            "Records (/academy/records): printable course records and transcript-style summaries.",
+            "Compliance (/academy/compliance): Notice of Intent, quarterly reports, annual evaluation, transcript.",
+        ],
+        "tips": {
+            "student": "Your classroom shows exactly what to do next — start there.",
+        },
+        "related": ["/academy/curriculum", "/academy/parent", "/academy/records", "/academy/compliance"],
+        "common_tasks": ["/academy/curriculum"],
+    },
+    "/academy/curriculum": {
+        "title": "Curriculum Explorer",
+        "summary": "Every Academy course, filterable by grade, track, and subject.",
+        "details": [
+            "Published courses are live today — enroll from any course page.",
+            "Courses marked 'in development' are labeled honestly until real lessons ship.",
+            "Course pages include curated educational videos that play on-site.",
+            "Four free student handbooks are listed here as courses.",
+        ],
+        "tips": {
+            "student": "Filter by your student's grade to see only what applies.",
+        },
+        "related": ["/academy/parent", "/academy"],
+        "common_tasks": ["/academy/parent"],
+    },
+    "/academy/parent": {
+        "title": "Parent Dashboard",
+        "summary": "The family control room — student profiles, enrollment, and mastery progress.",
+        "details": [
+            "Add a student profile with grade and track — enrollment is automatic.",
+            "Each learner's progress is private to your family account.",
+            "Open any course from here to start or continue lessons.",
+        ],
+        "tips": {
+            "student": "Parents manage enrollment; you just learn.",
+        },
+        "related": ["/academy/student", "/academy/curriculum"],
+        "common_tasks": ["/academy/curriculum"],
+    },
+    "/academy/student": {
+        "title": "Student Classroom",
+        "summary": "The learner's home base — next lesson, progress, and mastery at a glance.",
+        "details": [
+            "Pick up exactly where you left off — the next lesson is one click away.",
+            "Progress bars show mastery across every enrolled course.",
+            "Passed lessons at 80%+ stay mastered; retake anything any time.",
+        ],
+        "related": ["/academy/parent", "/academy/curriculum"],
+        "common_tasks": [],
+    },
+    "/academy/learn": {
+        "title": "Lesson Player",
+        "summary": "Read → check → master. Pass at 80%+ to unlock the next lesson.",
+        "details": [
+            "Curated educational videos play right here — no leaving the site.",
+            "Below 80%? Explanations show what to review, and you can retry immediately.",
+            "The Coach panel can explain concepts — it never gives away check answers.",
+        ],
+        "tips": {
+            "student": "Read the whole lesson before the check — the answers come from it.",
+        },
+        "related": ["/academy/student"],
+        "common_tasks": [],
+    },
+    "/academy/records": {
+        "title": "Records & Transcripts",
+        "summary": "Printable educational documentation for your homeschool portfolio.",
+        "details": [
+            "Course records show every lesson, mastery score, and completion date.",
+            "Transcript-style summaries are print-ready for evaluators and districts.",
+        ],
+        "related": ["/academy/compliance", "/academy/parent"],
+        "common_tasks": [],
+    },
+    "/academy/compliance": {
+        "title": "Florida Compliance Toolkit",
+        "summary": "Generate your Florida homeschool paperwork in minutes.",
+        "details": [
+            "Notice of Intent (Fla. Stat. § 1002.41) — file with your district within 30 days of starting.",
+            "Quarterly progress reports — log each quarter's coursework and mastery.",
+            "Annual evaluation letter — for your certified-teacher evaluation.",
+            "Transcript — for Bright Futures and college applications.",
+        ],
+        "tips": {
+            "student": "Parents handle this one — but it's quick, promise.",
+        },
+        "related": ["/academy/records"],
+        "common_tasks": [],
+    },
+    "/academy/build": {
+        "title": "Build Tracker (staff only)",
+        "summary": "Live catalog status, lesson coverage, and video enrichment at a glance.",
+        "details": [
+            "Every course with lesson counts and published/planned status.",
+            "Video enrichment coverage: embedded, needs an ID, or resource-link only.",
+            "The build-plan checklist lives here too.",
+        ],
+        "related": ["/admin"],
+        "common_tasks": [],
+    },
     "/": {
         "title": "Home / Landing",
         "summary": "Welcome to W.A.I. — the Workforce Apprentice Institute.",

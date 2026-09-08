@@ -66,6 +66,10 @@ from .ethnomathematics_stem import ETHNOMATHEMATICS_STEM
 from .global_african_diaspora import GLOBAL_AFRICAN_DIASPORA
 from .diaspora_mathematics import DIASPORA_MATHEMATICS
 from .african_philosophy_ethics import AFRICAN_PHILOSOPHY_ETHICS
+from .handbook_elementary import HANDBOOK_ELEMENTARY
+from .handbook_middle import HANDBOOK_MIDDLE
+from .handbook_high import HANDBOOK_HIGH
+from .handbook_adult import HANDBOOK_ADULT
 
 PUBLISHED_COURSES = [
     READING_GRADE_1,
@@ -110,6 +114,11 @@ PUBLISHED_COURSES = [
     GLOBAL_AFRICAN_DIASPORA,
     DIASPORA_MATHEMATICS,
     AFRICAN_PHILOSOPHY_ETHICS,
+    # Free student handbooks (ebook-style guides, catalog placement)
+    HANDBOOK_ELEMENTARY,
+    HANDBOOK_MIDDLE,
+    HANDBOOK_HIGH,
+    HANDBOOK_ADULT,
 ]
 
 # ── Planned catalog (honest placeholders — status "planned", zero lessons).

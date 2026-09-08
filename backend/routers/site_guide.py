@@ -123,6 +123,7 @@ WHAT YOU KNOW (ground your answers in the real platform):
 - Exec Control: admins can change every office number and text — monthly goal, infrastructure costs, owner draw %, fees, prices, and all division/tool copy — without code at /admin/office-control.
 - Classic Tools (/classic-tools): the full-featured ORIGINAL standalone HTML applications are preserved and launchable — the Creator's Sanctuary suite (DJEDI Oracle, Electrical Courses, Media Strategist, Publisher), the litigation weapons, the original M.O.R.E. Help Center, the original Helper, the Supervisor, the Sovereign, and the Ancestral Sage. If a modern page ever feels thin, the original is one click away at /classic/{slug} or full-screen from the hub.
 - The executive/institution site lives at wai-institute.org (redirects to /wai-institute).
+- Homeschool Academy (built into this site): gateway at /wai-institute, curriculum browser at /academy/curriculum, parent dashboard (enrollment + progress) at /academy/parent, student classroom at /academy/student, lesson player with 80% mastery gates, printable records at /academy/records, Florida compliance toolkit (Notice of Intent, quarterly reports, annual evaluation, transcript) at /academy/compliance. Four free student handbooks (Elementary, Middle School, High School, Adult) are in the course catalog. Browsing the catalog is free for everyone.
 
 HOW YOU SPEAK:
 - Warm, direct, plain language. No corporate fluff, no fake enthusiasm.
@@ -154,6 +155,19 @@ SITE_GUIDE_SUGGESTIONS = [
 # user BYOK spend. Only genuinely new questions escalate to the LLM gateway.
 
 _GUIDE_FAQ = [
+    {
+        "terms": ["homeschool", "homeschooling", "home school", "academy", "home education", "pep", "esa", "florida homeschool"],
+        "title": "The Homeschool Academy",
+        "answer": (
+            "The Homeschool Academy is a mastery-paced K–12 + adult program built right into MoreHelp: "
+            "enroll student profiles at /academy/parent, learn at /academy/student, pass each lesson at 80%+ to "
+            "unlock the next, and generate Florida compliance documents (Notice of Intent, quarterly reports, "
+            "annual evaluations, transcripts) at /academy/compliance. Browsing the full catalog is free — no "
+            "membership needed to look. Four free student handbooks (Elementary, Middle, High School, and Adult) "
+            "live in the catalog too."
+        ),
+        "link": "/wai-institute",
+    },
     {
         "terms": ["all-access trial", "all access trial", "trial", "$3", "3 day", "33 minutes", "33 seconds"],
         "title": "The $3 All-Access Trial",
@@ -548,6 +562,34 @@ _SITE_PAGES = [
     {"title": "Litigation Weapon (original edition)", "link": "/classic/litigation-weapon", "group": "pages",
      "summary": "The original Universal Litigation Weapon and Case Weapon System — know-your-rights tools, evidence checklists, damage calculators, and document templates.",
      "keywords": ["litigation", "legal", "weapon", "rights", "eeoc", "mspb", "damages", "case weapon", "self advocacy"]},
+    # ── Homeschool Academy ───────────────────────────────────────────────
+    {"title": "Homeschool Academy (WAI Institute)", "link": "/wai-institute", "group": "homeschool",
+     "summary": "The Academy gateway — a mastery-paced K–12 + adult homeschool program with real academics, trade tracks, and parental control.",
+     "keywords": ["homeschool", "academy", "wai institute", "homeschooling", "k-12", "home school", "home education", "enroll"]},
+    {"title": "Curriculum Explorer", "link": "/academy/curriculum", "group": "homeschool",
+     "summary": "Browse every Academy course by grade, track, or subject — published courses are live today; planned ones are labeled honestly.",
+     "keywords": ["curriculum", "explorer", "courses", "browse", "grade", "track", "subject", "homeschool courses"]},
+    {"title": "Course Pages", "link": "/academy/curriculum", "group": "homeschool",
+     "summary": "Each course has its own page with objectives, unit/lesson maps, and curated educational videos that play on-site.",
+     "keywords": ["course page", "lesson map", "units", "videos", "syllabus"]},
+    {"title": "Parent Dashboard", "link": "/academy/parent", "group": "homeschool",
+     "summary": "The family control room — add student profiles, pick grades and tracks, and monitor every learner's mastery progress.",
+     "keywords": ["parent", "dashboard", "family", "student profiles", "enroll student", "children", "kids learning"]},
+    {"title": "Student Classroom", "link": "/academy/student", "group": "homeschool",
+     "summary": "The learner's home base — next lesson, progress bars, and mastery scores at a glance.",
+     "keywords": ["student", "classroom", "my lessons", "progress", "next lesson", "learner"]},
+    {"title": "Lesson Player", "link": "/academy/curriculum", "group": "homeschool",
+     "summary": "Read the lesson, take the knowledge check, and pass at 80%+ to unlock the next — with a built-in Coach for hints.",
+     "keywords": ["lesson", "knowledge check", "quiz", "mastery", "80 percent", "coach", "unlock"]},
+    {"title": "Records & Transcripts", "link": "/academy/records", "group": "homeschool",
+     "summary": "Printable educational documentation — course records and transcript-style summaries for your homeschool portfolio.",
+     "keywords": ["records", "transcript", "printable", "portfolio", "documentation", "report"]},
+    {"title": "Florida Compliance Toolkit", "link": "/academy/compliance", "group": "homeschool",
+     "summary": "Generate your Notice of Intent, quarterly progress reports, annual evaluation letters, and transcript — Florida homeschool paperwork, done.",
+     "keywords": ["florida", "compliance", "notice of intent", "noi", "quarterly report", "annual evaluation", "ihip", "homeschool laws", "paperwork", "1002.41"]},
+    {"title": "Student Handbooks (free ebooks)", "link": "/academy/curriculum", "group": "homeschool",
+     "summary": "Four free student handbooks — Elementary, Middle School, High School (student + parent guide), and Adult learners — in the course catalog.",
+     "keywords": ["handbook", "student handbook", "ebook", "guide", "elementary", "middle school", "high school", "adult learner", "free book"]},
 ]
 
 

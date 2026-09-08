@@ -115,10 +115,41 @@ API + persistence + permissions + real content + tested + docs).
 
 ---
 
+## Build pass 2026-09-08 (this session — cultural courses, enrichment, handbooks, combined guide)
+- **Cultural courses published:** the 3 owner-curated courses previously registered as
+  planned placeholders (Global African Diaspora; Diaspora Mathematics; African Philosophy
+  and Ethics) were built out with complete lesson content (8/6/7 lessons) and published.
+  Honest correction: an earlier report called these "completed" when only catalog entries
+  existed — the catalog truth is now 46 published courses with real lessons.
+- **Seed version bug fixed:** `_source_version` was a static string, so content edits to
+  already-seeded courses never propagated to the DB. Now content-hash versioned — edits
+  propagate on deploy.
+- **Video enrichment (Phase V1):** 39 courses mapped to owner-curated public educational
+  videos (40 embeddable youtube-nocookie embeds with creator attribution, 3 awaiting
+  pinned IDs, 17 educator resource links). Videos play on-site at course start and at
+  unit boundaries. Mapping lives in `academy_content/enrichment.py`; seed validation
+  rejects bad video IDs and unknown course/unit slugs at boot.
+- **Staff build tracker:** `/academy/build` (role rank ≥ instructor) shows the live
+  catalog with lesson counts, published status, video coverage, and the build checklist.
+- **Free student handbooks:** 4 ebook-style courses published to the catalog (Elementary
+  K–5 with parent, Middle School 6–8, High School 9–12 students+parents, Adult). Chapters
+  as lessons with review checks; free like the rest of the catalog.
+- **Site Guide + Help combined:** one floating widget on every page — "This Page" tab
+  (route-aware help) + "Ask the Guide" tab (Site Guide persona chat). `/site-guide`
+  now redirects into the widget. Guide KB, FAQ, page index, and route help all extended
+  with every Homeschool Academy page.
+- Verified this session: `seed_academy` → 54 courses valid (46 published, 8 planned);
+  academy API suite 16/16; compliance docs 5/5. DB-backed integration suites still
+  require live MongoDB (sandbox limitation — see WORKING_FEATURE_INVENTORY.md §4).
+
 ## Owner decisions required (see BUILD_PLAN §16)
-1. Definitive Academy curriculum spec (catalog + scope & sequence) — not present in
-   this checkout; catalog breadth is currently derived from the owner plan.
-2. Confirm family model: one parent account + managed student profiles (no child logins).
+1. ~~Definitive Academy curriculum spec~~ — resolved: owner-curated catalog (this pass
+   added the cultural focus + handbooks). Planned catalog remains honest placeholders.
+2. ~~Confirm family model~~ — resolved: one parent account + managed student profiles.
 3. AI for Academy: reuse member-gated AI Tutor gateway vs separate free quota.
-4. Next content wave priority.
-5. Delivery: merge to `main` (live) once preview is reviewed.
+4. ~~Next content wave priority~~ — resolved: cultural & historical focus delivered;
+   remaining planned courses (history counter-narrative + business series) await owner
+   content spec or go-ahead.
+5. ~~Delivery~~ — resolved: changes land on `main` and deploy to Railway.
+6. Pin the 3 remaining video IDs (Crash Course Literature, Math Antics, Amoeba Sisters)
+   to activate those Adult Ed embeds.
