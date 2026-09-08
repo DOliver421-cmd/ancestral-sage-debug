@@ -8,6 +8,8 @@ breaking a student's lesson later.
 Run directly for a one-off check:  python -m seed_academy
 """
 import asyncio
+import hashlib
+import json
 import logging
 import uuid
 
@@ -122,13 +124,14 @@ async def seed_academy(db) -> dict:
     bulk_ops = []
     for course in ACADEMY_COURSES:
         existing = existing_by_slug.get(course["slug"])
-        if existing and existing.get("_source_version") == course.get("_source_version"):
+        content_version = f"v1-{hashlib.sha256(json.dumps(course, sort_keys=True, default=str).encode()).hexdigest()[:16]}"
+        if existing and existing.get("_source_version") == content_version:
             skipped += 1
             continue
         doc = {
             **course,
             "units": [] if course["status"] == "planned" else course["units"],
-            "_source_version": f"v1-{course['slug']}",
+            "_source_version": content_version,
             "_updated_at": __import__("datetime").datetime.now(
                 __import__("datetime").timezone.utc
             ).isoformat(),

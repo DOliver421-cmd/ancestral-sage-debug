@@ -63,6 +63,9 @@ from .entrepreneurship_foundations import ENTREPRENEURSHIP_FOUNDATIONS
 from .african_kingdoms import AFRICAN_KINGDOMS
 from .african_american_literature import AFRICAN_AMERICAN_LITERATURE
 from .ethnomathematics_stem import ETHNOMATHEMATICS_STEM
+from .global_african_diaspora import GLOBAL_AFRICAN_DIASPORA
+from .diaspora_mathematics import DIASPORA_MATHEMATICS
+from .african_philosophy_ethics import AFRICAN_PHILOSOPHY_ETHICS
 
 PUBLISHED_COURSES = [
     READING_GRADE_1,
@@ -104,6 +107,9 @@ PUBLISHED_COURSES = [
     AFRICAN_KINGDOMS,
     AFRICAN_AMERICAN_LITERATURE,
     ETHNOMATHEMATICS_STEM,
+    GLOBAL_AFRICAN_DIASPORA,
+    DIASPORA_MATHEMATICS,
+    AFRICAN_PHILOSOPHY_ETHICS,
 ]
 
 # ── Planned catalog (honest placeholders — status "planned", zero lessons).
@@ -132,27 +138,6 @@ def _planned(slug, title, summary, description, subject, subject_label, track,
 
 PLANNED_COURSES = [
     # ── Cultural & Historical Focus (owner-curated, 2026-09-08) ──
-    _planned(
-        "global-african-diaspora",
-        "Global African Diaspora: Resistance, Culture, and Modern Identity",
-        "Interconnected histories, cultural retentions, and political movements across the African Diaspora — the Haitian Revolution, Pan-Africanism, Negritude, and Caribbean/Afro-Latin cultural synthesis.",
-        "Traces the diaspora after the Transatlantic slave trade: maroon societies, the Haitian Revolution, Pan-Africanism, the Negritude movement, and Caribbean/Afro-Latin cultural synthesis.",
-        "social_studies", "Social Studies", "foundations", ["foundations", "scholar"],
-        ["8", "9", "10", "11"], "Grades 8–11", est_hours=20),
-    _planned(
-        "diaspora-mathematics-algorithms-astronomy",
-        "Mathematics of the African Diaspora: Algorithms, Calendars, and Astronomy",
-        "Time-keeping systems (Dogon astronomical calculations), Yoruba base-20 arithmetic logic, and African maritime navigation traditions.",
-        "Deepens ethnomathematics beyond geometry and architecture into complex time-keeping systems, arithmetic logic, and navigation traditions.",
-        "math", "Mathematics", "foundations", ["foundations", "scholar"],
-        ["6", "7", "8", "9"], "Grades 6–9", est_hours=18),
-    _planned(
-        "african-philosophy-ethics",
-        "African Philosophy and Ethics: Systems of Thought and Governance",
-        "Classical and contemporary African philosophical frameworks — Ubuntu, Akan proverb philosophy, communal epistemology — contrasted with Western ethical traditions.",
-        "Examines Ubuntu, Akan proverb philosophy, communal epistemology, consensus governance, and modern African thinkers (Fanon, Wiredu, Wynter), with a capstone philosophical portfolio.",
-        "social_studies", "Social Studies", "scholar", ["scholar"],
-        ["9", "10", "11", "12"], "Grades 9–12", est_hours=21),
     _planned(
         "african-ecosystems-land-stewardship",
         "Eco-Systems and Indigenous Land Stewardship in Africa",
