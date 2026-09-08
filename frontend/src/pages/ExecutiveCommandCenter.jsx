@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { Link } from "react-router-dom";
 import ReactMarkdown from "react-markdown";
 import AppShell from "../components/AppShell";
@@ -20,6 +20,7 @@ const TABS = [
   { key: "ai", label: "⚡ AI & Providers" },
   { key: "flags", label: "🚩 Site Flags" },
   { key: "users", label: "👤 User Controls" },
+  { key: "assets", label: "🖼️ Site Assets" },
   { key: "reports", label: "📚 Reports & Manuals" },
   { key: "controls", label: "🎛️ All Controls" },
 ];
@@ -85,6 +86,9 @@ export default function ExecutiveCommandCenter() {
   const [tierForm, setTierForm] = useState({ user_id: "", new_feature_tier: "free", reason: "" });
   const [tierBusy, setTierBusy] = useState(false);
   const [loadErrors, setLoadErrors] = useState([]);
+  const [assets, setAssets] = useState([]);
+  const [assetBusy, setAssetBusy] = useState(false);
+  const fileInputRef = useRef(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -116,6 +120,59 @@ export default function ExecutiveCommandCenter() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  const loadAssets = useCallback(async () => {
+    try {
+      const r = await api.get("/exec/assets");
+      setAssets(r.data.assets || []);
+    } catch {
+      setAssets([]);
+    }
+  }, []);
+
+  useEffect(() => { if (tab === "assets") loadAssets(); }, [tab, loadAssets]);
+
+  const uploadAsset = async (file, role) => {
+    setAssetBusy(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      if (role) fd.append("role", role);
+      const r = await api.post("/exec/assets", fd, { headers: { "Content-Type": "multipart/form-data" } });
+      toast.success(`Uploaded — ${r.data.file_url}`);
+      await loadAssets();
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || "Upload failed");
+    } finally {
+      setAssetBusy(false);
+    }
+  };
+
+  const assignAsset = async (fileId, role) => {
+    setAssetBusy(true);
+    try {
+      await api.put(`/exec/assets/${fileId}/assign`, { role: role || null });
+      await loadAssets();
+      toast.success(role ? `Assigned to ${role}` : "Assignment cleared");
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || "Assignment failed");
+    } finally {
+      setAssetBusy(false);
+    }
+  };
+
+  const deleteAsset = async (fileId) => {
+    setAssetBusy(true);
+    try {
+      await api.delete(`/exec/assets/${fileId}`);
+      await loadAssets();
+      toast.success("Asset deleted");
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || "Delete failed");
+    } finally {
+      setAssetBusy(false);
+    }
+  };
 
   const roleCounts = sys?.role_counts || {};
   const totalUsers = Object.values(roleCounts).reduce((a, b) => a + b, 0);
@@ -668,6 +725,84 @@ export default function ExecutiveCommandCenter() {
                       <ReactMarkdown>{m.content}</ReactMarkdown>
                     </div>
                   </details>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── SITE ASSETS ─────────────────────────────────────────────── */}
+        {tab === "assets" && (
+          <div className="space-y-5">
+            <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm text-slate-900">
+              <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
+                <div className="text-xs font-bold uppercase tracking-widest text-slate-600">Upload site imagery</div>
+                <span className="text-[11px] text-slate-600">jpg / png / webp / gif / svg — max 50MB</span>
+              </div>
+              <div className="flex flex-wrap items-center gap-3">
+                <select id="asset-role-select" defaultValue=""
+                  className="rounded-xl px-3 py-2 text-sm border" style={{ borderColor: "#444", background: "#fff", color: "#111" }}>
+                  <option value="">No role (library only)</option>
+                  <option value="hero">Hero (landing page)</option>
+                  <option value="landing_gallery">Landing gallery</option>
+                </select>
+                <button
+                  onClick={() => {
+                    const sel = document.getElementById("asset-role-select");
+                    if (fileInputRef.current) {
+                      fileInputRef.current.dataset.role = sel?.value || "";
+                      fileInputRef.current.click();
+                    }
+                  }}
+                  disabled={assetBusy}
+                  className="rounded-xl px-4 py-2 text-sm font-bold text-white disabled:opacity-50"
+                  style={{ background: "#8a5a00" }}>
+                  {assetBusy ? "Working…" : "Upload image"}
+                </button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/gif,image/svg+xml"
+                  className="hidden"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    const role = e.target.dataset.role || "";
+                    e.target.value = "";
+                    if (f) uploadAsset(f, role);
+                  }}
+                />
+              </div>
+              <p className="text-[11px] text-slate-600 mt-2">
+                Assigning a role replaces the previous holder of that role. The landing page reads the <code>hero</code> and <code>landing_gallery</code> roles automatically.
+              </p>
+            </div>
+
+            <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm text-slate-900">
+              <div className="text-xs font-bold uppercase tracking-widest text-slate-600 mb-3">Asset library ({assets.length})</div>
+              {assets.length === 0 && <p className="text-sm text-slate-600">No assets uploaded yet.</p>}
+              <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                {assets.map((a) => (
+                  <div key={a.file_id} className="rounded-xl overflow-hidden" style={{ border: "1px solid #f0eadf", background: "#faf9f7" }}>
+                    <img src={a.file_url} alt={a.filename} className="w-full h-32 object-cover" loading="lazy"
+                      onError={(e) => { e.target.style.opacity = "0.2"; }} />
+                    <div className="p-3 space-y-2">
+                      <div className="text-[11px] font-bold text-slate-800 truncate" title={a.filename}>{a.filename}</div>
+                      {a.role && <span className="inline-block text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: "#8a5a00", color: "#fff" }}>{a.role}</span>}
+                      <select value={a.role || ""} disabled={assetBusy}
+                        onChange={(e) => assignAsset(a.file_id, e.target.value)}
+                        className="w-full rounded-lg px-2 py-1 text-xs border" style={{ borderColor: "#ccc", background: "#fff", color: "#111" }}>
+                        <option value="">No role</option>
+                        <option value="hero">Hero</option>
+                        <option value="landing_gallery">Landing gallery</option>
+                      </select>
+                      <div className="flex gap-2">
+                        <button onClick={() => { navigator.clipboard.writeText(window.location.origin + a.file_url); toast.success("URL copied"); }}
+                          className="flex-1 rounded-lg px-2 py-1 text-xs font-bold" style={{ background: "#eee7db", color: "#333" }}>Copy URL</button>
+                        <button onClick={() => { if (window.confirm("Delete this asset permanently?")) deleteAsset(a.file_id); }}
+                          className="rounded-lg px-2 py-1 text-xs font-bold" style={{ background: "#fee2e2", color: "#991b1b" }}>Delete</button>
+                      </div>
+                    </div>
+                  </div>
                 ))}
               </div>
             </div>
