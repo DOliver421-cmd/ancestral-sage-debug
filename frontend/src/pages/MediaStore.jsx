@@ -758,7 +758,7 @@ export default function MediaStore() {
     { id: "browse", label: "Browse", icon: ShoppingBag },
     { id: "library", label: "My Library", icon: Library },
     { id: "sell", label: "Sell", icon: Upload },
-    { id: "storefront", label: "Storefront", icon: ExternalLink },
+    { id: "storefront", label: "Bookstore", icon: BookOpen },
   ];
 
   return (
@@ -824,14 +824,14 @@ export default function MediaStore() {
   );
 }
 
-/* ── Storefront Tab (Gumroad embed) ──────────────────────────────────────── */
+/* ── Bookstore Tab (Gumroad embed) ───────────────────────────────────────── */
 const GUMROAD_PROFILE = "https://namoshun.gumroad.com/";
 
 function StorefrontTab() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="font-heading text-xl font-bold text-[#1a1a1a]">NAM Oshun&apos;s Storefront</h2>
+        <h2 className="font-heading text-xl font-bold text-[#1a1a1a]">The Bookstore</h2>
         <p className="text-sm text-[#1a1a1a]/60 mt-1">
           Support the mission. Every purchase goes straight to the M.O.R.E. Help Center and the community.
         </p>
@@ -850,15 +850,15 @@ function StorefrontTab() {
       <div className="bg-white border border-[#1a1a1a]/10 rounded-2xl overflow-hidden shadow-sm">
         <div className="flex items-center justify-between gap-3 px-5 py-3 border-b border-[#1a1a1a]/10">
           <div className="text-sm font-bold text-[#1a1a1a] flex items-center gap-2">
-            NAM Oshun&apos;s Storefront
-            <span className="text-[10px] font-black uppercase tracking-widest bg-green-100 text-green-800 px-2 py-0.5 rounded-full">Live · Gumroad</span>
+            The Bookstore
+            <span className="text-[10px] font-black uppercase tracking-widest bg-green-100 text-green-800 px-2 py-0.5 rounded-full">Live · Secure Checkout</span>
           </div>
           <a href={GUMROAD_PROFILE} target="_blank" rel="noreferrer"
             className="inline-flex items-center gap-1.5 text-xs font-bold text-[#b5651d] hover:text-[#b5651d]/70 transition-colors">
             Open in new tab <ExternalLink className="w-3.5 h-3.5" />
           </a>
         </div>
-        <iframe src={GUMROAD_PROFILE} title="NAM Oshun Gumroad storefront"
+        <iframe src={GUMROAD_PROFILE} title="The Bookstore"
           className="w-full h-[75vh] min-h-[600px] border-0" loading="lazy"
           referrerPolicy="no-referrer-when-downgrade" allow="payment" />
       </div>

@@ -131,6 +131,88 @@ def _planned(slug, title, summary, description, subject, subject_label, track,
 
 
 PLANNED_COURSES = [
+    # ── Cultural & Historical Focus (owner-curated, 2026-09-08) ──
+    _planned(
+        "global-african-diaspora",
+        "Global African Diaspora: Resistance, Culture, and Modern Identity",
+        "Interconnected histories, cultural retentions, and political movements across the African Diaspora — the Haitian Revolution, Pan-Africanism, Negritude, and Caribbean/Afro-Latin cultural synthesis.",
+        "Traces the diaspora after the Transatlantic slave trade: maroon societies, the Haitian Revolution, Pan-Africanism, the Negritude movement, and Caribbean/Afro-Latin cultural synthesis.",
+        "social_studies", "Social Studies", "foundations", ["foundations", "scholar"],
+        ["8", "9", "10", "11"], "Grades 8–11", est_hours=20),
+    _planned(
+        "diaspora-mathematics-algorithms-astronomy",
+        "Mathematics of the African Diaspora: Algorithms, Calendars, and Astronomy",
+        "Time-keeping systems (Dogon astronomical calculations), Yoruba base-20 arithmetic logic, and African maritime navigation traditions.",
+        "Deepens ethnomathematics beyond geometry and architecture into complex time-keeping systems, arithmetic logic, and navigation traditions.",
+        "math", "Mathematics", "foundations", ["foundations", "scholar"],
+        ["6", "7", "8", "9"], "Grades 6–9", est_hours=18),
+    _planned(
+        "african-philosophy-ethics",
+        "African Philosophy and Ethics: Systems of Thought and Governance",
+        "Classical and contemporary African philosophical frameworks — Ubuntu, Akan proverb philosophy, communal epistemology — contrasted with Western ethical traditions.",
+        "Examines Ubuntu, Akan proverb philosophy, communal epistemology, consensus governance, and modern African thinkers (Fanon, Wiredu, Wynter), with a capstone philosophical portfolio.",
+        "social_studies", "Social Studies", "scholar", ["scholar"],
+        ["9", "10", "11", "12"], "Grades 9–12", est_hours=21),
+    _planned(
+        "african-ecosystems-land-stewardship",
+        "Eco-Systems and Indigenous Land Stewardship in Africa",
+        "Indigenous agricultural, ecological, and water management technologies across African biomes — Sahelian terracing, rainforest agroforestry, pastoral water management — and modern climate resilience.",
+        "Studies indigenous agricultural and water-management technologies and their modern implications for climate resilience.",
+        "science", "Science", "foundations", ["foundations", "scholar"],
+        ["7", "8", "9", "10"], "Grades 7–10", est_hours=19),
+
+    # ── History from the Vantage of the Oppressed series ──
+    _planned(
+        "architecture-of-omission",
+        "The Architecture of Omission: Exposing the Logic Gaps in U.S. History",
+        "Systematic analysis of standard curriculum omissions — expropriation, the legal mechanics of racial capitalism, and the sanitization of colonial expansion — through primary-source cross-examination.",
+        "Students deconstruct historical narratives by cross-examining primary source documents against institutional outcomes; capstone is a counter-narrative curriculum module or policy brief.",
+        "social_studies", "Social Studies", "scholar", ["scholar"],
+        ["9", "10", "11", "12"], "Grades 9–12", est_hours=24),
+    _planned(
+        "resistance-rebellion-counter-narrative",
+        "Resistance, Rebellion, and the Counter-Narrative",
+        "Organized resistance of the enslaved, colonized, and exploited — Maroon societies, the Haitian Revolution, indigenous sovereignty struggles, and cross-racial labor movements.",
+        "Shifts the lens from the dominant class to organized resistance across the Americas, including the Haitian Revolution as a disruption of Enlightenment philosophy.",
+        "social_studies", "Social Studies", "foundations", ["foundations", "scholar"],
+        ["8", "9", "10", "11"], "Grades 8–11", est_hours=26),
+    _planned(
+        "legalized-subjugation",
+        "Legalized Subjugation: The Evolution of Structural Controls",
+        "The direct lineage of institutional control — Black Codes, Jim Crow, redlining — and how law has engineered economic disparity, disenfranchisement, and social stratification.",
+        "Bypasses standard civic mythologies to examine law as an instrument of engineered disparity, from the Black Codes to modern systemic frameworks.",
+        "social_studies", "Social Studies", "scholar", ["scholar"],
+        ["10", "11", "12"], "Grades 10–12", est_hours=22),
+    _planned(
+        "economics-of-extraction",
+        "Economics of Extraction: The True Ledger of Western Growth",
+        "The material reality behind industrialization and global capital accumulation — forced labor, resource extraction, and unequal trade policies.",
+        "Analyzes how Western institutional wealth was built on forced labor, resource extraction, and unequal global trade, filling the gap between innovation narratives and expropriation.",
+        "social_studies", "Social Studies", "scholar", ["scholar"],
+        ["9", "10", "11", "12"], "Grades 9–12", est_hours=20),
+
+    # ── Business & Entrepreneurship: Counter-Narrative & Economic Autonomy ──
+    _planned(
+        "cooperative-economics-mutual-aid",
+        "Cooperative Economics and Mutual Aid Networks",
+        "Cooperative economics, credit unions, mutual aid societies, and cooperative land tenure — how communities built sustainable economic infrastructure through collective ownership.",
+        "The Collective Ledger: historical and modern cooperative models from burial societies and susu systems to community land trusts, CDCUs, and platform cooperativism; capstone is a functional manifesto for student entrepreneurs.",
+        "entrepreneurship", "Entrepreneurship", "entrepreneurship", ["entrepreneurship", "scholar"],
+        ["9", "10", "11", "12"], "Grades 9–12", est_hours=21),
+    _planned(
+        "autonomous-enterprise-black-commerce",
+        "Autonomous Enterprise: History and Mechanics of Black Commerce",
+        "Independent commerce built under structural disadvantage — from commerce under chattel slavery and Black Wall Street ecosystems to modern cooperative and digital ventures.",
+        "Analyzes capital generation, localized supply chains, and self-determined market creation, including the targeted destruction of prosperous Black commercial districts and modern digital sovereignty strategies; capstone is a complete autonomous business plan.",
+        "entrepreneurship", "Entrepreneurship", "entrepreneurship", ["entrepreneurship", "scholar"],
+        ["10", "11", "12"], "Grades 10–12", est_hours=24),
+    _planned(
+        "radical-wealth-literacy",
+        "Radical Wealth Literacy: Deconstructing Capital, Credit, and Extraction",
+        "The mechanics of wealth extraction, predatory lending, redlining, and generational asset stripping — with asset protection, debt leverage, and community capital retention.",
+        "Replaces superficial financial advice with a structural critique of modern banking, teaching asset protection and community capital retention.",
+        "entrepreneurship", "Entrepreneurship", "career", ["career", "scholar"],
+        ["9", "10", "11", "12"], "Grades 9–12", est_hours=18),
 ]
 
 ACADEMY_COURSES = PUBLISHED_COURSES + PLANNED_COURSES
