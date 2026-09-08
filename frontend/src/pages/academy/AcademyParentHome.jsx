@@ -6,7 +6,7 @@ import AppShell from "../../components/AppShell";
 import { TrackTag, ProgressBar } from "./academyKit";
 import {
   GraduationCap, UserPlus, ArrowRight, FileText, Trash2, RefreshCw,
-  AlertTriangle, CheckCircle2, Users, Sparkles, BookOpen,
+  AlertTriangle, CheckCircle2, Users, Sparkles, BookOpen, ShieldCheck,
 } from "lucide-react";
 
 const TRACK_OPTIONS = [
@@ -224,6 +224,9 @@ export default function AcademyParentHome() {
                     </Link>
                     <Link to={`/academy/records?student=${s.id}`} className="inline-flex items-center gap-2 px-4 py-2 border-2 border-ink/15 text-ink font-black text-sm rounded-lg hover:border-copper hover:text-copper transition-colors">
                       <FileText className="w-4 h-4" /> Records
+                    </Link>
+                    <Link to={`/academy/compliance?student=${s.id}`} className="inline-flex items-center gap-2 px-4 py-2 border-2 border-ink/15 text-ink font-black text-sm rounded-lg hover:border-copper hover:text-copper transition-colors" data-testid={`compliance-${s.id}`}>
+                      <ShieldCheck className="w-4 h-4" /> Compliance
                     </Link>
                   </div>
                 </div>
