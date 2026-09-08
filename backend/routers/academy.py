@@ -881,3 +881,182 @@ async def list_interventions(user: dict = Depends(_require_rank("instructor", "a
     docs = await db.academy_interventions.find(q, {"_id": 0}).sort("created_at", -1).to_list(200)
     return {"interventions": docs}
 
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# Florida homeschool compliance layer (additive; no schema changes).
+# Serves three family paths:
+#   * FL Home Education Program: Notice of Intent + annual evaluation packet.
+#   * Quarterly progress reports (for umbrella schools / families moving from
+#     quarterly-reporting states like NY).
+#   * Transcript builder (Bright Futures / FDOE submission format).
+# NOTE: IHIPs are a New York requirement, not Florida; the IHIP-style plan
+# generator is included so families relocating from quarterly/IHIP states
+# can still produce one from the same records.
+# ═════════════════════════════════════════════════════════════════════════════
+
+class ComplianceDoc(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    kind: Literal["notice_of_intent", "quarterly_report", "annual_evaluation", "transcript", "ihip"]
+    student_id: str = Field(min_length=1)
+    school_year: str = Field(min_length=4, max_length=20, description="e.g. 2026-2027")
+    district: Optional[str] = Field(default=None, max_length=120)
+    parent_signature: Optional[str] = Field(default=None, max_length=120)
+    evaluator_name: Optional[str] = Field(default=None, max_length=120)
+    notes: Optional[str] = Field(default=None, max_length=4000)
+    period_start: Optional[str] = Field(default=None, max_length=10)
+    period_end: Optional[str] = Field(default=None, max_length=10)
+
+
+_COMPLIANCE_DISCLAIMER = (
+    "MoreHelp Center is an educational resource provider helping parents manage "
+    "their own home education programs. This document was generated from "
+    "platform activity records. The parent is the home education program "
+    "administrator under Florida law (s. 1002.41, F.S.); submit it to your "
+    "county school district or evaluator as appropriate. It is not legal advice."
+)
+
+
+def _compliance_payload(kind: str, student: dict, rows: list, summary: dict) -> dict:
+    """Build the content body for each doc kind from real Academy records."""
+    if kind == "notice_of_intent":
+        return {
+            "title": "Notice of Intent to Establish a Home Education Program",
+            "statute": "Section 1002.41, Florida Statutes",
+            "body": (
+                "This letter provides notice, pursuant to s. 1002.41(1)(b), F.S., "
+                "of my intent to establish and maintain a home education program "
+                "for the child named below. I understand I am responsible for the "
+                "child's educational program and for maintaining a portfolio of "
+                "records and materials. Please enroll the student in your district's "
+                "home education program."
+            ),
+            "fields": ["student_name", "dob", "address_line", "district"],
+        }
+    if kind == "quarterly_report":
+        return {
+            "title": "Quarterly Progress Report",
+            "statute": "IHIP-style quarterly reporting (not required by Florida s. 1002.41)",
+            "body": "Progress summary for the reporting period below, generated from completed coursework and mastery records.",
+            "period": {"start": None, "end": None},
+            "rows": rows,
+            "summary": summary,
+        }
+    if kind == "annual_evaluation":
+        return {
+            "title": "Annual Educational Evaluation Packet",
+            "statute": "Section 1002.41(1)(f), Florida Statutes",
+            "body": (
+                "Portfolio summary and activity log prepared for review by a "
+                "Florida-certified teacher evaluator, or for submission with a "
+                "nationally normed achievement test result. Shows educational "
+                "progress commensurate with the child's abilities."
+            ),
+            "rows": rows,
+            "summary": summary,
+        }
+    if kind == "ihip":
+        return {
+            "title": "Individualized Home Instruction Plan (IHIP)",
+            "statute": "NY CR 100.10 style plan (for families relocating from IHIP states)",
+            "body": "Individualized instructional plan derived from the student's enrolled Academy courses.",
+            "rows": [
+                {
+                    "course_title": r["course_title"],
+                    "subject": r["subject_label"] or r["subject"],
+                    "grade_label": r["grade_label"],
+                }
+                for r in rows
+            ],
+        }
+    # transcript
+    graded = []
+    for r in rows:
+        total = r["stats"]["lessons_total"]
+        if not total:
+            continue
+        pct = round(100.0 * r["stats"]["lessons_passed"] / total)
+        graded.append({
+            "course_title": r["course_title"],
+            "subject": r["subject_label"] or r["subject"],
+            "grade_label": r["grade_label"],
+            "progress_pct": pct,
+            "status": r["status"],
+            "passing_score": r["passing_score"],
+        })
+    gpa_points = {"completed": 4.0, "in_progress": None, "not_started": None}
+    completed = [g for g in graded if g["status"] == "completed"]
+    gpa = round(sum(gpa_points["completed"] for _ in completed) / len(completed), 2) if completed else None
+    return {
+        "title": "Official High School Transcript (Parent-Issued)",
+        "statute": "Prepared for Bright Futures / Florida Department of Education submission",
+        "body": (
+            "Course list, mastery-based progress percentages, and completion status. "
+            "The parent, as school administrator, reviews, signs, and submits this "
+            "document to the Florida Department of Education or receiving institution."
+        ),
+        "graded_courses": graded,
+        "unweighted_gpa_completed_only": gpa,
+        "signature_line": "Parent / School Administrator signature: ______________________  Date: ____________",
+    }
+
+
+@router.post("/academy/compliance/generate")
+async def generate_compliance_doc(doc: ComplianceDoc, user: dict = Depends(_dep_current_user)):
+    """Generate (and optionally persist) a Florida compliance document."""
+    student = await _owned_student(doc.student_id, user)
+    enrolled = await _enrolled_snapshot(student)
+    rows = []
+    for course in enrolled:
+        progress = await _progress_map(doc.student_id, course["slug"])
+        stats = _course_stats(course, progress)
+        rows.append({
+            "course_slug": course["slug"],
+            "course_title": course["title"],
+            "subject": course.get("subject"),
+            "subject_label": course.get("subject_label"),
+            "grade_label": course.get("grade_label"),
+            "passing_score": _passing_score(course),
+            "stats": stats,
+            "status": "completed" if stats["completed"] else ("in_progress" if stats["lessons_passed"] else "not_started"),
+        })
+    summary = {
+        "courses_completed": sum(1 for r in rows if r["status"] == "completed"),
+        "courses_in_progress": sum(1 for r in rows if r["status"] == "in_progress"),
+        "lessons_passed": sum(r["stats"]["lessons_passed"] for r in rows),
+        "lessons_total": sum(r["stats"]["lessons_total"] for r in rows),
+    }
+    payload = _compliance_payload(doc.kind, student, rows, summary)
+    record = {
+        "id": str(uuid.uuid4()),
+        "kind": doc.kind,
+        "school_year": doc.school_year,
+        "student_id": doc.student_id,
+        "parent_user_id": user.id,
+        "district": doc.district,
+        "parent_signature": doc.parent_signature,
+        "evaluator_name": doc.evaluator_name,
+        "notes": doc.notes,
+        "period_start": doc.period_start,
+        "period_end": doc.period_end,
+        "payload": payload,
+        "generated_at": _now(),
+    }
+    await db.academy_compliance_docs.insert_one(record)
+    if audit:
+        try:
+            await audit(user.id, "academy.compliance.generate", target=doc.student_id, meta={"kind": doc.kind, "school_year": doc.school_year})
+        except Exception:
+            logger.exception("audit failed")
+    out = {k: v for k, v in record.items() if k != "_id"}
+    out["disclaimer"] = _COMPLIANCE_DISCLAIMER
+    return {"doc": out}
+
+
+@router.get("/academy/compliance/docs")
+async def list_compliance_docs(user: dict = Depends(_dep_current_user), student_id: Optional[str] = None):
+    q = {"parent_user_id": user.id}
+    if student_id:
+        q["student_id"] = student_id
+    docs = await db.academy_compliance_docs.find(q, {"_id": 0}).sort("generated_at", -1).to_list(200)
+    return {"docs": docs, "disclaimer": _COMPLIANCE_DISCLAIMER}
