@@ -95,7 +95,7 @@ async def quick_setup_status(user=Depends(_user)):
         "openai": bool(os.environ.get("OPENAI_API_KEY", "").strip()),
         "deepseek": bool(os.environ.get("AI_PROVIDER_DEEPSEEK_KEY", "").strip()),
         "stripe": bool(os.environ.get("STRIPE_SECRET_KEY", "").strip() and os.environ.get("STRIPE_PUBLISHABLE_KEY", "").strip()),
-        "lemon_squeezy": bool(os.environ.get("LEMON_SQUEEZY_API_KEY", "").strip() and os.environ.get("LEMON_SQUEEZY_STORE_ID", "").strip()),
+        "lemon_squeezy": bool(os.environ.get("LEMON_SQUEEZY_API_KEY", "").strip() and os.environ.get("LEMON_SQUEEZY_STORE_ID", "").strip() and os.environ.get("LEMON_SQUEEZY_WEBHOOK_SECRET", "").strip()),
         "gumroad": bool(os.environ.get("GUMROAD_API_KEY", "").strip()),
     }
     if db is None:
@@ -145,6 +145,8 @@ async def quick_setup(body: QuickSetupRequest, user=Depends(_user)):
         raise HTTPException(400, "Stripe also needs the webhook secret (whsec_…) so paid orders can be recorded.")
     if provider_type == "lemon_squeezy" and not secondary:
         raise HTTPException(400, "Lemon Squeezy needs BOTH the API key and the store id.")
+    if provider_type == "lemon_squeezy" and not (body.third_key or "").strip():
+        raise HTTPException(400, "Lemon Squeezy also needs the webhook secret (from Settings → Webhooks) so paid orders can be fulfilled.")
     fernet = _fernet()
     if fernet is None:
         raise HTTPException(503, "Provider key encryption is not configured on the server.")
