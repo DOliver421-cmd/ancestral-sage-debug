@@ -1014,6 +1014,44 @@ function LearnTab({ user, status }) {
   );
 }
 
+// ── Profile Resource Hub — Member+ (staff free), lives INSIDE /profile (not a dead page)
+function ProfileResourceHub({ user }) {
+  const tier = user?.feature_tier || "free";
+  const role = user?.role || "student";
+  const staffRoles = new Set(["instructor","admin","executive_admin","support_staff","oversight"]);
+  const isStaff = staffRoles.has(role);
+  const tierRank = {free:0,member:1,plus:2,pro:3,patron:4,platinum:5,executive:6};
+  const canSee = isStaff || (tierRank[tier]||0) >= 1;
+  if (!canSee) {
+    return (
+      <div className="card-flat p-8 text-center space-y-3">
+        <Briefcase className="w-8 h-8 text-copper mx-auto" />
+        <div className="font-heading font-bold text-lg text-ink">Resource Hub — Member access</div>
+        <p className="text-sm text-ink/60">Grants, fundraising, and business resources live in your profile once you join as a Member. Staff access is included automatically.</p>
+        <Link to="/plans" className="btn-copper text-sm inline-flex">See Member plans →</Link>
+        <div className="text-xs text-ink/30 pt-2"><Link to="/resources" className="text-copper hover:underline">Open full Hub at /resources →</Link></div>
+      </div>
+    );
+  }
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div className="font-heading font-bold text-base flex items-center gap-2"><Briefcase className="w-4 h-4 text-copper" /> Resource Hub</div>
+        <Link to="/resources" className="text-xs font-bold text-copper hover:underline">Open full page →</Link>
+      </div>
+      <p className="text-sm text-ink/60">Your unified workspace — grants, fundraising, business resources, legal workflows, and assistant. Real workflows, not link lists.</p>
+      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        {[{to:"/resources", label:"Dashboard", desc:"Counts, next step"},{to:"/resources", label:"Grants", desc:"Opportunities + apply"},{to:"/resources", label:"Fundraising", desc:"Campaigns + scholarship funds"},{to:"/resources", label:"Business Resources", desc:"Templates, legal, finance"},{to:"/legal", label:"Legal Workflows", desc:"12 workflows + docs"},{to:"/assistant", label:"Admin Assistant", desc:"Draft, propose, plan"}].map(c=>(
+          <Link key={c.label} to={c.to} className="card-flat p-4 hover:border-copper transition-colors group">
+            <div className="font-bold text-sm text-ink group-hover:text-copper">{c.label}</div>
+            <div className="text-xs text-ink/50 mt-1">{c.desc}</div>
+          </Link>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ── Main component ─────────────────────────────────────────────────────────────
 export default function UnifiedProfile() {
   const { username } = useParams();
@@ -1204,6 +1242,7 @@ export default function UnifiedProfile() {
   // Build tab list — same structure for ALL users, owner-only tabs hidden for non-owners
   const TABS = [
     { key: "home",     label: "Home" },
+    { key: "resources", label: "Resources", ownerOnly: true },
     { key: "create",   label: "Create",  ownerOnly: true },
     { key: "publish",  label: "Publish", ownerOnly: true },
     { key: "learn",    label: "Learn",   ownerOnly: true },
@@ -1497,6 +1536,9 @@ export default function UnifiedProfile() {
               {activeTab === "settings" && isOwner && (
                 <SettingsTab profile={profile} onSaved={reloadProfile} />
               )}
+
+              {/* ══ RESOURCES tab — Resource Hub IN profile (Member+/staff, tiers.js:resource_hub) ══ */}
+              {activeTab === "resources" && isOwner && <ProfileResourceHub user={user} />}
 
               {/* WORKSPACE tab (personal workspace: saved items + notes/plans) */}
               {activeTab === "workspace" && isOwner && (

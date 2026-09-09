@@ -23,21 +23,36 @@ def bind(_db, **_kw):
     global db
     db = _db
 
-NASA_API_KEY = os.environ.get("NASA_API_KEY", "").strip()
 APOD_URL = "https://api.nasa.gov/planetary/apod"
 IMAGES_URL = "https://images-api.nasa.gov/search"
 
+# Curated fallback so the Observatory never renders as blank when NASA is rate-limited.
+_FALLBACK_APOD = {
+    "date": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+    "title": "Earth at Night — The Living Observatory",
+    "explanation": "When the NASA feed is rate-limited, the Observatory shows a curated view so learning never stops. This is a composite view of Earth at night — every light a community, every cluster a lineage. Use the Virtual Observatory as a daily science prompt: ask what the image shows, what it hides, and who kept the knowledge that named it.",
+    "url": "https://apod.nasa.gov/apod/image/2308/EarthAtNight_SuomiNPP_1080.jpg",
+    "hdurl": "https://apod.nasa.gov/apod/image/2308/EarthAtNight_SuomiNPP_4020.jpg",
+    "media_type": "image",
+    "copyright": "NASA / NOAA / Suomi NPP",
+    "service_version": "v1",
+    "fallback": True,
+}
+
+def _nasa_key() -> str:
+    # Read at request time so Railway-injected NASA_API_KEY is picked up without a rebuild.
+    return os.environ.get("NASA_API_KEY", "").strip()
+
 @router.get("/nasa/apod")
 async def apod(date: Optional[str] = None):
-    """Daily APOD. Cached in Mongo nasa_cache for 24h. Public — no auth needed."""
-    key = NASA_API_KEY or "DEMO_KEY"
+    """Daily APOD. Cached in Mongo nasa_cache for 24h. Public — no auth needed. Never 502s the UI: returns a curated fallback when upstream is down."""
+    key = _nasa_key() or "DEMO_KEY"
     cache_key = f"apod:{date or 'today'}"
     # try cache first (if db available)
     try:
         if db is not None:
             cached = await db.nasa_cache.find_one({"key": cache_key}, {"_id": 0})
             if cached and cached.get("expires_at"):
-                # ISO string check
                 exp = cached["expires_at"]
                 try:
                     if datetime.fromisoformat(exp) > datetime.now(timezone.utc):
@@ -56,9 +71,20 @@ async def apod(date: Optional[str] = None):
             r.raise_for_status()
             data = r.json()
     except httpx.HTTPStatusError as e:
-        raise HTTPException(502, f"NASA APOD unavailable: {e.response.status_code}")
+        logger.warning("NASA APOD HTTP %s on %s — serving fallback", e.response.status_code, cache_key)
+        # DEMO_KEY is heavily rate-limited (429/403). Serve the curated fallback with 200 so the banner renders.
+        fb = {**_FALLBACK_APOD, "date": date or _FALLBACK_APOD["date"]}
+        try:
+            if db is not None:
+                exp = (datetime.now(timezone.utc) + timedelta(minutes=20)).isoformat()
+                await db.nasa_cache.update_one({"key": cache_key}, {"$set": {"key": cache_key, "data": fb, "expires_at": exp, "cached_at": datetime.now(timezone.utc).isoformat()}}, upsert=True)
+        except Exception:
+            pass
+        return fb
     except Exception as e:
-        raise HTTPException(502, f"NASA APOD fetch failed: {e}")
+        logger.warning("NASA APOD fetch failed (%s) — serving fallback", e)
+        fb = {**_FALLBACK_APOD, "date": date or _FALLBACK_APOD["date"]}
+        return fb
 
     payload = {
         "date": data.get("date"),
@@ -69,6 +95,7 @@ async def apod(date: Optional[str] = None):
         "media_type": data.get("media_type", "image"),
         "copyright": data.get("copyright", ""),
         "service_version": data.get("service_version", "v1"),
+        "fallback": False,
     }
     # cache 24h
     try:
