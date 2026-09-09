@@ -290,13 +290,41 @@ async def list_modules():
     return catalog
 
 
+# ── Module tier gating (owner policy) ───────────────────────────────────────
+#
+# Owner policy: NOTHING in the trade/workshop LMS is free. Access to these
+# courses is provided according to the user's membership tier and role — the
+# word "free" is never used to describe them. The core legally-required K-12
+# homeschool courses (routers/academy.py) are the only no-cost offerings, and
+# they are gated separately. Every LMS module requires an active paid
+# membership (member tier or above), enforced HERE server-side — the frontend
+# badge is cosmetic, this check is the real gate.
+_MODULE_TIER_RANK = {"free": 0, "member": 1, "plus": 2, "pro": 3, "patron": 4, "platinum": 5, "executive": 6}
+_MODULE_MIN_TIER = "member"
+
+
+def _require_module_tier(user: User):
+    """Trade/workshop modules require an active paid membership tier.
+    Staff roles (instructor+) get access by role, not by purchase."""
+    rank = _MODULE_TIER_RANK.get(user.feature_tier, 0)
+    role_rank_val = ROLE_RANK.get(user.role, 0)
+    if rank < _MODULE_TIER_RANK[_MODULE_MIN_TIER] and role_rank_val < ROLE_RANK["instructor"]:
+        raise HTTPException(
+            402,
+            "This course is included with a paid membership. "
+            "Upgrade your plan to enroll — access is granted according to your membership tier.",
+        )
+
+
 @router.get("/modules/{slug}", response_model=Module)
 async def get_module(slug: str, user: User = Depends(_dep_current_user)):
-    """Full module content — registered users only. Anonymous visitors see
-    the public catalog (GET /modules) but cannot open any course content."""
+    """Full module content — paid members only (staff access by role).
+    Anonymous visitors see the public catalog (GET /modules) but cannot open
+    any course content."""
     doc = await db.modules.find_one({"slug": slug}, {"_id": 0})
     if not doc:
         raise HTTPException(404, "Module not found")
+    _require_module_tier(user)
     return Module(**doc)
 
 
@@ -311,6 +339,7 @@ async def start_module(payload: dict, user: User = Depends(_dep_current_user)):
     slug = payload.get("module_slug")
     if not slug:
         raise HTTPException(400, "module_slug required")
+    _require_module_tier(user)
     existing = await db.progress.find_one({"user_id": user.id, "module_slug": slug}, {"_id": 0})
     if existing:
         return existing
@@ -327,6 +356,7 @@ async def submit_quiz(body: QuizSubmit, user: User = Depends(_dep_current_user))
     mod = await db.modules.find_one({"slug": body.module_slug}, {"_id": 0})
     if not mod:
         raise HTTPException(404, "Module not found")
+    _require_module_tier(user)
     quiz = mod.get("quiz", [])
     if len(body.answers) != len(quiz):
         raise HTTPException(400, "Answer count mismatch")

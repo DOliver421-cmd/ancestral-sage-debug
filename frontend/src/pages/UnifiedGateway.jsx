@@ -16,7 +16,7 @@ const FOUNDER_LOGO = "/WAI_Logo.jpg";
 // ── Tier badges — every paid feature is visibly not free ─────────────────────
 // Matches the membership colors used further down this page so the signals agree.
 const TIER_STYLE = {
-  free:   { label: "Free",   color: "#6b7280" },
+  free:   { label: "Starter",   color: "#6b7280" },
   member: { label: "Member", color: "#3b82f6" },
   plus:   { label: "Plus",   color: "#8b5cf6" },
   pro:    { label: "Pro",    color: "#b5651d" },
@@ -83,7 +83,7 @@ export default function UnifiedGateway() {
                 <Link to="/register"
                   className="font-black text-sm px-8 py-4 rounded-xl"
                   style={{ background: "#b8860b", color: "#111111", fontSize: 15 }}>
-                  Join Free →
+                  Join →
                 </Link>
                 <Link to="/subscribe?plan=sanctuary_trial"
                   className="font-bold text-sm px-8 py-4 rounded-xl border"
@@ -223,7 +223,7 @@ export default function UnifiedGateway() {
                     </div>
                     <span className="shrink-0 rounded-full px-2.5 py-0.5 text-xs font-bold"
                       style={{ background: `${color}15`, color }}>
-                      Free
+                      Core
                     </span>
                   </div>
                 ))}
@@ -265,7 +265,7 @@ export default function UnifiedGateway() {
               </h2>
               <p style={{ color: "#4a4238", maxWidth: 640, lineHeight: 1.6, fontSize: "0.95rem", margin: 0 }}>
                 Read mail, understand bills, explain legal papers, check for scams, and remember
-                appointments — in plain, simple words, in your own language. Free, no login required.
+                appointments — in plain, simple words, in your own language. No login required.
                 Named in honor of <strong style={{ color: "#111111" }}>Michael Oliver</strong> — the M.O.R.E. in M.O.R.E. Help Center.
               </p>
             </div>
@@ -294,12 +294,12 @@ export default function UnifiedGateway() {
               <Link to="/helper"
                 className="inline-flex items-center gap-2 font-bold text-sm px-6 py-3 rounded-xl"
                 style={{ background: "#b8860b", color: "#111111", fontSize: 14 }}>
-                Try My Helper on its own page — Free
+                Try My Helper on its own page
               </Link>
               <Link to="/register"
                 className="inline-flex items-center gap-2 font-bold text-sm px-6 py-3 rounded-xl border"
                 style={{ borderColor: "#c9c0b2", color: "#2b2722", fontSize: 14 }}>
-                Join free for saved notes
+                Join for saved notes
               </Link>
             </div>
           )}
@@ -513,8 +513,7 @@ export default function UnifiedGateway() {
           <p className="text-ink/50 text-center mb-12 max-w-xl mx-auto">Every tier keeps the doors open for someone who can't pay yet.</p>
 
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-8">
-            {[
-              { name: "Free",    price: "$0",   color: "#6b7280", to: "/register",                              cta: "Start Free",      features: ["Community access", "Browse courses", "Daily XP puzzle"] },
+            {[                  { name: "Free",    price: "$0",   color: "#6b7280", to: "/register",                              cta: "Open Account",      features: ["Community access", "Browse courses", "Daily XP puzzle"] },
               { name: "Member",  price: "$9",   color: "#3b82f6", to: "/subscribe?plan=member_monthly",       cta: "Choose Member — $9",  features: ["Full M.O.R.E.", "AI via your own key", "Creator basics"] },
               { name: "Plus",    price: "$15",  color: "#8b5cf6", to: "/subscribe?plan=plus_monthly",         cta: "Choose Plus — $15",   features: ["Ghost Producer", "Creator Studio", "Course selling"] },
               { name: "Pro",     price: "$29",  color: "#b5651d", to: "/subscribe?plan=pro_monthly",          cta: "Choose Pro — $29",    features: ["AI via your own key", "Advanced labs", "Earnings dashboard"], highlight: true },

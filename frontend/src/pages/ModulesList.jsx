@@ -72,7 +72,7 @@ export default function ModulesList() {
       // Never fail silently — the customer clicked and deserves an answer.
       const detail = e?.response?.data?.detail || "";
       if (e?.response?.status === 501 || /not configured/i.test(String(detail))) {
-        toast.info("Paid courses are coming soon — free courses enroll instantly, and nothing can be charged yet.");
+        toast.info("Paid courses are coming soon — membership courses enroll instantly, and nothing can be charged yet.");
       } else {
         toast.error(detail || "Could not start enrollment. Please try again.");
       }
@@ -137,9 +137,9 @@ export default function ModulesList() {
               <button onClick={() => openAuthedUrl("/handbooks/instructor")} className="font-bold text-copper hover:underline cursor-pointer bg-transparent border-0 p-0">📘 Instructor Handbook →</button>
               <button onClick={() => openAuthedUrl("/handbooks/student")} className="font-bold text-copper hover:underline cursor-pointer bg-transparent border-0 p-0">📕 Student Handbook →</button>
               {user ? (
-                <Link to="/ascension-protocols" className="font-bold text-copper hover:underline">🌱 Ascension Protocols (free) →</Link>
+                <Link to="/ascension-protocols" className="font-bold text-copper hover:underline">🌱 Ascension Protocols →</Link>
               ) : (
-                <Link to="/register" className="font-bold text-copper hover:underline">🌱 Ascension Protocols (free for members) →</Link>
+                <Link to="/register" className="font-bold text-copper hover:underline">🌱 Ascension Protocols →</Link>
               )}
             </div>
 
@@ -148,23 +148,23 @@ export default function ModulesList() {
             const p = bySlug[m.slug];
             const isFree = m.free;
             // Course CONTENT is never public — every module requires a registered
-            // account (GET /modules/{slug} is auth-gated). "FREE" means "included in
-            // the free tier once you're signed in", not "browseable logged out".
+            // account AND a paid membership (GET /modules/{slug} is tier-gated
+            // server-side). Core K-12 homeschool courses are gated separately.
             const isLocked = !user;
             const badge = p?.status === "completed" ? "badge-signal" : p?.status === "in_progress" ? "badge-copper" : !user ? "badge-outline" : isFree ? "badge-signal" : "badge-outline";
-            const label = p?.status === "completed" ? "Completed" : p?.status === "in_progress" ? "In Progress" : !user ? "Sign up to access" : isFree ? "FREE" : "Not Started";
+            const label = p?.status === "completed" ? "Completed" : p?.status === "in_progress" ? "In Progress" : !user ? "Membership required" : isFree ? "Intro module" : "Not Started";
             return (
               <div key={m.slug} className="card-flat p-6 group relative" data-testid={`mod-card-${m.slug}`}>
                 {isLocked && (
                   <div className="absolute inset-0 bg-white/60 backdrop-blur-[1px] rounded-2xl z-10 flex items-center justify-center pointer-events-none">
                     <div className="text-center">
                       <Lock className="w-6 h-6 text-ink/30 mx-auto mb-2" />
-                      <div className="text-sm font-bold text-ink/50">Sign up to unlock</div>
+                      <div className="text-sm font-bold text-ink/50">Membership required</div>
                     </div>
                   </div>
                 )}
                 <div className="flex items-start justify-between">
-                  <div className="font-heading text-xs font-black text-copper">{isFree ? "FREE INTRO" : `MODULE ${String(m.order ?? "").padStart(2, "0")}`}</div>
+                  <div className="font-heading text-xs font-black text-copper">{isFree ? "INTRO PREVIEW" : `MODULE ${String(m.order ?? "").padStart(2, "0")}`}</div>
                   <span className={`${badge} flex items-center gap-1`}>
                     {isFree && <Zap className="w-3 h-3" />}{label}
                   </span>
@@ -179,10 +179,10 @@ export default function ModulesList() {
                 </div>
                 <div className="mt-4 flex items-center justify-between">
                   <Link
-                    to={isLocked ? "/register" : `/modules/${m.slug}`}
+                    to={isLocked ? "/subscribe" : `/modules/${m.slug}`}
                     className="text-sm font-bold text-copper hover:underline"
                   >
-                    {isLocked ? "Sign up to start →" : "Start module →"}
+                    {isLocked ? "View membership plans →" : "Start module →"}
                   </Link>
                   {isFree && user && (
                     <SharePanel compact url={`/modules/${m.slug}`} title={m.title} />
@@ -226,7 +226,7 @@ export default function ModulesList() {
                       <div className="flex items-start justify-between gap-2">
                         <span className="text-xs text-ink/40 font-medium">{COURSE_CATEGORIES[course.category] || course.category}</span>
                         <span className="text-xs font-bold text-copper bg-amber-100 px-2 py-0.5 rounded-full">
-                          {course.price_cents === 0 ? "Free" : `$${(course.price_cents / 100).toFixed(2)}`}
+                          {course.price_cents === 0 ? "Included" : `$${(course.price_cents / 100).toFixed(2)}`}
                         </span>
                       </div>
                       <div className="font-heading font-bold text-ink text-base leading-snug">{course.title}</div>
@@ -239,7 +239,7 @@ export default function ModulesList() {
                           <button onClick={() => handleEnrollOrBuy(course)} disabled={isBuying}
                             className="flex items-center gap-1.5 text-xs font-bold bg-copper hover:bg-amber-600 text-bone px-3 py-1.5 rounded-full transition-colors disabled:opacity-50">
                             {isBuying ? <Loader2 className="w-3 h-3 animate-spin" /> : <ShoppingBag className="w-3 h-3" />}
-                            {course.price_cents === 0 ? "Enroll Free" : "Buy Now"}
+                            {course.price_cents === 0 ? "Enroll" : "Buy Now"}
                           </button>
                         )}
                       </div>

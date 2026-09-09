@@ -127,7 +127,7 @@ export function TierGate({ feature, title, children }) {
             to={hasUser ? checkoutLink : "/register"}
             className="btn-copper w-full text-center text-sm font-black py-3 rounded-xl"
           >
-            {hasUser ? `Upgrade to ${requiredLabel} — ${tierPrice}` : "Create a free account"}
+            {hasUser ? `Upgrade to ${requiredLabel} — ${tierPrice}` : "Create an account"}
           </Link>
           <Link
             to="/subscribe?plan=sanctuary_trial"

@@ -27,12 +27,12 @@ export const MEMBERSHIP_PLANS = [
     period: "/mo",
     tagline: "Explore freely",
     features: [
-      "Free public resources",
+      "Open public resources",
       "Browse the M.O.R.E. community",
       "Daily puzzle — earn points",
-      "One free basic course",
+      "Core legally-required homeschool courses",
     ],
-    cta: "Start Free",
+    cta: "Open Account",
     to: "/register",
   },
   {

@@ -194,7 +194,7 @@ export default function Store() {
               <div className="card-flat p-5 flex flex-col border-dashed">
                 <div className="overline text-ink/40">{freePlan.name}</div>
                 <div className="flex items-end gap-1 mt-1">
-                  <span className="font-heading font-black text-3xl text-ink">Free</span>
+                  <span className="font-heading font-black text-3xl text-ink">$0</span>
                 </div>
                 <div className="text-sm text-ink/60 mt-1">{freePlan.tagline}</div>
                 <ul className="space-y-1.5 mt-3 flex-1">
@@ -206,7 +206,7 @@ export default function Store() {
                 </ul>
                 {!user ? (
                   <Link to="/register" className="btn-primary text-sm mt-4 text-center" data-testid="register-free">
-                    Start Free
+                    Open Account
                   </Link>
                 ) : (
                   <div className="text-xs text-ink/40 mt-4 text-center">You're on this tier or higher</div>
@@ -235,7 +235,7 @@ export default function Store() {
                   <div className="text-sm text-ink/60 mt-1 flex-1">{p.description}</div>
                   <div className="flex items-center justify-between mt-4">
                     <span className="font-heading font-black text-xl text-ink">
-                      {p.amount ? `$${(p.amount / 100).toFixed(2)}` : "Free"}
+                      {p.amount ? `$${(p.amount / 100).toFixed(2)}` : "$0"}
                     </span>
                     <button
                       onClick={() => checkout(p.key, p.name)}
@@ -304,7 +304,7 @@ export default function Store() {
                   <div className="text-xs text-ink/50 mt-2">by {p.seller_display_name}</div>
                   <div className="flex items-center justify-between mt-4">
                     <span className="font-heading font-black text-xl text-ink">
-                      {p.price_cents > 0 ? `$${(p.price_cents / 100).toFixed(2)}` : "Free"}
+                      {p.price_cents > 0 ? `$${(p.price_cents / 100).toFixed(2)}` : "$0"}
                     </span>
                     <button
                       onClick={() => buyProduct(p)}
@@ -321,19 +321,19 @@ export default function Store() {
           )}
         </div>
 
-        {/* ── 5. Free Starter Library ── */}
+        {/* ── 5. Starter Library ── */}
         {!isStore && (
         <div className="mb-10">
           <div className="flex items-center justify-between gap-3 mb-4">
             <h2 className="font-heading text-xl font-bold text-ink flex items-center gap-2">
-              <BookOpen className="w-5 h-5 text-copper" /> Free Starter Library
+              <BookOpen className="w-5 h-5 text-copper" /> Starter Library
             </h2>
             <span className="text-[10px] font-black uppercase tracking-widest bg-green-100 text-green-800 px-2 py-0.5 rounded-full">
               Read now · no purchase needed
             </span>
           </div>
           <p className="text-sm text-ink/60 mb-6">
-            Practical guides on ownership, AI, community funding, and building real things. Free to read — no account required.
+            Practical guides on ownership, AI, community funding, and building real things. Open to read — no account required.
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {STARTER_LIBRARY.map((book) => (
@@ -401,14 +401,14 @@ export default function Store() {
           <div className="mt-10">
             <div className="flex items-center justify-between gap-3 mb-4">
               <h2 className="font-heading text-xl font-bold text-ink flex items-center gap-2">
-                <BookOpen className="w-5 h-5 text-copper" /> Free Starter Library
+                <BookOpen className="w-5 h-5 text-copper" /> Starter Library
               </h2>
               <span className="text-[10px] font-black uppercase tracking-widest bg-green-100 text-green-800 px-2 py-0.5 rounded-full">
                 Read now · no purchase needed
               </span>
             </div>
             <p className="text-sm text-ink/60 mb-6">
-              Practical guides on ownership, AI, community funding, and building real things. Free to read — no account required.
+              Practical guides on ownership, AI, community funding, and building real things. Open to read — no account required.
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {STARTER_LIBRARY.map((book) => (

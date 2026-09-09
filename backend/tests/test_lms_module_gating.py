@@ -1,7 +1,11 @@
-"""Regression test for LMS module gating (Phase: course content is never public).
+"""Regression test for LMS module gating (Phase: trade/workshop courses are never free).
+
+Owner policy: LMS trade/workshop modules are NOT free. Access is granted
+according to membership tier and role:
 
 GET  /api/modules         → public catalog cards, metadata only (no lesson content)
-GET  /api/modules/{slug}  → 401 anonymous · 200 with auth, full lesson content
+GET  /api/modules/{slug}  → 401 anonymous · 402 free tier · 200 member tier
+POST /api/progress/start  → 402 free tier · 200 member tier
 """
 import asyncio
 from types import SimpleNamespace
@@ -44,8 +48,10 @@ MODULE_DOC = {
     "tools": ["Multimeter"], "scripture": {"text": "x", "ref": "y"},
     "tasks": ["Task 1"], "competencies": ["safety"], "hours": 8,
     "quiz": [{"question": "Q", "options": ["A", "B"], "answer": 0}],
-    "free": True, "video_url": None, "diagram_url": None,
+    "free": False, "video_url": None, "diagram_url": None,
 }
+
+CURRENT_TIER = {"tier": None, "authorized": False}
 
 
 def _fake_db():
@@ -55,7 +61,12 @@ def _fake_db():
 async def _fake_current_user(authorization=None):
     if not authorization:
         raise HTTPException(401, "Not authenticated")
-    return SimpleNamespace(id="u1", email="a@b.c", full_name="A", role="student", feature_tier="free")
+    tier = CURRENT_TIER.get("tier")
+    if tier is None:
+        raise HTTPException(401, "Not authenticated")
+    return SimpleNamespace(
+        id="u1", email="a@b.c", full_name="A", role="student", feature_tier=tier,
+    )
 
 
 @pytest.fixture(scope="module")
@@ -77,11 +88,30 @@ def test_public_catalog_is_metadata_only(client):
 
 
 def test_module_detail_requires_auth(client):
+    CURRENT_TIER["tier"] = None
     r = client.get("/api/modules/electrical-safety")
     assert r.status_code == 401
 
 
-def test_module_detail_served_to_authenticated_user(client):
+def test_module_detail_refused_for_free_tier(client):
+    """Free-tier registered users get 402 — trade courses come with paid membership."""
+    CURRENT_TIER["tier"] = "free"
+    r = client.get("/api/modules/electrical-safety", headers={"Authorization": "Bearer x"})
+    assert r.status_code == 402
+
+
+def test_module_detail_refused_for_free_tier_on_enroll(client):
+    CURRENT_TIER["tier"] = "free"
+    r = client.post(
+        "/api/progress/start",
+        json={"module_slug": "electrical-safety"},
+        headers={"Authorization": "Bearer x"},
+    )
+    assert r.status_code == 402
+
+
+def test_module_detail_served_to_member_tier(client):
+    CURRENT_TIER["tier"] = "member"
     r = client.get("/api/modules/electrical-safety", headers={"Authorization": "Bearer x"})
     assert r.status_code == 200
     m = r.json()
@@ -89,5 +119,6 @@ def test_module_detail_served_to_authenticated_user(client):
 
 
 def test_module_detail_unknown_slug_404(client):
+    CURRENT_TIER["tier"] = "member"
     r = client.get("/api/modules/nope", headers={"Authorization": "Bearer x"})
     assert r.status_code == 404
