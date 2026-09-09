@@ -608,7 +608,16 @@ async def call_llm(
     # ── Platform budget guard — AFTER the BYOK branch ────────────────────
     # Only calls that would spend PLATFORM tokens are subject to the hourly
     # platform cap. BYOK calls above never reach this check.
-    if _over_budget():
+    # Owner/executive_admin is NEVER budget-capped — they own the platform.
+    _owner_exempt = False
+    if user_id:
+        try:
+            _doc = await db.users.find_one({"id": user_id}, {"_id": 0, "role": 1})
+            if _doc and _doc.get("role") in ("executive_admin", "admin"):
+                _owner_exempt = True
+        except Exception:
+            pass
+    if not _owner_exempt and _over_budget():
         logger.warning(
             "LLM Gateway: hourly cap %d reached (%d used) — routing %s to KB fallback",
             HOURLY_TOKEN_CAP, _hour_tokens_used, persona_label,
