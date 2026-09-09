@@ -312,7 +312,7 @@ export default function CurriculumExplorer() {
                         </span>
                       )}
                       {c.price_cents === 0 && c.source !== "academy" && (
-                        <span className="text-xs font-bold text-green-600 bg-green-100 px-2 py-0.5 rounded-full">Free</span>
+                        <span className="text-xs font-bold text-ink/70 bg-ink/5 border border-ink/15 px-2 py-0.5 rounded-full">Included with membership</span>
                       )}
                     </div>
                     <div>
@@ -354,7 +354,7 @@ export default function CurriculumExplorer() {
                       </span>
                     )}
                     {c.price_cents === 0 && (
-                      <span className="text-xs font-bold text-green-600 bg-green-100 px-2 py-0.5 rounded-full">Free</span>
+                      <span className="text-xs font-bold text-ink/70 bg-ink/5 border border-ink/15 px-2 py-0.5 rounded-full">Included with membership</span>
                     )}
                   </div>
                   <div>
