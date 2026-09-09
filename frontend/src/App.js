@@ -334,6 +334,7 @@ function App() {
           <Route path="/wai-institute" element={<WAIInstitute />} />
           <Route path="/academy" element={<AcademyLanding />} />
           <Route path="/academy/curriculum" element={<CurriculumExplorer />} />
+          <Route path="/academy/courses" element={<Navigate to="/academy/curriculum" replace />} />
           <Route path="/academy/courses/:slug" element={<CourseDetail />} />
           <Route path="/academy/parent" element={<Protected><AcademyParentHome /></Protected>} />
           <Route path="/academy/student" element={<Protected><AcademyStudentHome /></Protected>} />
