@@ -334,87 +334,45 @@ class SiteGuideChatReq(BaseModel):
 
 @router.post("/site-guide/chat")
 async def site_guide_chat(body: SiteGuideChatReq, user: User = Depends(_dep_current_user)):
-    """Site Guide persona chat — paid tier OR active BYOK required."""
+    """Site Guide chat — KB-ONLY, zero AI cost.
+
+    OWNER DIRECTIVE (2026-09-08): the Site Guide / Help feature must NEVER
+    call the LLM gateway. One heavy user could drain the platform's shared
+    API budget through a free navigation helper. This endpoint answers
+    exclusively from the curated FAQ + page index above — the Guide's actual
+    job is knowing where things live, and that knowledge is fully encoded
+    here. Live AI chat belongs on /ai, where BYOK keys apply.
+    """
     check_rate(f"site_guide:{user.id}", max_calls=40, window_sec=60)
 
-    access, reason, tier, byok = await _site_guide_access(user)
-    if not access:
-        from byok import byok_price_for
-
-        price = byok_price_for(user.role)
-        fee = "free for instructors and above" if price == 0 else f"a one-time ${price} fee"
-        raise HTTPException(
-            403,
-            "The Site Guide runs on AI API keys. Unlock it with any paid plan, the $3 All-Access Trial, "
-            f"or BYOK ({fee}) at /byok.",
-        )
-
-    # ── FREE-FIRST: answer from the curated site KB (zero tokens) ────────────
-    # The Site Guide's whole job is knowing where things live on this site, and
-    # the FAQ + page index above already encode that. Common questions are
-    # served with ZERO API cost — no site quota, no user BYOK spend. Only
-    # genuinely new questions escalate to the LLM gateway.
     kb_reply = _site_guide_kb(body.message)
     if kb_reply:
-        try:
-            await db.site_guide_sessions.insert_one({
-                "id": str(uuid.uuid4()),
-                "user_id": user.id,
-                "user_msg": body.message,
-                "guide_reply": kb_reply,
-                "provider": "kb",
-                "created_at": datetime.now(timezone.utc).isoformat(),
-            })
-        except Exception:
-            pass
-        return {"reply": kb_reply, "access": access, "reason": reason, "provider": "kb"}
+        reply, provider = kb_reply, "kb"
+    else:
+        # No KB match — give honest pointers instead of burning API tokens.
+        # The page index is searchable at the /search endpoint too.
+        reply, provider = (
+            "I don't have that one memorized yet — but I can still get you there. "
+            "Try the site-wide search (top bar), the M.O.R.E. Help Center at "
+            "/more-help-center, the Homeschool Academy at /wai-institute, plans at "
+            "/plans, or the resource lanes at /help-center. For live AI answers, "
+            "the AI Tutor at /ai runs on your own BYOK key."
+        ), "kb_miss"
 
-    from ai.llm_gateway import call_llm as _call_llm
-
-    messages = []
-    for h in (body.history or [])[-12:]:
-        role = h.get("role")
-        if role not in ("user", "assistant"):
-            continue
-        messages.append({"role": role, "content": str(h.get("content", ""))[:4000]})
-    messages.append({"role": "user", "content": body.message})
-
-    reply = ""
-    provider = "unknown"
-    degraded = False
-    budget_hit = False
+    # Best-effort session log (never blocks the reply).
     try:
-        gw = await _call_llm(
-            system=SITE_GUIDE_SYSTEM,
-            messages=messages,
-            max_tokens=900,
-            persona_label="site_guide",
-            user_id=user.id,  # BYOK users route through their own key first
-        )
-        reply = gw.get("text") or ""
-        provider = gw.get("provider") or "unknown"
-        budget_hit = bool(gw.get("budget_exceeded"))
-        degraded = bool(gw.get("degraded")) or provider == "kb_fallback"
-    except Exception as exc:
-        logger.exception("Site Guide AI error")
-        degraded = True
+        await db.site_guide_sessions.insert_one({
+            "id": str(uuid.uuid4()),
+            "user_id": user.id,
+            "user_msg": body.message,
+            "guide_reply": reply,
+            "provider": provider,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        })
+    except Exception:
+        pass
 
-    # ── Gateway down, quota exhausted, or daily budget used → free pointers ──
-    # Never echo the gateway's generic "restricted mode" notice. Give a real
-    # pointer set instead so the guide still helps when the API is exhausted.
-    _POINTERS = (
-        "I'm here — just a brief connectivity gap on my end. I can still point you "
-        "around: the M.O.R.E. Help Center is at /more-help-center, courses at /courses, "
-        "modules at /modules, plans at /plans, and the resource lanes at /help-center. "
-        "Try asking me again in a moment."
-    )
-    if budget_hit:
-        from user_budget import budget_notice
-        reply = budget_notice() + "\n\n" + _POINTERS
-        provider = "user_budget"
-    elif degraded or not reply.strip():
-        reply = _POINTERS
-        provider = "kb_fallback"
+    return {"reply": reply, "access": True, "reason": "kb_only", "provider": provider}
 
     # Best-effort session log (never blocks the reply).
     try:

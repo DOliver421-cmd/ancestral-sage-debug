@@ -563,32 +563,12 @@ async def call_llm(
             "_raw":          obj,   Anthropic response object (Tier 1 only)
         }
     """
-    # ── Budget guard ──────────────────────────────────────────────────────────
-    if _over_budget():
-        logger.warning(
-            "LLM Gateway: hourly cap %d reached (%d used) — routing %s to KB fallback",
-            HOURLY_TOKEN_CAP, _hour_tokens_used, persona_label,
-        )
-        return _kb_reply(messages)
-
-    # BASE LAYER: every call runs on the Source root protocol.
-    # The Source is the uncorrupted root layer - composed BENEATH whatever
-    # persona/role prompt the caller supplied, exactly once, at this single
-    # choke point every AI surface flows through. Defensive by design: if
-    # the layer ever fails to load, the call proceeds exactly as before.
-    try:
-        from ai import source_protocol as _source_protocol
-        system = _source_protocol.compose_system(system)
-        # HUMAN CONTROLS: the executive's master sliders compile into every
-        # prompt at this single choke point. Persona chats carry their own
-        # tuning block (PERSONA TUNING) and are skipped here so the persona's
-        # sliders win for that persona. Never fails the call.
-        if "PERSONA TUNING" not in system:
-            system = _source_protocol.apply_controls(system, _source_protocol.get_controls())
-    except Exception:
-        pass
-
-    # ── $3 BYOK (Bring Your Own Key) — user's own free key first ─────────────
+    # ── $3 BYOK (Bring Your Own Key) — user's own free key first ─────────
+    # MOVED ABOVE THE PLATFORM BUDGET GUARD (owner report 2026-09-08: BYOK
+    # users were getting KB fallback replies because the hourly platform cap
+    # had been consumed by other callers). A user spending THEIR OWN key is
+    # never subject to the platform's budget — the cap only governs
+    # platform-funded tokens.
     # If the caller is an authenticated user with an active BYOK entitlement
     # and key, route through THEIR key so the platform spends nothing for that
     # user. Only the three approved free providers are ever used here.
@@ -624,6 +604,36 @@ async def call_llm(
                         )
         except Exception as _e:
             logger.warning("LLM Gateway BYOK resolution failed (%s): %s", persona_label, _e)
+
+    # ── Platform budget guard — AFTER the BYOK branch ────────────────────
+    # Only calls that would spend PLATFORM tokens are subject to the hourly
+    # platform cap. BYOK calls above never reach this check.
+    if _over_budget():
+        logger.warning(
+            "LLM Gateway: hourly cap %d reached (%d used) — routing %s to KB fallback",
+            HOURLY_TOKEN_CAP, _hour_tokens_used, persona_label,
+        )
+        return _kb_reply(messages)
+
+    # BASE LAYER: every call runs on the Source root protocol.
+    # The Source is the uncorrupted root layer - composed BENEATH whatever
+    # persona/role prompt the caller supplied, exactly once, at this single
+    # choke point every AI surface flows through. Defensive by design: if
+    # the layer ever fails to load, the call proceeds exactly as before.
+    try:
+        from ai import source_protocol as _source_protocol
+        system = _source_protocol.compose_system(system)
+        # HUMAN CONTROLS: the executive's master sliders compile into every
+        # prompt at this single choke point. Persona chats carry their own
+        # tuning block (PERSONA TUNING) and are skipped here so the persona's
+        # sliders win for that persona. Never fails the call.
+        if "PERSONA TUNING" not in system:
+            system = _source_protocol.apply_controls(system, _source_protocol.get_controls())
+    except Exception:
+        pass
+
+    # (BYOK routing now happens ABOVE the platform budget guard — see the
+    # top of call_llm. BYOK users are never subject to the platform cap.)
 
     # ── User context lookup (for budget, KB fallback, and access control) ────
     # Platform AI spend is governed by BUSINESS_ACCESS_POLICY §7A (owner

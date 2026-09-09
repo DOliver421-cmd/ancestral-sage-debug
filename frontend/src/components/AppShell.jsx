@@ -99,11 +99,10 @@ const CUSTOMER_TIERS = [
   {
     tier: "free", label: "Free",
     items: [
-      { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard, testid: "nav-dashboard" },
       { to: "/studio", label: "Creator Studio", icon: Music, testid: "nav-creator-studio" },
       { to: "/ai", label: "AI Tutor", icon: Sparkles, testid: "nav-ai" },
       { to: "/helper", label: "Personal Helper", icon: HelpCircle, testid: "nav-helper" },
-      { to: "/site-guide", label: "Help & Guide", icon: Map, testid: "nav-site-guide" },
+      { to: "/?guide=1", label: "Help & Guide", icon: Map, testid: "nav-site-guide" },
       { to: "/byok", label: "My AI Keys", icon: BrainCircuit, testid: "nav-byok" },
       { to: "/modules", label: "Modules", icon: BookOpen, testid: "nav-modules" },
       { to: "/competencies", label: "Competencies", icon: Target, testid: "nav-competencies" },
@@ -446,14 +445,8 @@ export default function AppShell({ children }) {
               {/* Home */}
               <NavSection label="Home" collapsed={collapsed} defaultOpen={true}>
                 {nl("/", "Home / Landing", Globe, "nav-home")}
-                {nl("/dashboard", "Dashboard", LayoutDashboard, "nav-dashboard")}
+                {nl("/profile", "My Profile", UserCircle, "nav-profile")}
                 {nl("/academy/parent", "Homeschool Academy", GraduationCap, "nav-academy")}
-                {isAuthed && !collapsed && (
-                  <div className="flex items-center gap-2 px-3 py-2">
-                    <UserCircle className="w-4 h-4 text-white/45 shrink-0" />
-                    <span className="text-sm text-white/65 truncate">{user?.full_name}</span>
-                  </div>
-                )}
                 {nl("/profile", "My Profile", UserCircle, "nav-profile")}
                 {nl("/settings", "Settings", KeyRound, "nav-settings")}
                 {nl("/personas", "AI Team", BrainCircuit, "nav-personas")}
@@ -502,7 +495,6 @@ export default function AppShell({ children }) {
               {/* Customer quick-access: dashboard + profile */}
               <NavSection label="Account" collapsed={collapsed} defaultOpen={true}>
                 {nl("/", "Home", Globe, "nav-home")}
-                {nl("/dashboard", "Dashboard", LayoutDashboard, "nav-dashboard")}
                 {nl("/profile", "My Profile", UserCircle, "nav-profile")}
                 {nl("/settings", "Settings", KeyRound, "nav-settings")}
                 {nl("/personas", "AI Team", BrainCircuit, "nav-personas-staff")}

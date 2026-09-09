@@ -19,7 +19,7 @@ import useDraggablePosition from "../hooks/useDraggablePosition";
 const GREETING = {
   role: "assistant",
   content:
-    "Hi! I'm the Site Guide — I know my way around every corner of MoreHelp, including the Homeschool Academy. Ask me where to find anything or how something works.",
+    "Hi! I'm the Site Guide — I know my way around every corner of MoreHelp, including the Homeschool Academy. Ask me where to find anything or how something works. I'm free for everyone and always on.",
 };
 
 const GUIDE_SUGGESTIONS = [
@@ -84,13 +84,8 @@ export default function HelpGuide() {
     return () => document.removeEventListener("mousedown", handler);
   }, [open]);
 
-  useEffect(() => {
-    if (open && tab === "guide" && !guideStatus) {
-      api.get("/site-guide/status")
-        .then((r) => setGuideStatus(r.data))
-        .catch(() => setGuideStatus({ access: false, reason: "signed_out", tier: "free", byok_enabled: false }));
-    }
-  }, [open, tab, guideStatus]);
+  // (Guide status fetch retired — the Guide is KB-only and free for everyone;
+  // no entitlement gate is shown in this panel anymore.)
 
   useEffect(() => {
     if (tab === "guide") bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -110,23 +105,23 @@ export default function HelpGuide() {
       const detail = err?.response?.data?.detail;
       setMessages((m) => [...m, {
         role: "assistant",
-        content: detail === "Site Guide access required"
-          ? "The Guide chat needs a paid membership or the $3 BYOK unlock — but the This Page tab and site search are always free. Visit /plans or /byok to upgrade."
-          : (detail || "The Guide is unavailable right now. Try the This Page tab or site search."),
+        content: detail || "The Guide is unavailable right now. Try the This Page tab or site search.",
       }]);
     } finally {
       setSending(false);
     }
   }, [input, sending, messages]);
 
-  // Deep-link support: /site-guide?chat=1 opens the widget on the guide tab.
+  // Deep-link support: /site-guide (and any page with ?guide=1) opens the
+  // widget on the guide tab, then cleans the URL.
   useEffect(() => {
-    if (location.pathname === "/site-guide") {
+    const params = new URLSearchParams(location.search);
+    if (location.pathname === "/site-guide" || params.get("guide") === "1") {
       setOpen(true);
       setTab("guide");
-      nav("/", { replace: true });
+      nav(location.pathname === "/site-guide" ? "/" : location.pathname, { replace: true });
     }
-  }, [location.pathname, nav]);
+  }, [location.pathname, location.search, nav]);
 
   return (
     <>
@@ -334,11 +329,7 @@ export default function HelpGuide() {
                 <input
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
-                  placeholder={
-                    guideStatus && guideStatus.access === false
-                      ? "Guide chat needs Member+ or BYOK — This Page is free"
-                      : "Ask the Guide anything…"
-                  }
+                  placeholder="Ask the Guide — free, always on"
                   className="flex-1 px-3.5 py-2 text-sm bg-ink/5 border border-ink/15 rounded-lg text-ink placeholder-ink/40 focus:outline-none focus:ring-2 focus:ring-copper/50"
                 />
                 <button

@@ -70,9 +70,15 @@ function AIAssistantPanel({ user, status }) {
     onError: () => {},
   });
 
-  const endpoint = "/supervisor/public-chat";
+  // OWNER DIRECTIVE (2026-09-08): the old Sovereign chat here was broken and
+  // unnecessary — profiles now use the REGULAR AI chat gateway (/ai/chat),
+  // same as the AI Tutor. BYOK keys apply; the platform never funds
+  // customer AI tokens. Mode "tutor" is the plain general-purpose assistant.
+  const endpoint = "/ai/chat";
 
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [msgs]);
+
+  const sessionIdRef = useRef(`profile-${Math.random().toString(36).slice(2, 10)}`);
 
   async function send(e) {
     e?.preventDefault();
@@ -82,16 +88,21 @@ function AIAssistantPanel({ user, status }) {
     setInput("");
     setSending(true);
     try {
-      const r = await api.post(endpoint, { message: msg });
+      // Regular AI chat gateway — same one the AI Tutor uses. BYOK keys
+      // apply; 402 means no membership/BYOK (honest redirect, not a crash).
+      const r = await api.post(endpoint, { session_id: sessionIdRef.current, message: msg, mode: "tutor" });
       setMsgs(m => [...m, { role: "ai", text: r.data?.reply || "…" }]);
-    } catch {
-      setMsgs(m => [...m, { role: "ai", text: "Unavailable right now — try again shortly." }]);
+    } catch (err) {
+      const detail = err?.response?.status === 402
+        ? "Live AI needs your own key (BYOK) or a paid membership — set up a free key at /byok. Until then, answers come from the free knowledge base."
+        : "Unavailable right now — try again shortly.";
+      setMsgs(m => [...m, { role: "ai", text: detail }]);
     } finally {
       setSending(false);
     }
   }
 
-  const aiName = canAccess(user, status, "sovereign") ? "The Sovereign" : "M.O.R.E. Assistant";
+  const aiName = "M.O.R.E. Assistant";
 
   return (
     <div className="card-flat overflow-hidden flex flex-col" style={{ height: 320 }}>

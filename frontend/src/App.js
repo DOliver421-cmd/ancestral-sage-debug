@@ -282,9 +282,12 @@ function App() {
           {/* Helper routes — /helper is public, /app/helper requires auth */}
           <Route path="/helper" element={<Helper requireAuth={false} />} />
           <Route path="/app/helper" element={<Helper requireAuth={true} />} />
-          <Route path="/dashboard" element={<Protected><StudentDashboard /></Protected>} />
+          {/* Dashboard merged into Profile (owner directive 2026-09-08):
+              /profile Home + Learn tabs already cover modules, progress,
+              certificates, XP, and workspace. /dashboard redirects there. */}
+          <Route path="/dashboard" element={<Protected><Navigate to="/profile" replace /></Protected>} />
+          <Route path="/dashboard/student" element={<Protected><Navigate to="/profile" replace /></Protected>} />
           {/* Dashboard aliases (handoff routing scheme) — same pages, role-gated */}
-          <Route path="/dashboard/student" element={<Protected><StudentDashboard /></Protected>} />
           <Route path="/dashboard/exec" element={<Navigate to="/admin/command" replace />} />
           <Route path="/dashboard/admin" element={<BoundedAdmin roles={["admin"]} label="Admin Dashboard"><AdminDashboard /></BoundedAdmin>} />
           <Route path="/dashboard/instructor" element={<Protected roles={["instructor", "admin"]}><InstructorDashboard /></Protected>} />
