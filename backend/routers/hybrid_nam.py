@@ -24,9 +24,9 @@ from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, status
 from fastapi.responses import JSONResponse
 
-from backend.ai.persona_loader import list_personas, load_persona_prompt
-from backend.ai.persona_tts import persona_speak
-from backend.roles import NeedsStaffPatron
+from ai.persona_loader import list_personas, load_persona_prompt
+from ai.persona_tts import persona_speak
+from roles import NeedsStaffPatron
 
 router = APIRouter(prefix="/api/hybrid-nam", tags=["Hybrid NAM"])
 

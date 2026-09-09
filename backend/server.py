@@ -232,6 +232,7 @@ _ADDITIONAL_API_ROUTER_MODULES = (
     ("media", "/api"),
     ("missing", "/api"),
     ("nam", ""),
+    ("hybrid_nam", "/api/hybrid-nam"),
     ("position", "/api"),
     ("projects", "/api"),
     ("promo_codes", "/api"),
@@ -330,18 +331,41 @@ STARTUP_COMPLETE = False
 if not ANTHROPIC_API_KEY:
     logger.warning("STARTUP: ANTHROPIC_API_KEY is not set; M.O.R.E. moderation and Department AI will be limited.")
 
-# Simple in-memory rate limit (per IP, per route) — replace with redis in true HA prod
+# Rate limit — in-memory hot cache + MongoDB persistence (survives restarts,
+# works across deploys). The in-memory dict is the fast path; MongoDB is the
+# durable fallback that catches requests after a cold start.
 from collections import defaultdict as _dd
+from pymongo import InsertOne
 _RATE = _dd(list)
-_RATE_LOCK = asyncio.Lock()  # C-1: serialise concurrent read/evaluate/append
+_RATE_LOCK = asyncio.Lock()
+_RATE_COLLECTION = "rate_limits"  # capped TTL collection, auto-cleaned by MongoDB
+
+async def _ensure_rate_collection():
+    """Create the capped rate-limit collection on first use (idempotent)."""
+    try:
+        colls = await db.list_collection_names()
+        if _RATE_COLLECTION not in colls:
+            await db.create_collection(_RATE_COLLECTION, capped=True, size=10_000_000, max=500_000)
+            await db[_RATE_COLLECTION].create_index("key", expireAfterSeconds=600)
+    except Exception:
+        pass  # non-fatal — in-memory fallback still works
 
 async def check_rate(key: str, max_calls: int, window_sec: int):
+    now = datetime.now(timezone.utc).timestamp()
+    # Fast path: in-memory check
     async with _RATE_LOCK:
-        now = datetime.now(timezone.utc).timestamp()
         _RATE[key] = [t for t in _RATE[key] if now - t < window_sec]
-        if len(_RATE[key]) >= max_calls:
+        count = len(_RATE[key])
+        if count >= max_calls:
             raise HTTPException(429, "Too many requests, slow down")
         _RATE[key].append(now)
+    # Durable path: persist to MongoDB (fire-and-forget, non-blocking)
+    try:
+        await db[_RATE_COLLECTION].insert_one(
+            {"key": key, "ts": now, "expireAt": datetime.fromtimestamp(now + window_sec, tz=timezone.utc)}
+        )
+    except Exception:
+        pass  # non-fatal — in-memory rate limit still enforced
 
 
 # PII-safe field names — values for these keys are redacted in audit logs
@@ -7659,51 +7683,15 @@ async def list_payment_products():
 
 @api_router.post("/payments/checkout")
 async def create_checkout_session(req: CheckoutReq, user=Depends(current_user)):
-    if not STRIPE_SECRET_KEY:
-        raise HTTPException(503, "Payment system not configured")
+    """Create a checkout session — Lemon Squeezy (primary) → Gumroad → Stripe (fallback).
 
-    product = PAYMENT_PRODUCTS.get(req.product_key)
-    if not product:
-        raise HTTPException(400, f"Unknown product: {req.product_key}")
-
-    amount = req.amount_cents if req.product_key == "donation" else product["amount"]
-    if not amount or amount < 50:
-        raise HTTPException(400, "Amount must be at least $0.50")
-
-    mode = product["mode"]
-
-    price_data: dict = {
-        "currency": "usd",
-        "product_data": {"name": product["name"], "description": product.get("description", "")},
-        "unit_amount": amount,
-    }
-    if mode == "subscription":
-        price_data["recurring"] = {"interval": product["interval"]}
-
-    # Retrieve or create Stripe customer (enables Customer Portal later)
-    user_doc = await db.users.find_one({"id": user.id}, {"stripe_customer_id": 1, "email": 1, "full_name": 1})
-    customer_id = (user_doc or {}).get("stripe_customer_id")
-
-    if not customer_id:
-        customer = _stripe.Customer.create(
-            email=user.email,
-            name=user.full_name,
-            metadata={"wai_user_id": user.id},
-        )
-        customer_id = customer.id
-        await db.users.update_one({"id": user.id}, {"$set": {"stripe_customer_id": customer_id}})
-
-    session = _stripe.checkout.Session.create(
-        mode=mode,
-        customer=customer_id,
-        line_items=[{"price_data": price_data, "quantity": req.quantity}],
-        success_url=f"{FRONTEND_URL}/payment/success?session_id={{CHECKOUT_SESSION_ID}}",
-        cancel_url=f"{FRONTEND_URL}/payment/cancel",
-        metadata={"wai_user_id": user.id, "product_key": req.product_key, **(req.extra_meta or {})},
-    )
-
-    await audit(user.id, "payment_checkout_created", meta={"product": req.product_key, "session_id": session.id})
-    return {"url": session.url, "session_id": session.id}
+    Owner directive: Lemon Squeezy is the merchant of record. Stripe is
+    last-resort only. This pipeline delegates to payments.py which contains
+    the full multi-provider logic.
+    """
+    from routers import payments as payment_routes
+    payment_routes.bind(db, audit, notify, current_user)
+    return await payment_routes.create_checkout_session(req, user)
 
 
 @api_router.post("/payments/webhook")
