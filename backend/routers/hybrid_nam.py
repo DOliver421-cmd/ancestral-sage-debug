@@ -26,7 +26,7 @@ from fastapi.responses import JSONResponse
 
 from ai.persona_loader import load_personas, get_persona
 from ai.persona_tts import persona_speak
-from roles import NeedsStaffPatron
+from roles import ROLE_RANK
 
 router = APIRouter(prefix="/api/hybrid-nam", tags=["Hybrid NAM"])
 
@@ -67,11 +67,25 @@ def _touch_session() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Auth / access
-# ---------------------------------------------------------------------------
+# Auth / access — bound by server.py via bind()
 
-async def _current_user(user=Depends(NeedsStaffPatron)):
-    # NeedsStaffPatron already enforces staff role + patron tier.
+current_user = None  # bound at startup
+
+# Auth — bound by server.py via bind()
+_auth_dependency = None
+
+def bind(current_user_dep):
+    global _auth_dependency
+    _auth_dependency = current_user_dep
+
+
+async def _require_staff(authorization: str = ""):
+    """Resolve the current user. Staff role required for Hybrid NAM."""
+    user = await _auth_dependency(authorization)
+    rank = ROLE_RANK.get(getattr(user, 'role', ''), 0)
+    if rank < ROLE_RANK.get('instructor', 3):
+        from fastapi import HTTPException
+        raise HTTPException(403, "Hybrid NAM requires staff access")
     return user
 
 
@@ -80,7 +94,7 @@ async def _current_user(user=Depends(NeedsStaffPatron)):
 # ---------------------------------------------------------------------------
 
 @router.get("/status")
-async def hybrid_nam_status(current_user: dict = Depends(_current_user)):
+async def hybrid_nam_status(current_user: dict = Depends(_require_staff)):
     """Real operational status for the Hybrid NAM surface.
 
     This is not a decorative readiness label. It reflects whether a session is active and
@@ -103,7 +117,7 @@ async def hybrid_nam_status(current_user: dict = Depends(_current_user)):
 # ---------------------------------------------------------------------------
 
 @router.get("/config")
-async def hybrid_nam_config(current_user: dict = Depends(_current_user)):
+async def hybrid_nam_config(current_user: dict = Depends(_require_staff)):
     """Return the current Hybrid NAM judge/chat configuration and the available personas."""
     available = list(load_personas().keys()) if callable(load_personas) else []
     return {
@@ -115,7 +129,7 @@ async def hybrid_nam_config(current_user: dict = Depends(_current_user)):
 
 
 @router.post("/config/rotate")
-async def hybrid_nam_rotate(current_user: dict = Depends(_current_user), body: dict = None):
+async def hybrid_nam_rotate(current_user: dict = Depends(_require_staff), body: dict = None):
     """Swap the two competing personas and/or set the Hybrid NAM judge.
 
     Body may include:
@@ -174,7 +188,7 @@ class ChatRequest(Dict[str, Any]):
 
 @router.post("/chat")
 async def hybrid_nam_chat(
-    current_user: dict = Depends(_current_user),
+    current_user: dict = Depends(_require_staff),
     text: Optional[str] = None,
     attach_audio: bool = False,
     competitor_focus: Optional[str] = None,
@@ -252,7 +266,7 @@ async def hybrid_nam_chat(
 
 @router.post("/chat/audio")
 async def hybrid_nam_chat_audio(
-    current_user: dict = Depends(_current_user),
+    current_user: dict = Depends(_require_staff),
     text: Optional[str] = None,
     voice_persona: Optional[str] = None,
 ):
@@ -280,7 +294,7 @@ async def hybrid_nam_chat_audio(
 @router.post("/upload")
 async def hybrid_nam_upload(
     file: UploadFile,
-    current_user: dict = Depends(_current_user),
+    current_user: dict = Depends(_require_staff),
 ):
     """Upload a file or image into the existing media infrastructure.
 
@@ -337,7 +351,7 @@ async def hybrid_nam_upload(
 # ---------------------------------------------------------------------------
 
 @router.get("/plans")
-async def hybrid_nam_plans(current_user: dict = Depends(_current_user)):
+async def hybrid_nam_plans(current_user: dict = Depends(_require_staff)):
     """Return arena plans produced through this Hybrid NAM surface."""
     _touch_session()
     return {
@@ -349,7 +363,7 @@ async def hybrid_nam_plans(current_user: dict = Depends(_current_user)):
 
 @router.post("/plans")
 async def hybrid_nam_create_plan(
-    current_user: dict = Depends(_current_user),
+    current_user: dict = Depends(_require_staff),
     title: Optional[str] = None,
     direction: Optional[str] = None,
     owner_note: Optional[str] = None,
@@ -389,7 +403,7 @@ async def hybrid_nam_create_plan(
 @router.post("/plans/{plan_id}/advance")
 async def hybrid_nam_advance_plan(
     plan_id: str,
-    current_user: dict = Depends(_current_user),
+    current_user: dict = Depends(_require_staff),
     next_step: Optional[str] = None,
 ):
     """Advance a plan in the oversee workflow."""
@@ -411,7 +425,7 @@ async def hybrid_nam_advance_plan(
 @router.post("/plans/{plan_id}/ready")
 async def hybrid_nam_ready_plan(
     plan_id: str,
-    current_user: dict = Depends(_current_user),
+    current_user: dict = Depends(_require_staff),
 ):
     """Mark a plan ready for the next oversight or execution step."""
     plan = _find_plan(plan_id)
