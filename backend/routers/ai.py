@@ -66,7 +66,7 @@ TIER_RANK = {"free": 0, "member": 1, "plus": 2, "pro": 3, "patron": 4, "platinum
 async def _owner_safe_rate(user, key: str, max_calls: int, window_sec: int):
     if getattr(user, 'role', '') == 'executive_admin':
         return  # owner is never rate-limited
-    check_rate(key, max_calls, window_sec)
+    await check_rate(key, max_calls, window_sec)
 
 async def _ai_chat_access(user) -> bool:
     """AI Tutor gate: paid member tier+ OR active BYOK. Staff roles bypass.
