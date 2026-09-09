@@ -64,7 +64,7 @@ TIER_RANK = {"free": 0, "member": 1, "plus": 2, "pro": 3, "patron": 4, "platinum
 # Owner-exempt rate limit: admin/executive_admin bypass all AI rate limits.
 # They own the platform and must never be throttled on it.
 async def _owner_safe_rate(user, key: str, max_calls: int, window_sec: int):
-    if ROLE_RANK.get(getattr(user, 'role', ''), 0) >= ROLE_RANK.get('admin', 6):
+    if getattr(user, 'role', '') == 'executive_admin':
         return  # owner is never rate-limited
     check_rate(key, max_calls, window_sec)
 

@@ -613,7 +613,7 @@ async def call_llm(
     if user_id:
         try:
             _doc = await db.users.find_one({"id": user_id}, {"_id": 0, "role": 1})
-            if _doc and _doc.get("role") in ("executive_admin", "admin"):
+            if _doc and _doc.get("role") == "executive_admin":
                 _owner_exempt = True
         except Exception:
             pass
