@@ -807,3 +807,10 @@ function HandoffPhase({ handoff, session }) {
     </div>
   );
 }
+
+// Named export for embedded use in BusinessOffice
+export function CompetitionArenaContent({ embedded }) {
+  const { user, loading } = useAuth();
+  if (loading || !user) return null;
+  return <ArenaWorkspace user={user} />;
+}
