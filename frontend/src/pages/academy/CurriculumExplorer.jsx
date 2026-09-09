@@ -143,16 +143,44 @@ export default function CurriculumExplorer() {
     return list;
   }, [all, grade, track, subject, source, q, showPlanned]);
 
-  // Group by source for section display
+  // Group by source, then by grade within academy
   const grouped = useMemo(() => {
     const g = {};
+    const gradeOrder = ['K','1','2','3','4','5','6','7','8','9','10','11','12','adult'];
     for (const item of items) {
       const key = item.source;
       if (!g[key]) g[key] = [];
       g[key].push(item);
     }
+    // Sort academy courses by grade, then by title
+    if (g.academy) {
+      g.academy.sort((a, b) => {
+        const aGrade = gradeOrder.indexOf(a.grades?.[0] || '99');
+        const bGrade = gradeOrder.indexOf(b.grades?.[0] || '99');
+        if (aGrade !== bGrade) return aGrade - bGrade;
+        return (a.title || '').localeCompare(b.title || '');
+      });
+    }
     return g;
   }, [items]);
+
+  // Grade separators for academy section
+  const academyGradeGroups = useMemo(() => {
+    if (!grouped.academy) return [];
+    const groups = [];
+    const gradeOrder = ['K','1','2','3','4','5','6','7','8','9','10','11','12','adult'];
+    for (const item of grouped.academy) {
+      const grade = item.grades?.[0] || 'other';
+      const existing = groups.find(g => g.grade === grade);
+      if (existing) {
+        existing.items.push(item);
+      } else {
+        groups.push({ grade, items: [item] });
+      }
+    }
+    groups.sort((a, b) => gradeOrder.indexOf(a.grade) - gradeOrder.indexOf(b.grade));
+    return groups;
+  }, [grouped]);
 
   const selectCls = "px-3 py-2.5 rounded-lg border border-ink/20 bg-white text-sm font-semibold text-ink focus:outline-none focus:ring-2 focus:ring-copper";
 
@@ -258,9 +286,19 @@ export default function CurriculumExplorer() {
                 <h3 className="font-heading text-lg font-bold text-ink">{meta.label}</h3>
                 <span className="text-xs text-ink/40 font-bold">({srcItems.length})</span>
               </div>
-              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-5">
-                {srcItems.map((c) => (
-                  <Link
+              {/* Academy: group by grade with separators */}
+              {src === 'academy' && academyGradeGroups.map(({ grade, items: gradeItems }) => (
+                <div key={grade} className="mb-6">
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="h-px flex-1 bg-ink/10" />
+                    <span className="text-xs font-black uppercase tracking-widest text-copper bg-copper/10 px-3 py-1 rounded-full">
+                      {grade === 'K' ? 'Kindergarten' : grade === 'adult' ? 'Adult Education' : `Grade ${grade}`}
+                    </span>
+                    <div className="h-px flex-1 bg-ink/10" />
+                  </div>
+                  <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-5">
+                    {gradeItems.map((c) => (
+                      <Link
                     key={c.id}
                     to={c.source === "academy" ? `/academy/courses/${c.slug}` : c.source === "module" ? `/modules/${c.slug}` : `/ascension-protocols`}
                     className="card-flat p-6 flex flex-col gap-3 hover:border-copper/60 hover:-translate-y-0.5 transition-all bg-white"
@@ -297,6 +335,49 @@ export default function CurriculumExplorer() {
                 ))}
               </div>
             </div>
+          ))}
+          {/* Non-academy: flat grid */}
+          {src !== 'academy' && (
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-5">
+              {srcItems.map((c) => (
+                <Link
+                  key={c.id}
+                  to={c.source === 'module' ? `/modules/${c.slug}` : `/ascension-protocols`}
+                  className="card-flat p-6 flex flex-col gap-3 hover:border-copper/60 hover:-translate-y-0.5 transition-all bg-white"
+                >
+                  <div className="flex flex-wrap items-center gap-2">
+                    {c.track && <TrackTag track={c.track} />}
+                    <LiveChip status={c.status} />
+                    {c.price_cents > 0 && (
+                      <span className="text-xs font-bold text-copper bg-amber-100 px-2 py-0.5 rounded-full">
+                        ${(c.price_cents / 100).toFixed(2)}
+                      </span>
+                    )}
+                    {c.price_cents === 0 && (
+                      <span className="text-xs font-bold text-green-600 bg-green-100 px-2 py-0.5 rounded-full">Free</span>
+                    )}
+                  </div>
+                  <div>
+                    <div className="font-heading text-lg font-bold text-ink leading-snug">{c.title}</div>
+                    {(c.grade_label || c.subject_label) && (
+                      <div className="text-xs font-black uppercase tracking-widest text-copper mt-1">
+                        {[c.grade_label, c.subject_label].filter(Boolean).join(' · ')}
+                      </div>
+                    )}
+                  </div>
+                  <p className="text-sm text-ink/60 leading-relaxed line-clamp-2">{c.summary}</p>
+                  <div className="mt-auto flex items-center justify-between text-xs font-bold text-ink/45">
+                    {c.lesson_count > 0
+                      ? <span>{c.lesson_count} lessons{c.est_hours > 0 ? ` · ~${c.est_hours} hrs` : ''}</span>
+                      : <span>{c.status === 'published' ? 'Available now' : 'In development'}</span>
+                    }
+                    <span className="flex items-center gap-1 text-copper font-black uppercase tracking-widest">View <ArrowRight className="w-3.5 h-3.5" /></span>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          )}
+          </div>
           );
         })}
       </section>

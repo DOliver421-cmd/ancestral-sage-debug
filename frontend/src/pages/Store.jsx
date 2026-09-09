@@ -96,6 +96,21 @@ export default function Store() {
   const freePlan = MEMBERSHIP_PLANS.find((p) => p.key === "free");
   const trial = TRIAL_PLAN;
 
+  // Platform products (t-shirt, workbook, kit, credential, donation)
+  const [platformProducts, setPlatformProducts] = useState(null);
+  useEffect(() => {
+    api.get("/payments/products")
+      .then((r) => {
+        const prods = r.data?.products || {};
+        const physical = Object.entries(prods)
+          .filter(([k]) => !k.includes("more_") && k !== "donation")
+          .map(([key, p]) => ({ key, ...p }));
+        const donation = prods.donation ? { key: "donation", ...prods.donation } : null;
+        setPlatformProducts({ physical, donation });
+      })
+      .catch(() => setPlatformProducts({ physical: [], donation: null }));
+  }, []);
+
   return (
     <AppShell>
       <div className="p-8 max-w-6xl mx-auto">
@@ -201,7 +216,58 @@ export default function Store() {
           </div>
         </div>
 
-        {/* ── 3. Creator products ── */}
+        {/* ── 3. Platform Products ── */}
+        {platformProducts && platformProducts.physical.length > 0 && (
+          <div className="mb-10">
+            <div className="flex items-center justify-between gap-3 mb-4">
+              <h2 className="font-heading text-xl font-bold text-ink flex items-center gap-2">
+                <ShoppingBag className="w-5 h-5 text-copper" /> Platform Products
+              </h2>
+              <span className="text-[10px] font-black uppercase tracking-widest bg-green-100 text-green-800 px-2 py-0.5 rounded-full">
+                Ships worldwide
+              </span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4" data-testid="store-platform-products">
+              {platformProducts.physical.map((p) => (
+                <div key={p.key} className="card-flat p-5 flex flex-col">
+                  <div className="overline text-ink/40">{p.mode === "subscription" ? "Subscription" : "Physical Product"}</div>
+                  <div className="font-heading font-bold text-lg text-ink mt-1">{p.name}</div>
+                  <div className="text-sm text-ink/60 mt-1 flex-1">{p.description}</div>
+                  <div className="flex items-center justify-between mt-4">
+                    <span className="font-heading font-black text-xl text-ink">
+                      {p.amount ? `$${(p.amount / 100).toFixed(2)}` : "Free"}
+                    </span>
+                    <button
+                      onClick={() => checkout(p.key, p.name)}
+                      disabled={buying === p.key}
+                      data-testid={`buy-platform-${p.key}`}
+                      className="btn-copper text-sm px-4 py-2 disabled:opacity-60"
+                    >
+                      {buying === p.key ? <Loader2 className="w-4 h-4 animate-spin" /> : "Buy"}
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+            {platformProducts.donation && (
+              <div className="mt-4 card-flat p-5 flex flex-col sm:flex-row items-center gap-4">
+                <div className="flex-1">
+                  <div className="font-heading font-bold text-lg text-ink">{platformProducts.donation.name}</div>
+                  <div className="text-sm text-ink/60">{platformProducts.donation.description}</div>
+                </div>
+                <button
+                  onClick={() => checkout("donation", "Donation")}
+                  disabled={buying === "donation"}
+                  className="btn-copper text-sm px-6 py-2 disabled:opacity-60"
+                >
+                  {buying === "donation" ? <Loader2 className="w-4 h-4 animate-spin" /> : "Donate"}
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── 4. Creator products ── */}
         <div className="mb-10">
           <div className="flex items-center justify-between gap-3 mb-4">
             <h2 className="font-heading text-xl font-bold text-ink flex items-center gap-2">
