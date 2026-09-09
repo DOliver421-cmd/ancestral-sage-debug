@@ -24,7 +24,7 @@ from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, status
 from fastapi.responses import JSONResponse
 
-from ai.persona_loader import list_personas, load_persona_prompt
+from ai.persona_loader import load_personas, get_persona
 from ai.persona_tts import persona_speak
 from roles import NeedsStaffPatron
 
@@ -105,7 +105,7 @@ async def hybrid_nam_status(current_user: dict = Depends(_current_user)):
 @router.get("/config")
 async def hybrid_nam_config(current_user: dict = Depends(_current_user)):
     """Return the current Hybrid NAM judge/chat configuration and the available personas."""
-    available = list_personas() if callable(list_personas) else []
+    available = list(load_personas().keys()) if callable(load_personas) else []
     return {
         "judge_persona": _HYBRID_NAM_STATE["judge_persona"],
         "competitor_a": _HYBRID_NAM_STATE["competitor_a"],
@@ -128,7 +128,7 @@ async def hybrid_nam_rotate(current_user: dict = Depends(_current_user), body: d
     competitor_b = body.get("competitor_b")
     judge = body.get("judge", "hybrid_nam")
 
-    available = list_personas() if callable(list_personas) else []
+    available = list(load_personas().keys()) if callable(load_personas) else []
 
     def _valid_pid(pid: Optional[str]) -> bool:
         if pid is None:
@@ -200,21 +200,21 @@ async def hybrid_nam_chat(
     system_bits: List[str] = []
     if judge == "hybrid_nam" or judge:
         try:
-            system_bits.append(load_persona_prompt(judge))
+            system_bits.append(await get_persona(judge))
         except Exception:
             system_bits.append(f"Judge persona {judge} is active.")
 
     if comp_a:
         try:
             system_bits.append(f"[Competitor A: {comp_a}]")
-            system_bits.append(load_persona_prompt(comp_a))
+            system_bits.append(await get_persona(comp_a))
         except Exception:
             system_bits.append(f"Competitor A persona {comp_a} is active.")
 
     if comp_b:
         try:
             system_bits.append(f"[Competitor B: {comp_b}]")
-            system_bits.append(load_persona_prompt(comp_b))
+            system_bits.append(await get_persona(comp_b))
         except Exception:
             system_bits.append(f"Competitor B persona {comp_b} is active.")
 
