@@ -61,6 +61,13 @@ from routers.roles import ROLE_RANK, Role
 # Membership ladder — same as backend/routers/payments.py + frontend/src/lib/tiers.js
 TIER_RANK = {"free": 0, "member": 1, "plus": 2, "pro": 3, "patron": 4, "platinum": 5, "executive": 6}
 
+# Owner-exempt rate limit: admin/executive_admin bypass all AI rate limits.
+# They own the platform and must never be throttled on it.
+async def _owner_safe_rate(user, key: str, max_calls: int, window_sec: int):
+    if ROLE_RANK.get(getattr(user, 'role', ''), 0) >= ROLE_RANK.get('admin', 6):
+        return  # owner is never rate-limited
+    check_rate(key, max_calls, window_sec)
+
 async def _ai_chat_access(user) -> bool:
     """AI Tutor gate: paid member tier+ OR active BYOK. Staff roles bypass.
     Mirrors site_guide.py's _site_guide_access contract."""
@@ -1084,7 +1091,10 @@ async def _apply_sage_safety_gates(response_text: str, user_tier: str) -> tuple:
 
 @router.post("/ai/chat")
 async def ai_chat(body: AIChatReq, user: User = Depends(_dep_current_user)):
-    check_rate(f"ai_chat:{user.id}", max_calls=20, window_sec=60)
+    # Owner/executive_admin: no per-minute cap — they own the platform.
+    _rank = ROLE_RANK.get(getattr(user, 'role', ''), 0)
+    if _rank < ROLE_RANK.get('admin', 6):
+        _owner_safe_rate(user, f"ai_chat:{user.id}", max_calls=20, window_sec=60)
     # ---- AI Tutor entitlement gate (paid member or higher / BYOK) --------
     if not await _ai_chat_access(user):
         raise HTTPException(
@@ -1307,7 +1317,7 @@ class ToolChatReq(BaseModel):
 @router.post("/ai/tool-chat")
 async def ai_tool_chat(body: ToolChatReq, user: User = Depends(_dep_current_user)):
     """Authenticated AI chat for standalone WAI tool pages (DJEDI, Electrical, Media, Publisher)."""
-    check_rate(f"ai_tool_chat:{user.id}", max_calls=15, window_sec=60)
+    _owner_safe_rate(user, f"ai_tool_chat:{user.id}", max_calls=15, window_sec=60)
     skill_key = body.skill if body.skill in _TOOL_SKILL_PROMPTS else "kemetic"
     system = _TOOL_SKILL_PROMPTS[skill_key]
     if body.context:
@@ -1350,7 +1360,7 @@ async def ai_orchestrator(body: OrchestratorReq, user: User = Depends(_dep_curre
       executive_admin  → Full stack + Council of 24 + threat classification schema
     """
     # Director 4.0 — AI tamper / prompt injection scan
-    check_rate(f"ai_orchestrator:{user.id}", max_calls=30, window_sec=60)
+    _owner_safe_rate(user, f"ai_orchestrator:{user.id}", max_calls=30, window_sec=60)
     try:
         from ai.prompt_guard import prompt_guard
         prompt_guard.assert_message_safe(body.message, user.role, "/ai/orchestrator", user.id)
@@ -1506,7 +1516,7 @@ async def ai_scholar(body: ScholarTaskReq, user: User = Depends(_dep_current_use
     """Savant Scholar — dedicated curriculum and training intelligence service.
     Accepts task packages from The Director or direct requests from any authenticated user.
     """
-    check_rate(f"ai_scholar:{user.id}", max_calls=30, window_sec=60)
+    _owner_safe_rate(user, f"ai_scholar:{user.id}", max_calls=30, window_sec=60)
 
     task_ctx = body.task_context or ""
     if body.task_type and body.task_type != "general":
@@ -1899,7 +1909,7 @@ async def ai_director(body: dict, user: User = Depends(_dep_current_user)):
         raise HTTPException(400, "Message is required")
 
     # Director 4.0 — AI tamper / prompt injection scan
-    check_rate(f"ai_director:{user.id}", max_calls=20, window_sec=60)
+    _owner_safe_rate(user, f"ai_director:{user.id}", max_calls=20, window_sec=60)
     try:
         prompt_guard.assert_message_safe(message, user.role, "/ai/director", user.id)
     except ValueError as _guard_err:
@@ -2153,7 +2163,7 @@ async def director_tts(body: dict, user: User = Depends(_require_rank("executive
     if len(text) > 5000:
         text = text[:5000]
     force_tier = (body.get("force_tier") or "").lower().strip()
-    check_rate(f"ai_director_tts:{user.id}", max_calls=20, window_sec=60)
+    _owner_safe_rate(user, f"ai_director_tts:{user.id}", max_calls=20, window_sec=60)
     try:
         result = await persona_speak("director", text, force_tier=force_tier, db=db)
     except Exception as _e:
@@ -2190,7 +2200,7 @@ async def revenue_director_tts(body: dict, user: User = Depends(_require_rank("e
     if len(text) > 5000:
         text = text[:5000]
     force_tier = (body.get("force_tier") or "").lower().strip()
-    check_rate(f"ai_rd_tts:{user.id}", max_calls=20, window_sec=60)
+    _owner_safe_rate(user, f"ai_rd_tts:{user.id}", max_calls=20, window_sec=60)
     try:
         result = await persona_speak("revenue_director", text, force_tier=force_tier, db=db)
     except Exception as _e:
@@ -2226,7 +2236,7 @@ async def sage_elevenlabs_tts(body: dict, user: User = Depends(_require_rank("ex
     if len(text) > 4000:
         text = text[:4000]
     force_tier = (body.get("force_tier") or "").lower().strip()
-    check_rate(f"ai_sage_el_tts:{user.id}", max_calls=20, window_sec=60)
+    _owner_safe_rate(user, f"ai_sage_el_tts:{user.id}", max_calls=20, window_sec=60)
     try:
         result = await persona_speak("ancestral_sage", text, force_tier=force_tier, db=db)
     except Exception as _e:
@@ -2276,7 +2286,7 @@ async def ai_revenue_director(body: dict, user: User = Depends(_dep_current_user
     if not message:
         raise HTTPException(400, "Message is required")
 
-    check_rate(f"ai_rd:{user.id}", max_calls=15, window_sec=60)
+    _owner_safe_rate(user, f"ai_rd:{user.id}", max_calls=15, window_sec=60)
     try:
         prompt_guard.assert_message_safe(message, user.role, "/ai/revenue-director", user.id)
     except ValueError as _e:
@@ -2341,7 +2351,7 @@ async def sage_create(body: dict, user: User = Depends(_dep_current_user)):
     if not message:
         raise HTTPException(400, "Message is required")
 
-    check_rate(f"ai_sage_create:{user.id}", max_calls=15, window_sec=60)
+    _owner_safe_rate(user, f"ai_sage_create:{user.id}", max_calls=15, window_sec=60)
     try:
         prompt_guard.assert_message_safe(message, user.role, "/ai/sage/create", user.id)
     except ValueError as _e:
@@ -2410,7 +2420,7 @@ async def ai_ambassador(body: dict, user: User = Depends(_dep_current_user)):
     if not message:
         raise HTTPException(400, "Message is required")
 
-    check_rate(f"ai_ambassador:{user.id}", max_calls=10, window_sec=60)
+    _owner_safe_rate(user, f"ai_ambassador:{user.id}", max_calls=10, window_sec=60)
     try:
         prompt_guard.assert_message_safe(message, user.role, "/ai/ambassador", user.id)
     except ValueError as _e:
@@ -2478,7 +2488,7 @@ async def ai_architect(body: dict, user: User = Depends(_dep_current_user)):
     if not message:
         raise HTTPException(400, "Message is required")
 
-    check_rate(f"ai_architect:{user.id}", max_calls=10, window_sec=60)
+    _owner_safe_rate(user, f"ai_architect:{user.id}", max_calls=10, window_sec=60)
     try:
         prompt_guard.assert_message_safe(message, user.role, "/ai/architect", user.id)
     except ValueError as _e:
@@ -2544,7 +2554,7 @@ async def ai_griot(body: dict, user: User = Depends(_dep_current_user)):
     if not message:
         raise HTTPException(400, "Message is required")
 
-    check_rate(f"ai_griot:{user.id}", max_calls=15, window_sec=60)
+    _owner_safe_rate(user, f"ai_griot:{user.id}", max_calls=15, window_sec=60)
     try:
         prompt_guard.assert_message_safe(message, user.role, "/ai/griot", user.id)
     except ValueError as _e:
@@ -2617,7 +2627,7 @@ async def ai_cipher(body: dict, user: User = Depends(_dep_current_user)):
     if not message:
         raise HTTPException(400, "Message is required")
 
-    check_rate(f"ai_cipher:{user.id}", max_calls=15, window_sec=60)
+    _owner_safe_rate(user, f"ai_cipher:{user.id}", max_calls=15, window_sec=60)
     try:
         prompt_guard.assert_message_safe(message, user.role, "/ai/cipher", user.id)
     except ValueError as _e:
@@ -2680,7 +2690,7 @@ async def ai_oracle(body: dict, user: User = Depends(_dep_current_user)):
     if not message:
         raise HTTPException(400, "Message is required")
 
-    check_rate(f"ai_oracle:{user.id}", max_calls=15, window_sec=60)
+    _owner_safe_rate(user, f"ai_oracle:{user.id}", max_calls=15, window_sec=60)
     try:
         prompt_guard.assert_message_safe(message, user.role, "/ai/oracle", user.id)
     except ValueError as _e:
@@ -2852,7 +2862,7 @@ async def cipher_tts(body: dict, user: User = Depends(_require_rank("executive_a
     if force_tier not in ("", "elevenlabs", "openai", "text"):
         force_tier = ""
 
-    check_rate(f"ai_cipher_tts:{user.id}", max_calls=20, window_sec=60)
+    _owner_safe_rate(user, f"ai_cipher_tts:{user.id}", max_calls=20, window_sec=60)
 
     try:
         result = await cipher_speak(text=text, force_tier=force_tier, db=db)
