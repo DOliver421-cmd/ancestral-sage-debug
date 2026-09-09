@@ -21,7 +21,7 @@ import { FEATURE_TIER_RANK, FEATURE_TIER_LABEL, canAccess } from "../lib/tiers";
 import SharePanel from "../components/SharePanel";
 import WorkspacePanel from "../components/WorkspacePanel";
 import {
-  Music, BookOpen, Users, Edit3, Camera, Send, Mic, MicOff,
+  Music, BookOpen, Users, Edit3, Camera, Send, Mic, MicOff, GraduationCap,
   Volume2, VolumeX, Play, Pause, Settings, ExternalLink,
   Zap, Lock, Globe, Radio, Megaphone, BarChart2, ShoppingBag,
   Upload, Image, FileText, Award, CheckCircle, Eye, EyeOff,
@@ -1109,8 +1109,8 @@ export default function UnifiedProfile() {
                   {[
                     { feature: "ai_chat",     label: "AI Tutor",        icon: Zap,       to: "/ai",                 desc: "Ask anything" },
                     { feature: "profile",     label: "Social Blast",    icon: Megaphone, to: "/social/publish",     desc: "Post to all platforms" },
-                    { feature: "profile",     label: "Curriculum",      icon: BookOpen,  to: "/modules",            desc: "Browse all courses" },                    { feature: "profile",      label: "Certificates",    icon: Award,       to: "/certificates",        desc: "Your earned certs" },
-                    { feature: "profile",      label: "Help Center",     icon: HelpCircle,  to: "/help-center",         desc: "Guides & support",      free: true },
+                    { feature: "profile",     label: "Curriculum",      icon: BookOpen,  to: "/modules",            desc: "Browse all courses" },                    { feature: "profile",      label: "Certificates",    icon: Award,       to: "/certificates",        desc: "Your earned certs" },                          { feature: "profile",      label: "Homeschool Academy", icon: GraduationCap, to: "/academy/curriculum",   desc: "K-12 courses & handbooks", free: true  },
+                          { feature: "profile",      label: "Help Center",     icon: HelpCircle,  to: "/help-center",         desc: "Guides & support",        free: true  },
 
                     { feature: "posts",        label: "Creator Lounge",  icon: Mic,         to: "/creator-lounge",      desc: "Community stage" },
                     { feature: "ghost",       label: "Ghost Producer",  icon: Music,     to: "/ghost-producer",     desc: "AI production suite" },

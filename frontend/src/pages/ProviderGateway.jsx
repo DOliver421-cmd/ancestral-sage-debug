@@ -134,8 +134,9 @@ const PAYMENTS = [
     fields: [
       { key: "secret", placeholder: "API Key…", label: "Lemon Squeezy API key" },
       { key: "pub", placeholder: "12345678", label: "Store ID" },
+      { key: "webhook", placeholder: "Webhook secret from LS dashboard…", label: "Webhook Secret (required for order fulfillment)" },
     ],
-    note: "Digital products + subscriptions alternative. Fallback when Stripe is unset.",
+    note: "Primary merchant of record. All three keys required: API key, Store ID, and Webhook Secret (Settings → Webhooks in your Lemon Squeezy dashboard). Without the webhook secret, purchases succeed but orders are never fulfilled.",
     signup: "https://app.lemonsqueezy.com/settings/api",
     signupLabel: "Get keys at app.lemonsqueezy.com",
     color: "#b45309",
