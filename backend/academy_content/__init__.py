@@ -70,6 +70,25 @@ from .handbook_elementary import HANDBOOK_ELEMENTARY
 from .handbook_middle import HANDBOOK_MIDDLE
 from .handbook_high import HANDBOOK_HIGH
 from .handbook_adult import HANDBOOK_ADULT
+from .math_kindergarten import MATH_KINDERGARTEN
+from .science_kindergarten import SCIENCE_KINDERGARTEN
+from .social_studies_kindergarten import SOCIAL_STUDIES_KINDERGARTEN
+from .science_grade1 import SCIENCE_GRADE_1
+from .social_studies_grade1 import SOCIAL_STUDIES_GRADE_1
+from .social_studies_grade2 import SOCIAL_STUDIES_GRADE_2
+from .ela_grade3 import ELA_GRADE_3
+from .science_grade3 import SCIENCE_GRADE_3
+from .social_studies_grade3 import SOCIAL_STUDIES_GRADE_3
+from .ela_grade4 import ELA_GRADE_4
+from .science_grade4 import SCIENCE_GRADE_4
+from .social_studies_grade4 import SOCIAL_STUDIES_GRADE_4
+from .ela_grade6 import ELA_GRADE_6
+from .science_grade6 import SCIENCE_GRADE_6
+from .ela_grade7 import ELA_GRADE_7
+from .science_grade7 import SCIENCE_GRADE_7
+from .math_grade11 import MATH_GRADE_11
+from .ela_grade12 import ELA_GRADE_12
+from .math_grade12 import MATH_GRADE_12
 
 PUBLISHED_COURSES = [
     READING_GRADE_1,
@@ -114,6 +133,26 @@ PUBLISHED_COURSES = [
     GLOBAL_AFRICAN_DIASPORA,
     DIASPORA_MATHEMATICS,
     AFRICAN_PHILOSOPHY_ETHICS,
+    # ── Gap-fill: missing K-12 core curriculum (2026-09-09 audit) ──
+    MATH_KINDERGARTEN,
+    SCIENCE_KINDERGARTEN,
+    SOCIAL_STUDIES_KINDERGARTEN,
+    SCIENCE_GRADE_1,
+    SOCIAL_STUDIES_GRADE_1,
+    SOCIAL_STUDIES_GRADE_2,
+    ELA_GRADE_3,
+    SCIENCE_GRADE_3,
+    SOCIAL_STUDIES_GRADE_3,
+    ELA_GRADE_4,
+    SCIENCE_GRADE_4,
+    SOCIAL_STUDIES_GRADE_4,
+    ELA_GRADE_6,
+    SCIENCE_GRADE_6,
+    ELA_GRADE_7,
+    SCIENCE_GRADE_7,
+    MATH_GRADE_11,
+    ELA_GRADE_12,
+    MATH_GRADE_12,
     # Free student handbooks (ebook-style guides, catalog placement)
     HANDBOOK_ELEMENTARY,
     HANDBOOK_MIDDLE,
