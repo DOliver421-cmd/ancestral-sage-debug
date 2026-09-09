@@ -74,9 +74,9 @@ current_user = None  # bound at startup
 # Auth — bound by server.py via bind()
 _auth_dependency = None
 
-def bind(current_user_dep):
+def bind(current_user):
     global _auth_dependency
-    _auth_dependency = current_user_dep
+    _auth_dependency = current_user
 
 
 async def _require_staff(authorization: str = ""):
