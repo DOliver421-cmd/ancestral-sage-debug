@@ -261,6 +261,7 @@ _ADDITIONAL_API_ROUTER_MODULES = (
     ("finder", "/api"),
     ("simulation", "/api"),
     ("arena", "/api"),
+    ("resource_hub", "/api"),
 )
 
 # ── Feature Control Center enforcement (read side) ──────────────────────────
@@ -1404,6 +1405,13 @@ async def _on_startup_impl():
         await seed_compliance()
     except Exception as _e:
         logger.warning("STARTUP: seed_compliance failed (non-fatal): %s", _e)
+
+    # Resource Hub seed (business resources for the unified hub)
+    try:
+        from routers.resource_hub import seed_hub_resources
+        await seed_hub_resources()
+    except Exception as _e:
+        logger.warning("STARTUP: seed_hub_resources failed (non-fatal): %s", _e)
 
     # ── Hybrid NAM knowledge corpus (owner session 2026-09-04) ────────────────
     # Seeds the Knowledge Forge through the same idempotent pipeline the
