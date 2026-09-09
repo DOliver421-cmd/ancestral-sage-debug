@@ -156,6 +156,95 @@ export default function UnifiedGateway() {
         </div>
       </section>
 
+      {/* ── HOMESCHOOL ACADEMY — prominent section ──────────────────────── */}
+      <section className="relative overflow-hidden py-24 px-6"
+        style={{ background: "linear-gradient(180deg, #fffdf8 0%, #f6f2eb 100%)", borderBottom: "1px solid #e3ddd2" }}>
+        <div className="relative max-w-6xl mx-auto">
+          <div className="grid lg:grid-cols-[minmax(0,1.2fr)_minmax(300px,0.8fr)] gap-12 xl:gap-16 items-center">
+
+            <div>
+              <div className="overline mb-3" style={{ color: "#8a5a00" }}>Homeschool Academy</div>
+              <h2 style={{
+                fontFamily: "'Cabinet Grotesk', 'Plus Jakarta Sans', sans-serif",
+                fontSize: "clamp(2rem, 5vw, 3.5rem)", fontWeight: 900,
+                color: "#111111", lineHeight: 1.08, margin: "0 0 1rem",
+              }}>
+                Florida homeschool,<br />
+                <span style={{ color: "#8a5a00" }}>done right.</span>
+              </h2>
+              <p style={{ fontSize: "clamp(0.95rem, 1.8vw, 1.15rem)", color: "#3f3a34", maxWidth: 540, lineHeight: 1.7, marginBottom: "1.5rem" }}>
+                54 courses · 4 student handbooks · embedded educational videos ·
+                Bright Futures transcript builder · Florida compliance tools.
+                K–12 and adult — every course free to browse and enroll.
+              </p>
+
+              <div className="flex flex-wrap gap-3 mb-10">
+                <Link to="/academy/parent"
+                  className="inline-flex items-center gap-2 font-black text-sm px-8 py-4 rounded-xl"
+                  style={{ background: "#8a5a00", color: "#fff", fontSize: 15 }}>
+                  Explore the Academy <ArrowRight size={16} />
+                </Link>
+                <Link to="/academy/courses"
+                  className="inline-flex items-center gap-2 font-bold text-sm px-6 py-4 rounded-xl border"
+                  style={{ borderColor: "rgba(154,101,0,0.45)", color: "#7a4d00", background: "#fff", fontSize: 15 }}>
+                  Browse All Courses
+                </Link>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                {[
+                  { n: "54", label: "Courses" },
+                  { n: "4", label: "Handbooks" },
+                  { n: "40", label: "Videos" },
+                  { n: "4", label: "Tracks" },
+                ].map(({ n, label }) => (
+                  <div key={label} className="rounded-xl p-4 border" style={{ borderColor: "#d9d0c4", background: "#fff" }}>
+                    <div style={{ fontFamily: "'Cabinet Grotesk',sans-serif", fontSize: "1.8rem", fontWeight: 900, color: "#8a5a00", lineHeight: 1 }}>{n}</div>
+                    <div style={{ fontSize: 12, color: "#4a4238", marginTop: 2, textTransform: "uppercase", letterSpacing: "0.1em" }}>{label}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="rounded-2xl overflow-hidden border" style={{ borderColor: "#d9d0c4", background: "#fff", boxShadow: "0 20px 60px rgba(0,0,0,0.08)" }}>
+              <div className="p-6">
+                <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.15em", textTransform: "uppercase", color: "#8a5a00", marginBottom: 12 }}>Curriculum Tracks</div>
+                {[
+                  { icon: "🌍", name: "Cultural & Counter-Narrative", count: 12, color: "#8a5a00" },
+                  { icon: "📐", name: "K–8 Foundations & STEM", count: 18, color: "#2563eb" },
+                  { icon: "💼", name: "Entrepreneurship & Career", count: 8, color: "#059669" },
+                  { icon: "🎓", name: "Adult Education & HSE", count: 16, color: "#7c3aed" },
+                ].map(({ icon, name, count, color }) => (
+                  <div key={name} className="flex items-center gap-3 py-3 border-b" style={{ borderColor: "#f0ebe3" }}>
+                    <span style={{ fontSize: 22 }}>{icon}</span>
+                    <div className="flex-1 min-w-0">
+                      <div style={{ fontWeight: 700, fontSize: 14, color: "#111111" }}>{name}</div>
+                      <div style={{ fontSize: 12, color: "#888" }}>{count} courses</div>
+                    </div>
+                    <span className="shrink-0 rounded-full px-2.5 py-0.5 text-xs font-bold"
+                      style={{ background: `${color}15`, color }}>
+                      Free
+                    </span>
+                  </div>
+                ))}
+                <div className="mt-4 pt-3 border-t" style={{ borderColor: "#f0ebe3" }}>
+                  <div className="flex items-center gap-2 text-sm" style={{ color: "#4a4238" }}>
+                    <span>📋</span> Florida IHIP & quarterly report tools
+                  </div>
+                  <div className="flex items-center gap-2 text-sm mt-1" style={{ color: "#4a4238" }}>
+                    <span>🎓</span> Bright Futures transcript builder
+                  </div>
+                  <div className="flex items-center gap-2 text-sm mt-1" style={{ color: "#4a4238" }}>
+                    <span>📹</span> On-site video enrichment
+                  </div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </section>
+
       {/* ── MY HELPER — THE WORKING MODULE, BELOW M.O.R.E. HELP CENTER ───── */}
       <section className="relative overflow-hidden"
         style={{ background: "#fff", borderBottom: "1px solid #e3ddd2" }}>
@@ -249,95 +338,6 @@ export default function UnifiedGateway() {
                 <div className="text-copper text-xs font-bold opacity-0 group-hover:opacity-100 transition-opacity">Explore →</div>
               </Link>
             ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ── HOMESCHOOL ACADEMY — prominent section ──────────────────────── */}
-      <section className="relative overflow-hidden py-24 px-6"
-        style={{ background: "linear-gradient(180deg, #fffdf8 0%, #f6f2eb 100%)", borderBottom: "1px solid #e3ddd2" }}>
-        <div className="relative max-w-6xl mx-auto">
-          <div className="grid lg:grid-cols-[minmax(0,1.2fr)_minmax(300px,0.8fr)] gap-12 xl:gap-16 items-center">
-
-            <div>
-              <div className="overline mb-3" style={{ color: "#8a5a00" }}>Homeschool Academy</div>
-              <h2 style={{
-                fontFamily: "'Cabinet Grotesk', 'Plus Jakarta Sans', sans-serif",
-                fontSize: "clamp(2rem, 5vw, 3.5rem)", fontWeight: 900,
-                color: "#111111", lineHeight: 1.08, margin: "0 0 1rem",
-              }}>
-                Florida homeschool,<br />
-                <span style={{ color: "#8a5a00" }}>done right.</span>
-              </h2>
-              <p style={{ fontSize: "clamp(0.95rem, 1.8vw, 1.15rem)", color: "#3f3a34", maxWidth: 540, lineHeight: 1.7, marginBottom: "1.5rem" }}>
-                54 courses · 4 student handbooks · embedded educational videos ·
-                Bright Futures transcript builder · Florida compliance tools.
-                K–12 and adult — every course free to browse and enroll.
-              </p>
-
-              <div className="flex flex-wrap gap-3 mb-10">
-                <Link to="/academy/parent"
-                  className="inline-flex items-center gap-2 font-black text-sm px-8 py-4 rounded-xl"
-                  style={{ background: "#8a5a00", color: "#fff", fontSize: 15 }}>
-                  Explore the Academy <ArrowRight size={16} />
-                </Link>
-                <Link to="/academy/courses"
-                  className="inline-flex items-center gap-2 font-bold text-sm px-6 py-4 rounded-xl border"
-                  style={{ borderColor: "rgba(154,101,0,0.45)", color: "#7a4d00", background: "#fff", fontSize: 15 }}>
-                  Browse All Courses
-                </Link>
-              </div>
-
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                {[
-                  { n: "54", label: "Courses" },
-                  { n: "4", label: "Handbooks" },
-                  { n: "40", label: "Videos" },
-                  { n: "4", label: "Tracks" },
-                ].map(({ n, label }) => (
-                  <div key={label} className="rounded-xl p-4 border" style={{ borderColor: "#d9d0c4", background: "#fff" }}>
-                    <div style={{ fontFamily: "'Cabinet Grotesk',sans-serif", fontSize: "1.8rem", fontWeight: 900, color: "#8a5a00", lineHeight: 1 }}>{n}</div>
-                    <div style={{ fontSize: 12, color: "#4a4238", marginTop: 2, textTransform: "uppercase", letterSpacing: "0.1em" }}>{label}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="rounded-2xl overflow-hidden border" style={{ borderColor: "#d9d0c4", background: "#fff", boxShadow: "0 20px 60px rgba(0,0,0,0.08)" }}>
-              <div className="p-6">
-                <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.15em", textTransform: "uppercase", color: "#8a5a00", marginBottom: 12 }}>Curriculum Tracks</div>
-                {[
-                  { icon: "🌍", name: "Cultural & Counter-Narrative", count: 12, color: "#8a5a00" },
-                  { icon: "📐", name: "K–8 Foundations & STEM", count: 18, color: "#2563eb" },
-                  { icon: "💼", name: "Entrepreneurship & Career", count: 8, color: "#059669" },
-                  { icon: "🎓", name: "Adult Education & HSE", count: 16, color: "#7c3aed" },
-                ].map(({ icon, name, count, color }) => (
-                  <div key={name} className="flex items-center gap-3 py-3 border-b" style={{ borderColor: "#f0ebe3" }}>
-                    <span style={{ fontSize: 22 }}>{icon}</span>
-                    <div className="flex-1 min-w-0">
-                      <div style={{ fontWeight: 700, fontSize: 14, color: "#111111" }}>{name}</div>
-                      <div style={{ fontSize: 12, color: "#888" }}>{count} courses</div>
-                    </div>
-                    <span className="shrink-0 rounded-full px-2.5 py-0.5 text-xs font-bold"
-                      style={{ background: `${color}15`, color }}>
-                      Free
-                    </span>
-                  </div>
-                ))}
-                <div className="mt-4 pt-3 border-t" style={{ borderColor: "#f0ebe3" }}>
-                  <div className="flex items-center gap-2 text-sm" style={{ color: "#4a4238" }}>
-                    <span>📋</span> Florida IHIP & quarterly report tools
-                  </div>
-                  <div className="flex items-center gap-2 text-sm mt-1" style={{ color: "#4a4238" }}>
-                    <span>🎓</span> Bright Futures transcript builder
-                  </div>
-                  <div className="flex items-center gap-2 text-sm mt-1" style={{ color: "#4a4238" }}>
-                    <span>📹</span> On-site video enrichment
-                  </div>
-                </div>
-              </div>
-            </div>
-
           </div>
         </div>
       </section>
