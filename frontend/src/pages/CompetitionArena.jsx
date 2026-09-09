@@ -1,779 +1,809 @@
-import { useState, useEffect, useCallback } from "react";
+/**
+ * /arena — The Arena: Unified Competition + Synthesis Workflow
+ *
+ * 4 personas go through 5 graded rounds of self-competition on a project.
+ * A Commissioner scores each round. 2 of 4 personas can be swapped.
+ * The highest-scoring output is handed to Hybrid NAM for mission alignment.
+ *
+ * Phases: SETUP → SELECT_PERSONAS → ROUNDS → SCORING → RESULTS → HANDOFF
+ */
+
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import AppShell from "../components/AppShell";
-import PageBack from "../components/PageBack";
-import { AlertTriangle, History, ChevronDown, ChevronUp } from "lucide-react";
+import BackButton from "../components/BackButton";
+import {
+  Loader2, Swords, Gavel, Send, RefreshCw, Shuffle, Save, FolderPlus,
+  Trash2, Users, FileText, ChevronDown, Award, Target, ArrowRight,
+  CheckCircle2, AlertTriangle, Zap, Crown,
+} from "lucide-react";
 
-// ── Design tokens ─────────────────────────────────────────────────────────────
-const COPPER = "#b5651d";
-const INK = "#1a1a1a";
-const BONE = "#f5f0e8";
-
-// ── Persona metadata ──────────────────────────────────────────────────────────
-const PERSONA_META = {
-  AXIOM:  { emoji: "🏛️", subtitle: "The Architect" },
-  CIPHER: { emoji: "🎤", subtitle: "The Street Poet" },
-  MAVEN:  { emoji: "📊", subtitle: "The Market Mind" },
-  SAGE:   { emoji: "🌿", subtitle: "The Elder Voice" },
+const PHASES = {
+  SETUP: "SETUP",
+  SELECT: "SELECT_PERSONAS",
+  ROUNDS: "ROUNDS",
+  SCORING: "SCORING",
+  RESULTS: "RESULTS",
+  HANDOFF: "HANDOFF",
 };
 
-const PERSONA_ORDER = ["AXIOM", "CIPHER", "MAVEN", "SAGE"];
+const MAX_ROUNDS = 5;
+const MAX_PERSONAS = 4;
+const SWAPPABLE = 2;
 
-// ── Role badge ────────────────────────────────────────────────────────────────
-function RoleBadge({ role }) {
-  const styles = {
-    lead:       { background: COPPER, color: "#fff" },
-    support:    { background: "#6b7280", color: "#fff" },
-    competitor: { background: "#1a1a1a", color: "#f5f0e8" },
-  };
-  return (
-    <span style={{
-      ...styles[role] || styles.competitor,
-      fontSize: 10,
-      fontWeight: 900,
-      padding: "2px 7px",
-      borderRadius: 3,
-      textTransform: "uppercase",
-      letterSpacing: "0.08em",
-    }}>
-      {role}
-    </span>
-  );
+function explain(err) {
+  const d = err?.response?.data?.detail;
+  return typeof d === "string" ? d : err?.message || "Request failed";
 }
 
-// ── Standby banner — honest "why nothing is happening" ────────────────────────
-function StandbyBanner({ status, isExec }) {
-  if (!status || status.mode !== "standby") return null;
-  return (
-    <div style={{
-      background: "#fef3c7",
-      border: "1.5px solid #d97706",
-      borderRadius: 10,
-      padding: "14px 18px",
-      marginBottom: 24,
-      display: "flex",
-      gap: 12,
-      alignItems: "flex-start",
-    }}>
-      <AlertTriangle style={{ color: "#b45309", flexShrink: 0, marginTop: 2 }} size={18} />
-      <div>
-        <div style={{ fontWeight: 900, color: "#92400e", fontSize: 14 }}>
-          The Arena is in standby — no rounds can run right now.
-        </div>
-        <div style={{ color: "#78350f", fontSize: 13, marginTop: 4, lineHeight: 1.6 }}>
-          {status.message}
-          {isExec ? (
-            <>{" "}Open the{" "}
-              <Link to="/admin/providers" style={{ color: "#b45309", fontWeight: 700, textDecoration: "underline" }}>
-                Provider Gateway
-              </Link>{" "}
-              to add a free key (Groq, Cerebras, or Gemini). No credit card required.
-            </>
-          ) : (
-            " An executive can add a free provider key — no credit card required."
-          )}
-        </div>
-        <div style={{ color: "#92400e", fontSize: 12, marginTop: 6 }}>
-          Standings from past rounds still show below.
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ── Honest failure card — a persona that produced nothing ─────────────────────
-function FailureCard({ result }) {
-  const meta = PERSONA_META[result.persona] || {};
-  return (
-    <div style={{
-      background: "#fff",
-      border: "2px solid #fecaca",
-      borderRadius: 12,
-      overflow: "hidden",
-      boxShadow: "0 2px 12px rgba(26,26,26,0.07)",
-    }}>
-      <div style={{ background: INK, padding: "14px 18px", display: "flex", alignItems: "center", gap: 10 }}>
-        <span style={{ fontSize: 22 }}>{meta.emoji || "🤖"}</span>
-        <div style={{ flex: 1 }}>
-          <div style={{ color: COPPER, fontWeight: 900, fontSize: 16 }}>{result.persona}</div>
-          <div style={{ color: "rgba(255,255,255,0.55)", fontSize: 12 }}>{meta.subtitle || result.tagline}</div>
-        </div>
-        <span style={{
-          background: "#dc2626",
-          color: "#fff",
-          fontSize: 10,
-          fontWeight: 900,
-          padding: "3px 8px",
-          borderRadius: 3,
-          textTransform: "uppercase",
-          letterSpacing: "0.08em",
-        }}>
-          Failed
-        </span>
-      </div>
-      <div style={{ padding: "18px 18px", fontSize: 13, lineHeight: 1.7, color: "#7f1d1d" }}>
-        <div style={{ fontWeight: 900, marginBottom: 6 }}>No output produced — nothing was saved for this persona.</div>
-        <div style={{ color: "#991b1b" }}>{result.error || "The AI service was unavailable during this round."}</div>
-      </div>
-    </div>
-  );
-}
-
-// ── Leaderboard bar ───────────────────────────────────────────────────────────
-function LeaderboardBar({ leaderboard, totalRounds }) {
-  if (!leaderboard || leaderboard.length === 0) return null;
-  return (
-    <div style={{
-      background: INK,
-      borderRadius: 10,
-      padding: "16px 20px",
-      marginBottom: 28,
-      display: "flex",
-      gap: 12,
-      flexWrap: "wrap",
-      alignItems: "center",
-    }}>
-      <span style={{ color: COPPER, fontWeight: 900, fontSize: 12, textTransform: "uppercase", letterSpacing: "0.1em", marginRight: 4 }}>
-        Standings
-      </span>
-      {leaderboard.map((p, i) => (
-        <div key={p.persona} style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 8,
-          background: "rgba(255,255,255,0.06)",
-          borderRadius: 6,
-          padding: "8px 14px",
-          flex: "1 1 180px",
-          minWidth: 160,
-        }}>
-          <span style={{ color: COPPER, fontWeight: 900, fontSize: 13 }}>#{i + 1}</span>
-          <span style={{ fontSize: 16 }}>{PERSONA_META[p.persona]?.emoji || "🤖"}</span>
-          <div style={{ flex: 1 }}>
-            <div style={{ color: "#fff", fontWeight: 700, fontSize: 13 }}>{p.persona}</div>
-            <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 11 }}>
-              {p.rounds_completed}/{totalRounds} rounds · avg {p.cumulative_average > 0 ? p.cumulative_average.toFixed(1) : "—"}
-            </div>
-          </div>
-          <RoleBadge role={p.role} />
-        </div>
-      ))}
-    </div>
-  );
-}
-
-// ── Persona result card ───────────────────────────────────────────────────────
-function PersonaCard({ result, onScoreSubmit, submittingId }) {
-  const [score, setScore] = useState(75);
-  const [submitted, setSubmitted] = useState(false);
-  const meta = PERSONA_META[result.persona] || {};
-  const isSubmitting = submittingId === result.round_id;
-
-  const handleSubmit = async () => {
-    await onScoreSubmit(result.round_id, score);
-    setSubmitted(true);
-  };
-
-  const verdictColor = result.commissioner_verdict === "PASS" ? "#16a34a" : "#dc2626";
-
-  return (
-    <div style={{
-      background: "#fff",
-      border: `2px solid ${BONE}`,
-      borderRadius: 12,
-      display: "flex",
-      flexDirection: "column",
-      overflow: "hidden",
-      boxShadow: "0 2px 12px rgba(26,26,26,0.07)",
-    }}>
-      {/* Card header */}
-      <div style={{
-        background: INK,
-        padding: "14px 18px",
-        display: "flex",
-        alignItems: "center",
-        gap: 10,
-      }}>
-        <span style={{ fontSize: 22 }}>{meta.emoji || "🤖"}</span>
-        <div style={{ flex: 1 }}>
-          <div style={{ color: COPPER, fontWeight: 900, fontSize: 16 }}>{result.persona}</div>
-          <div style={{ color: "rgba(255,255,255,0.55)", fontSize: 12 }}>{meta.subtitle || result.tagline}</div>
-        </div>
-        {result.commissioner_score > 0 && (
-          <div style={{ textAlign: "right" }}>
-            <div style={{ color: verdictColor, fontWeight: 900, fontSize: 18 }}>{result.commissioner_score}</div>
-            <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, textTransform: "uppercase" }}>Comm. Score</div>
-          </div>
-        )}
-      </div>
-
-      {/* Output */}
-      <div style={{
-        flex: 1,
-        maxHeight: 380,
-        overflowY: "auto",
-        padding: "16px 18px",
-        fontSize: 13,
-        lineHeight: 1.7,
-        color: INK,
-        whiteSpace: "pre-wrap",
-        fontFamily: "Georgia, serif",
-        borderBottom: `1px solid ${BONE}`,
-      }}>
-        {result.output}
-      </div>
-
-      {/* Commissioner feedback */}
-      {result.commissioner_feedback && (
-        <div style={{
-          background: BONE,
-          padding: "10px 18px",
-          fontSize: 12,
-          color: "#555",
-          fontStyle: "italic",
-          borderBottom: `1px solid #e5ddd0`,
-        }}>
-          <span style={{ fontWeight: 700, fontStyle: "normal", color: INK }}>Commissioner: </span>
-          {result.commissioner_feedback}
-        </div>
-      )}
-
-      {/* Attempts badge */}
-      {result.attempts > 1 && (
-        <div style={{
-          padding: "6px 18px",
-          background: "#fff7ed",
-          fontSize: 11,
-          color: COPPER,
-          fontWeight: 700,
-          borderBottom: `1px solid ${BONE}`,
-        }}>
-          ↻ Revised {result.attempts - 1}× before passing
-        </div>
-      )}
-
-      {/* User scoring */}
-      <div style={{ padding: "14px 18px", background: "#fafaf8" }}>
-        {submitted ? (
-          <div style={{ textAlign: "center", color: "#16a34a", fontWeight: 700, fontSize: 14, padding: "6px 0" }}>
-            ✓ Your score: {score}/100 submitted
-          </div>
-        ) : (
-          <>
-            <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: INK, marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.07em" }}>
-              Your Score: <span style={{ color: COPPER, fontSize: 16 }}>{score}</span>/100
-            </label>
-            <input
-              type="range"
-              min={1}
-              max={100}
-              value={score}
-              onChange={e => setScore(Number(e.target.value))}
-              style={{ width: "100%", accentColor: COPPER, marginBottom: 10 }}
-            />
-            <button
-              onClick={handleSubmit}
-              disabled={isSubmitting}
-              style={{
-                width: "100%",
-                background: isSubmitting ? "#ccc" : COPPER,
-                color: "#fff",
-                border: "none",
-                borderRadius: 6,
-                padding: "9px 0",
-                fontWeight: 900,
-                fontSize: 13,
-                cursor: isSubmitting ? "not-allowed" : "pointer",
-                textTransform: "uppercase",
-                letterSpacing: "0.07em",
-              }}
-            >
-              {isSubmitting ? "Submitting…" : "Submit My Score"}
-            </button>
-          </>
-        )}
-      </div>
-    </div>
-  );
-}
-
-// ── Spinner card (loading state) ──────────────────────────────────────────────
-function SpinnerCard({ personaName }) {
-  const meta = PERSONA_META[personaName] || {};
-  return (
-    <div style={{
-      background: "#fff",
-      border: `2px solid ${BONE}`,
-      borderRadius: 12,
-      overflow: "hidden",
-      boxShadow: "0 2px 12px rgba(26,26,26,0.07)",
-    }}>
-      <div style={{ background: INK, padding: "14px 18px", display: "flex", alignItems: "center", gap: 10 }}>
-        <span style={{ fontSize: 22 }}>{meta.emoji || "🤖"}</span>
-        <div>
-          <div style={{ color: COPPER, fontWeight: 900, fontSize: 16 }}>{personaName}</div>
-          <div style={{ color: "rgba(255,255,255,0.55)", fontSize: 12 }}>{meta.subtitle}</div>
-        </div>
-      </div>
-      <div style={{ padding: "48px 18px", textAlign: "center", color: "#aaa", fontSize: 13 }}>
-        <div style={{
-          width: 32,
-          height: 32,
-          border: `3px solid ${BONE}`,
-          borderTopColor: COPPER,
-          borderRadius: "50%",
-          animation: "spin 0.9s linear infinite",
-          margin: "0 auto 14px",
-        }} />
-        Working…
-      </div>
-    </div>
-  );
-}
-
-// ── Round tracker ─────────────────────────────────────────────────────────────
-function RoundTracker({ currentRound, totalRounds }) {
-  const pct = Math.min((currentRound / totalRounds) * 100, 100);
-  return (
-    <div style={{ marginBottom: 20 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, fontWeight: 700, color: INK, marginBottom: 5 }}>
-        <span style={{ textTransform: "uppercase", letterSpacing: "0.08em", color: COPPER }}>Round Progress</span>
-        <span>{currentRound} of {totalRounds}</span>
-      </div>
-      <div style={{ background: BONE, borderRadius: 99, height: 8, overflow: "hidden" }}>
-        <div style={{ background: COPPER, width: `${pct}%`, height: "100%", borderRadius: 99, transition: "width 0.4s ease" }} />
-      </div>
-    </div>
-  );
-}
-
-// ── Project history — browsable record of what the Arena produced ─────────────
-function ProjectHistory({ projects, expandedId, projectDetail, onToggle, detailLoading, error }) {
-  if (!projects || projects.length === 0) return null;
-  return (
-    <div style={{ marginTop: 32 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
-        <History size={16} color={COPPER} />
-        <h2 style={{ fontSize: 16, fontWeight: 900, color: INK, margin: 0, letterSpacing: "-0.01em" }}>
-          Past Projects
-        </h2>
-        <span style={{ fontSize: 12, color: "#888" }}>— every saved round, browsable</span>
-      </div>
-      {error && <div style={{ color: "#dc2626", fontSize: 13, marginBottom: 10 }}>{error}</div>}
-      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        {projects.map(project => {
-          const expanded = expandedId === project.project_id;
-          const isComplete = project.status === "complete";
-          return (
-            <div key={project.project_id} style={{
-              background: "#fff",
-              border: `2px solid ${BONE}`,
-              borderRadius: 10,
-              overflow: "hidden",
-            }}>
-              <button
-                onClick={() => onToggle(project.project_id)}
-                style={{
-                  width: "100%",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 12,
-                  padding: "12px 16px",
-                  background: "none",
-                  border: "none",
-                  cursor: "pointer",
-                  textAlign: "left",
-                  fontFamily: "inherit",
-                }}
-              >
-                <span style={{
-                  fontSize: 10,
-                  fontWeight: 900,
-                  textTransform: "uppercase",
-                  letterSpacing: "0.07em",
-                  padding: "3px 8px",
-                  borderRadius: 4,
-                  background: isComplete ? "#dcfce7" : (project.round_scored ? "#fef3c7" : "#e5e7eb"),
-                  color: isComplete ? "#166534" : (project.round_scored ? "#92400e" : "#374151"),
-                  flexShrink: 0,
-                }}>
-                  {project.status}
-                </span>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: INK, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                    {project.latest_task || "(no task text)"}
-                  </div>
-                  <div style={{ fontSize: 11, color: "#888", marginTop: 2 }}>
-                    Round {project.current_round}/{project.total_rounds} · {project.latest_timestamp ? new Date(project.latest_timestamp).toLocaleString() : "—"} · {project.project_id.slice(0, 8)}…
-                  </div>
-                </div>
-                {expanded ? <ChevronUp size={16} color="#888" /> : <ChevronDown size={16} color="#888" />}
-              </button>
-
-              {expanded && (
-                <div style={{ borderTop: `1px solid ${BONE}`, padding: "14px 16px", background: "#fafaf8" }}>
-                  {detailLoading ? (
-                    <div style={{ color: "#888", fontSize: 13 }}>Loading rounds…</div>
-                  ) : projectDetail && projectDetail.project_id === project.project_id ? (
-                    projectDetail.rounds.map(round => (
-                      <div key={round.round_number} style={{ marginBottom: 16 }}>
-                        <div style={{ fontSize: 11, fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.08em", color: COPPER, marginBottom: 8 }}>
-                          Round {round.round_number} — {round.task}
-                        </div>
-                        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 10 }}>
-                          {round.entries.map(entry => (
-                            <div key={entry.round_id} style={{
-                              background: "#fff",
-                              border: "1.5px solid #e5ddd0",
-                              borderRadius: 8,
-                              padding: "12px 14px",
-                            }}>
-                              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                                <span style={{ fontSize: 13, fontWeight: 900, color: INK }}>
-                                  {PERSONA_META[entry.persona]?.emoji || "🤖"} {entry.persona}
-                                </span>
-                                <span style={{ fontSize: 12, fontWeight: 700, color: entry.commissioner_verdict === "PASS" ? "#16a34a" : "#dc2626" }}>
-                                  {entry.commissioner_score}/100 {entry.commissioner_verdict}
-                                </span>
-                              </div>
-                              <div style={{
-                                fontSize: 12,
-                                color: "#555",
-                                lineHeight: 1.6,
-                                maxHeight: 130,
-                                overflowY: "auto",
-                                whiteSpace: "pre-wrap",
-                                fontFamily: "Georgia, serif",
-                              }}>
-                                {entry.output}
-                              </div>
-                              {entry.average_score !== null && entry.average_score !== undefined && (
-                                <div style={{ fontSize: 11, color: "#888", marginTop: 8 }}>
-                                  Final average: {entry.average_score}/100
-                                  {entry.user_score !== null && entry.user_score !== undefined ? ` (your score: ${entry.user_score})` : ""}
-                                </div>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    ))
-                  ) : (
-                    <div style={{ color: "#888", fontSize: 13 }}>Could not load this project's rounds.</div>
-                  )}
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-// ── Main page ─────────────────────────────────────────────────────────────────
 export default function CompetitionArena() {
-  const { user } = useAuth();
-  const isExec = user?.role === "executive_admin";
+  const { user, loading } = useAuth();
 
-  // Defense-in-depth: block non-exec users even if route guard fails.
-  // (When embedded in the AI Business Office hub, the office route itself is
-  // admin-gated, so this gate stays consistent either way.)
-  if (!isExec) {
+  if (loading) {
     return (
       <AppShell>
-        <div style={{ padding: 48, textAlign: "center" }}>
-          <div style={{ fontSize: 48, marginBottom: 16 }}>🔒</div>
-          <h2 style={{ fontWeight: 900, color: INK, fontSize: 20, marginBottom: 8 }}>
-            Executive Access Only
-          </h2>
-          <p style={{ color: "#666", fontSize: 14 }}>
-            The Arena is an internal executive tool and is not accessible to general users.
-          </p>
+        <div className="flex items-center justify-center py-24 text-ink/40">
+          <Loader2 className="w-5 h-5 animate-spin mr-2" /> Loading the Arena…
         </div>
       </AppShell>
     );
   }
-  return <CompetitionArenaContent />;
+
+  if (!user) {
+    return (
+      <AppShell>
+        <GateCard
+          icon={<Swords className="w-8 h-8 text-copper" />}
+          title="Sign in to use the Arena"
+          body="The Arena puts 4 AI personas through 5 rounds of self-competition on your project, then hands the best output to Hybrid NAM for mission alignment."
+        />
+      </AppShell>
+    );
+  }
+
+  const role = String(user.role || "").toLowerCase();
+  const isStaff = ["instructor", "admin", "executive_admin", "support_staff", "oversight"].includes(role);
+  const isPatron = ["patron", "platinum", "executive"].includes(user.feature_tier);
+  if (!isStaff && !isPatron) {
+    return (
+      <AppShell>
+        <GateCard
+          icon={<Gavel className="w-8 h-8 text-copper" />}
+          title="Patron access required"
+          body="The Arena requires a staff role or Patron tier."
+        >
+          <Link to="/store" className="btn-primary mt-4 inline-flex">See Patron benefits</Link>
+        </GateCard>
+      </AppShell>
+    );
+  }
+
+  return (
+    <AppShell>
+      <BackButton />
+      <ArenaWorkspace user={user} />
+    </AppShell>
+  );
 }
 
-// Exec-only workspace. Kept as a separate component so every hook in it is
-// called unconditionally (React rules-of-hooks) — the wrapper above decides
-// who may render it, the hooks below never run conditionally.
-export function CompetitionArenaContent({ embedded = false }) {
-  const { user } = useAuth();
-  const isExec = user?.role === "executive_admin";
-  const [task, setTask] = useState("");
-  const [loading, setLoading] = useState(false);
+function GateCard({ icon, title, body, children }) {
+  return (
+    <div className="max-w-xl mx-auto mt-16 card-flat p-8 text-center">
+      <div className="flex justify-center mb-3">{icon}</div>
+      <h1 className="font-heading font-bold text-xl text-ink">{title}</h1>
+      <p className="text-sm text-ink/60 mt-2 leading-relaxed">{body}</p>
+      {children}
+    </div>
+  );
+}
+
+function ArenaWorkspace({ user }) {
+  const [phase, setPhase] = useState(PHASES.SETUP);
+  const [personas, setPersonas] = useState([]);
+  const [project, setProject] = useState(null);
+  const [session, setSession] = useState(null);
+  const [rounds, setRounds] = useState([]);
   const [results, setResults] = useState(null);
-  const [projectId, setProjectId] = useState(null);
-  const [roundNumber, setRoundNumber] = useState(1);
-  const [leaderboard, setLeaderboard] = useState([]);
-  const [leaderboardError, setLeaderboardError] = useState(null);
-  const [submittingId, setSubmittingId] = useState(null);
-  const [error, setError] = useState(null);
-  const [status, setStatus] = useState(null);
-  const [projects, setProjects] = useState([]);
-  const [expandedId, setExpandedId] = useState(null);
-  const [projectDetail, setProjectDetail] = useState(null);
-  const [detailLoading, setDetailLoading] = useState(false);
-  const [historyError, setHistoryError] = useState(null);
+  const [handoff, setHandoff] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [showSwap, setShowSwap] = useState(false);
+  const [swapSlot, setSwapSlot] = useState(null);
+  const [scoreInput, setScoreInput] = useState({});
+  const bottomRef = useRef(null);
 
-  const fetchLeaderboard = useCallback(async () => {
-    try {
-      const r = await api.get("/competition/leaderboard");
-      setLeaderboard(r.data.leaderboard || []);
-      setLeaderboardError(null);
-    } catch (err) {
-      setLeaderboardError(err?.message || "Could not load standings.");
-    }
-  }, []);
-
-  const fetchStatus = useCallback(async () => {
-    try {
-      const r = await api.get("/competition/status");
-      setStatus(r.data);
-    } catch {
-      // Non-fatal — standby banner just won't render if status can't load.
-    }
-  }, []);
-
-  const fetchProjects = useCallback(async () => {
-    try {
-      const r = await api.get("/competition/projects");
-      setProjects(r.data.projects || []);
-      setHistoryError(null);
-    } catch (err) {
-      setHistoryError(err?.message || "Could not load project history.");
-    }
+  // Load available personas
+  useEffect(() => {
+    api.get("/arena/personas")
+      .then(r => setPersonas(r.data.personas || []))
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
-    fetchLeaderboard();
-    fetchStatus();
-    fetchProjects();
-  }, [fetchLeaderboard, fetchStatus, fetchProjects]);
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [rounds, results, phase]);
 
-  const toggleProject = async (pid) => {
-    if (expandedId === pid) {
-      setExpandedId(null);
-      return;
-    }
-    setExpandedId(pid);
-    setDetailLoading(true);
-    setProjectDetail(null);
+  // ── Phase: SETUP ─────────────────────────────────────────────────────────
+  const createProject = async (title, description, criteria) => {
+    setBusy(true);
+    setError("");
     try {
-      const r = await api.get(`/competition/projects/${pid}`);
-      setProjectDetail(r.data);
-    } catch (err) {
-      setProjectDetail({ project_id: pid, rounds: [] });
-      setHistoryError(err?.message || "Could not load this project's rounds.");
-    } finally {
-      setDetailLoading(false);
-    }
-  };
-
-  const standby = status?.mode === "standby";
-
-  const handleAssign = async () => {
-    if (!task.trim() || standby) return;
-    setLoading(true);
-    setResults(null);
-    setError(null);
-
-    try {
-      const r = await api.post("/competition/task", {
-        task: task.trim(),
-        project_id: projectId || undefined,
-        round_number: undefined,
+      const r = await api.post("/arena/projects", {
+        title,
+        description,
+        success_criteria: criteria,
+        assigned_by: "human",
       });
-      setResults(r.data.results);
-      setProjectId(r.data.project_id);
-      setRoundNumber(r.data.round_number);
-      await fetchLeaderboard();
-      await fetchProjects();
-    } catch (err) {
-      const detail = err?.response?.data?.detail;
-      setError(typeof detail === "string" ? detail : (err?.message || "Something went wrong. Please try again."));
+      setProject(r.data);
+      setPhase(PHASES.SELECT);
+    } catch (e) {
+      setError(explain(e));
     } finally {
-      setLoading(false);
+      setBusy(false);
     }
   };
 
-  const handleScoreSubmit = async (roundId, score) => {
-    setSubmittingId(roundId);
+  // ── Phase: SELECT_PERSONAS ───────────────────────────────────────────────
+  const startSession = async (personaIds) => {
+    setBusy(true);
+    setError("");
     try {
-      await api.post("/competition/score", {
-        scores: [{ round_id: roundId, user_score: score }],
+      const r = await api.post("/arena/sessions", {
+        project_id: project.id,
+        persona_ids: personaIds,
       });
-      await fetchLeaderboard();
-    } catch (err) {
-      setError(err?.message || "Score submission failed.");
+      setSession(r.data);
+      setPhase(PHASES.ROUNDS);
+    } catch (e) {
+      setError(explain(e));
     } finally {
-      setSubmittingId(null);
+      setBusy(false);
     }
   };
 
-  const body = (
-    <div style={{ background: BONE, minHeight: embedded ? 0 : "100vh", height: embedded ? "100%" : undefined, padding: embedded ? 24 : "32px 24px", overflowY: embedded ? "auto" : undefined, fontFamily: "system-ui, sans-serif" }}>
-        <style>{`
-          @keyframes spin { to { transform: rotate(360deg); } }
-        `}</style>
+  const swapPersona = async (slotIndex, newPersonaId) => {
+    setBusy(true);
+    setError("");
+    try {
+      const r = await api.patch(`/arena/sessions/${session.id}/swap`, {
+        slot_index: slotIndex,
+        new_persona_id: newPersonaId,
+      });
+      setSession(s => ({ ...s, personas: r.data.personas }));
+      setShowSwap(false);
+      setSwapSlot(null);
+    } catch (e) {
+      setError(explain(e));
+    } finally {
+      setBusy(false);
+    }
+  };
 
-        {!embedded && <div className="mb-4"><PageBack to="/admin/command" label="Command Center" /></div>}
+  // ── Phase: ROUNDS ────────────────────────────────────────────────────────
+  const runRound = async () => {
+    setBusy(true);
+    setError("");
+    try {
+      const r = await api.post(`/arena/sessions/${session.id}/rounds`);
+      setRounds(prev => [...prev, ...r.data.rounds]);
+      setSession(s => ({
+        ...s,
+        current_round: r.data.round,
+        status: r.data.status,
+        best_score: r.data.best_score,
+        best_persona_id: r.data.best_persona,
+      }));
+      if (r.data.status === "COMPLETED") {
+        setPhase(PHASES.RESULTS);
+        loadResults();
+      }
+    } catch (e) {
+      setError(explain(e));
+    } finally {
+      setBusy(false);
+    }
+  };
 
-        {/* Header */}
-        <div style={{ marginBottom: 24 }}>
-          <h1 style={{ fontSize: 32, fontWeight: 900, color: INK, margin: 0, letterSpacing: "-0.02em" }}>
-            ⚔️ The Arena
-          </h1>
-          <p style={{ color: "#666", fontSize: 15, marginTop: 6, marginBottom: 0 }}>
-            4 competitors. 5 rounds. Best work wins.
-          </p>
+  // ── Phase: SCORING ───────────────────────────────────────────────────────
+  const submitScore = async (roundId, score, note, scorer) => {
+    setBusy(true);
+    setError("");
+    try {
+      const r = await api.post("/arena/scores", {
+        round_id: roundId,
+        score,
+        note,
+        scorer,
+      });
+      setRounds(prev => prev.map(rd =>
+        rd.id === roundId
+          ? { ...rd, final_score: r.data.final_score, [`${scorer}_score`]: { score, note } }
+          : rd
+      ));
+    } catch (e) {
+      setError(explain(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // ── Phase: RESULTS ───────────────────────────────────────────────────────
+  const loadResults = async () => {
+    try {
+      const r = await api.get(`/arena/sessions/${session.id}/results`);
+      setResults(r.data);
+    } catch (e) {
+      setError(explain(e));
+    }
+  };
+
+  // ── Phase: HANDOFF ───────────────────────────────────────────────────────
+  const handoffToNAM = async (notes) => {
+    setBusy(true);
+    setError("");
+    try {
+      const r = await api.post("/arena/handoff", {
+        session_id: session.id,
+        mission_alignment_notes: notes,
+      });
+      setHandoff(r.data);
+      setPhase(PHASES.HANDOFF);
+    } catch (e) {
+      setError(explain(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // ── Load existing session ────────────────────────────────────────────────
+  const loadSession = async (sessionId) => {
+    setBusy(true);
+    setError("");
+    try {
+      const r = await api.get(`/arena/sessions/${sessionId}`);
+      setSession(r.data);
+      setRounds(r.data.rounds || []);
+      setProject({ id: r.data.project_id, title: r.data.project_title });
+      if (r.data.status === "COMPLETED") {
+        setPhase(PHASES.RESULTS);
+        loadResults();
+      } else if (r.data.status === "HANDED_OFF") {
+        setPhase(PHASES.HANDOFF);
+      } else if (r.data.rounds_completed > 0) {
+        setPhase(PHASES.ROUNDS);
+      }
+    } catch (e) {
+      setError(explain(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="max-w-5xl mx-auto px-4 py-8">
+      <h1 className="font-heading font-bold text-3xl text-ink mb-2 flex items-center gap-3">
+        <Swords className="w-8 h-8 text-copper" /> The Arena
+      </h1>
+      <p className="text-ink/60 mb-8">
+        4 personas · 5 rounds of self-competition · Commissioner scoring · Hybrid NAM synthesis
+      </p>
+
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6 text-red-700 text-sm">
+          {error}
         </div>
+      )}
 
-        {/* Honest standby state when no AI provider is configured */}
-        <StandbyBanner status={status} isExec={isExec} />
-
-        {/* Leaderboard bar */}
-        {leaderboardError && (
-          <div style={{ color: "#dc2626", fontSize: 13, marginBottom: 10 }}>{leaderboardError}</div>
-        )}
-        <LeaderboardBar leaderboard={leaderboard} totalRounds={5} />
-
-        {/* Round tracker */}
-        <RoundTracker currentRound={roundNumber} totalRounds={5} />
-
-        {/* Task input */}
-        <div style={{
-          background: "#fff",
-          border: `2px solid ${BONE}`,
-          borderRadius: 12,
-          padding: 20,
-          marginBottom: 28,
-          boxShadow: "0 2px 8px rgba(26,26,26,0.05)",
-        }}>
-          <label style={{
-            display: "block",
-            fontSize: 11,
-            fontWeight: 900,
-            textTransform: "uppercase",
-            letterSpacing: "0.1em",
-            color: COPPER,
-            marginBottom: 10,
-          }}>
-            Project Brief — Assign to All 4
-          </label>
-          <textarea
-            value={task}
-            onChange={e => setTask(e.target.value)}
-            placeholder="Describe the product you want all 4 personas to create. Be specific about the type (ebook, workshop, album, toolkit, etc.), the audience, and any constraints."
-            rows={4}
-            style={{
-              width: "100%",
-              border: "1.5px solid #ddd",
-              borderRadius: 8,
-              padding: "12px 14px",
-              fontSize: 14,
-              color: INK,
-              resize: "vertical",
-              fontFamily: "inherit",
-              outline: "none",
-              boxSizing: "border-box",
-            }}
-          />
-          {error && (
-            <div style={{
-              color: "#b91c1c",
-              background: "#fef2f2",
-              border: "1px solid #fecaca",
-              fontSize: 13,
-              marginTop: 10,
-              padding: "10px 12px",
-              borderRadius: 8,
-              fontWeight: 600,
-              lineHeight: 1.5,
-            }}>
-              {error}
-            </div>
-          )}
-          <button
-            onClick={handleAssign}
-            disabled={loading || !task.trim() || standby}
-            title={standby ? "Add a free AI provider key first — see the banner above." : undefined}
-            style={{
-              marginTop: 12,
-              background: loading || !task.trim() || standby ? "#ccc" : COPPER,
-              color: "#fff",
-              border: "none",
-              borderRadius: 8,
-              padding: "11px 28px",
-              fontWeight: 900,
-              fontSize: 14,
-              cursor: loading || !task.trim() || standby ? "not-allowed" : "pointer",
-              textTransform: "uppercase",
-              letterSpacing: "0.08em",
-            }}
+      {/* Phase indicator */}
+      <div className="flex gap-2 mb-8 flex-wrap">
+        {Object.values(PHASES).map(p => (
+          <span
+            key={p}
+            className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide ${
+              phase === p
+                ? "bg-copper text-white"
+                : "bg-ink/5 text-ink/40"
+            }`}
           >
-            {standby ? "Arena in Standby" : (loading ? "All 4 are working…" : "Assign to All 4")}
-          </button>
-        </div>
+            {p.replace("_", " ")}
+          </span>
+        ))}
+      </div>
 
-        {/* Results grid */}
-        {loading && (
-          <div style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))",
-            gap: 20,
-          }}>
-            {PERSONA_ORDER.map(name => (
-              <SpinnerCard key={name} personaName={name} />
-            ))}
-          </div>
-        )}
+      {/* ── SETUP PHASE ──────────────────────────────────────────────────── */}
+      {phase === PHASES.SETUP && (
+        <ProjectSetup onSubmit={createProject} busy={busy} />
+      )}
 
-        {results && !loading && (
-          <>
-            <div style={{ marginBottom: 14, display: "flex", alignItems: "center", gap: 10 }}>
-              <span style={{ fontWeight: 900, color: INK, fontSize: 15 }}>Round {roundNumber} Results</span>
-              <span style={{ fontSize: 12, color: "#888" }}>
-                {results.some(r => r.failed)
-                  ? "Some competitors could not run — their cards show why."
-                  : "Commissioner has scored. Now add your scores."}
-              </span>
-            </div>
-            <div style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))",
-              gap: 20,
-            }}>
-              {results.map(result => result.failed ? (
-                <FailureCard key={result.persona} result={result} />
-              ) : (
-                <PersonaCard
-                  key={result.round_id}
-                  result={result}
-                  onScoreSubmit={handleScoreSubmit}
-                  submittingId={submittingId}
-                />
-              ))}
-            </div>
-          </>
-        )}
+      {/* ── SELECT PERSONAS PHASE ────────────────────────────────────────── */}
+      {phase === PHASES.SELECT && (
+        <PersonaSelect
+          personas={personas}
+          onSubmit={startSession}
+          busy={busy}
+        />
+      )}
 
-        {/* Browsable record of past rounds */}
-        <ProjectHistory
-          projects={projects}
-          expandedId={expandedId}
-          projectDetail={projectDetail}
-          onToggle={toggleProject}
-          detailLoading={detailLoading}
-          error={historyError}
+      {/* ── ROUNDS PHASE ─────────────────────────────────────────────────── */}
+      {phase === PHASES.ROUNDS && (
+        <RoundsPhase
+          session={session}
+          rounds={rounds}
+          onRunRound={runRound}
+          onSwap={swapPersona}
+          showSwap={showSwap}
+          setShowSwap={setShowSwap}
+          swapSlot={swapSlot}
+          setSwapSlot={setSwapSlot}
+          personas={personas}
+          busy={busy}
+        />
+      )}
+
+      {/* ── RESULTS PHASE ────────────────────────────────────────────────── */}
+      {phase === PHASES.RESULTS && (
+        <ResultsPhase
+          results={results}
+          rounds={rounds}
+          onHandoff={() => setPhase(PHASES.SCORING)}
+          busy={busy}
+        />
+      )}
+
+      {/* ── SCORING PHASE ────────────────────────────────────────────────── */}
+      {phase === PHASES.SCORING && (
+        <ScoringPhase
+          rounds={rounds}
+          scoreInput={scoreInput}
+          setScoreInput={setScoreInput}
+          onSubmitScore={submitScore}
+          onComplete={() => { setPhase(PHASES.RESULTS); loadResults(); }}
+          busy={busy}
+        />
+      )}
+
+      {/* ── HANDOFF PHASE ────────────────────────────────────────────────── */}
+      {phase === PHASES.HANDOFF && (
+        <HandoffPhase handoff={handoff} session={session} />
+      )}
+
+      <div ref={bottomRef} />
+    </div>
+  );
+}
+
+// ── Sub-components ────────────────────────────────────────────────────────────
+
+function ProjectSetup({ onSubmit, busy }) {
+  const [title, setTitle] = useState("");
+  const [desc, setDesc] = useState("");
+  const [criteria, setCriteria] = useState("");
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (!title.trim() || !desc.trim()) return;
+    onSubmit(title.trim(), desc.trim(), criteria.trim());
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="card-flat p-6 space-y-4">
+      <h2 className="font-heading font-bold text-xl text-ink flex items-center gap-2">
+        <FileText className="w-5 h-5 text-copper" /> Assign a Project
+      </h2>
+      <p className="text-sm text-ink/60">
+        Define what the personas will work on. You or Hybrid NAM assigns the project.
+      </p>
+      <div>
+        <label className="block text-sm font-bold text-ink mb-1">Project Title</label>
+        <input
+          value={title}
+          onChange={e => setTitle(e.target.value)}
+          className="w-full border border-ink/10 rounded-lg px-3 py-2 text-sm"
+          placeholder="e.g. Community impact strategy for Q4"
+          required
         />
       </div>
+      <div>
+        <label className="block text-sm font-bold text-ink mb-1">Description</label>
+        <textarea
+          value={desc}
+          onChange={e => setDesc(e.target.value)}
+          className="w-full border border-ink/10 rounded-lg px-3 py-2 text-sm h-24"
+          placeholder="What is this project about? What should the personas focus on?"
+          required
+        />
+      </div>
+      <div>
+        <label className="block text-sm font-bold text-ink mb-1">Success Criteria (optional)</label>
+        <textarea
+          value={criteria}
+          onChange={e => setCriteria(e.target.value)}
+          className="w-full border border-ink/10 rounded-lg px-3 py-2 text-sm h-16"
+          placeholder="How will you judge if the output is good?"
+        />
+      </div>
+      <button
+        type="submit"
+        disabled={busy || !title.trim() || !desc.trim()}
+        className="btn-primary flex items-center gap-2"
+      >
+        {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowRight className="w-4 h-4" />}
+        Create Project & Select Personas
+      </button>
+    </form>
   );
+}
 
-  return embedded ? body : <AppShell>{body}</AppShell>;
+function PersonaSelect({ personas, onSubmit, busy }) {
+  const [selected, setSelected] = useState([]);
+
+  const toggle = (id) => {
+    setSelected(prev =>
+      prev.includes(id) ? prev.filter(x => x !== id) : prev.length < MAX_PERSONAS ? [...prev, id] : prev
+    );
+  };
+
+  return (
+    <div className="card-flat p-6">
+      <h2 className="font-heading font-bold text-xl text-ink flex items-center gap-2 mb-2">
+        <Users className="w-5 h-5 text-copper" /> Select 4 Personas
+      </h2>
+      <p className="text-sm text-ink/60 mb-4">
+        The first 2 are locked. The last 2 can be swapped between rounds.
+      </p>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+        {personas.map(p => {
+          const isSelected = selected.includes(p.id);
+          const idx = selected.indexOf(p.id);
+          const isLocked = idx >= 0 && idx < SWAPPABLE;
+          return (
+            <button
+              key={p.id}
+              onClick={() => toggle(p.id)}
+              className={`p-4 rounded-lg border-2 text-left transition-all ${
+                isSelected
+                  ? isLocked
+                    ? "border-copper bg-copper/5"
+                    : "border-green-600 bg-green-50"
+                  : "border-ink/10 hover:border-ink/30"
+              } ${selected.length >= MAX_PERSONAS && !isSelected ? "opacity-40" : ""}`}
+            >
+              <div className="text-sm font-bold text-ink">{p.label}</div>
+              {isSelected && (
+                <div className="text-xs text-ink/50 mt-1">
+                  {isLocked ? "🔒 Locked" : `Slot ${idx + 1} (swappable)`}
+                </div>
+              )}
+            </button>
+          );
+        })}
+      </div>
+      <button
+        onClick={() => onSubmit(selected)}
+        disabled={busy || selected.length < 2}
+        className="btn-primary flex items-center gap-2"
+      >
+        {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Swords className="w-4 h-4" />}
+        Start Arena ({selected.length}/{MAX_PERSONAS} selected)
+      </button>
+    </div>
+  );
+}
+
+function RoundsPhase({ session, rounds, onRunRound, onSwap, showSwap, setShowSwap, swapSlot, setSwapSlot, personas, busy }) {
+  const currentRound = session?.current_round || 0;
+  const isComplete = session?.status === "COMPLETED";
+
+  return (
+    <div className="space-y-6">
+      {/* Status bar */}
+      <div className="card-flat p-4 flex items-center justify-between">
+        <div>
+          <div className="font-bold text-ink">{session?.project_title}</div>
+          <div className="text-sm text-ink/60">
+            Round {currentRound}/{MAX_ROUNDS} · {session?.personas?.length || 0} personas
+          </div>
+        </div>
+        <div className="flex gap-2">
+          {!isComplete && (
+            <button
+              onClick={() => setShowSwap(!showSwap)}
+              className="btn-outline text-sm flex items-center gap-1"
+            >
+              <Shuffle className="w-4 h-4" /> Swap Persona
+            </button>
+          )}
+          {!isComplete && (
+            <button
+              onClick={onRunRound}
+              disabled={busy}
+              className="btn-primary text-sm flex items-center gap-1"
+            >
+              {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
+              Run Round {currentRound + 1}
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Persona swap panel */}
+      {showSwap && (
+        <SwapPanel
+          session={session}
+          personas={personas}
+          onSwap={onSwap}
+          busy={busy}
+          onClose={() => { setShowSwap(false); setSwapSlot(null); }}
+          swapSlot={swapSlot}
+          setSwapSlot={setSwapSlot}
+        />
+      )}
+
+      {/* Round cards */}
+      {rounds.map((r, i) => (
+        <RoundCard key={r.id} round={r} index={i} />
+      ))}
+
+      {isComplete && (
+        <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-green-700 flex items-center gap-2">
+          <CheckCircle2 className="w-5 h-5" /> All 5 rounds complete! View results below.
+        </div>
+      )}
+    </div>
+  );
+}
+
+function RoundCard({ round, index }) {
+  const [expanded, setExpanded] = useState(false);
+  const score = round.final_score || round.commissioner_score?.total || 0;
+
+  return (
+    <div className="card-flat p-4">
+      <div
+        className="flex items-center justify-between cursor-pointer"
+        onClick={() => setExpanded(!expanded)}
+      >
+        <div className="flex items-center gap-3">
+          <span className="bg-copper text-white text-xs font-bold px-2 py-1 rounded">
+            R{round.round_num}
+          </span>
+          <span className="font-bold text-ink text-sm">{round.persona_label}</span>
+          <span className="text-xs text-ink/50">
+            {round.output?.split(" ").length || 0} words
+          </span>
+        </div>
+        <div className="flex items-center gap-3">
+          <span className={`text-sm font-bold ${score >= 70 ? "text-green-600" : score >= 40 ? "text-amber-600" : "text-red-600"}`}>
+            {score}
+          </span>
+          {expanded ? <ChevronDown className="w-4 h-4 text-ink/40" /> : <ChevronDown className="w-4 h-4 text-ink/40 rotate-[-90deg]" />}
+        </div>
+      </div>
+      {expanded && (
+        <div className="mt-4 border-t border-ink/5 pt-4">
+          <div className="bg-ink/[0.02] rounded-lg p-4 text-sm text-ink/80 whitespace-pre-wrap max-h-64 overflow-y-auto">
+            {round.output}
+          </div>
+          {round.commissioner_score && (
+            <div className="mt-3 text-xs text-ink/50">
+              Commissioner: {round.commissioner_score.total} · Clarity: {round.commissioner_score.clarity} · Criteria: {round.commissioner_score.criteria_alignment} · Improvement: {round.commissioner_score.improvement}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SwapPanel({ session, personas, onSwap, busy, onClose, swapSlot, setSwapSlot }) {
+  const swappablePersonas = session?.personas?.filter(p => !p.locked) || [];
+  const existingIds = new Set(session?.personas?.map(p => p.persona_id) || []);
+  const available = personas.filter(p => !existingIds.has(p.id));
+
+  return (
+    <div className="card-flat p-4 border-copper/30">
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="font-bold text-ink flex items-center gap-2">
+          <Shuffle className="w-4 h-4 text-copper" /> Swap a Persona
+        </h3>
+        <button onClick={onClose} className="text-ink/40 hover:text-ink text-sm">✕</button>
+      </div>
+      <p className="text-xs text-ink/50 mb-3">Pick which slot to replace, then choose a new persona.</p>
+      <div className="grid grid-cols-2 gap-3 mb-3">
+        {swappablePersonas.map(p => (
+          <button
+            key={p.persona_id}
+            onClick={() => setSwapSlot(p)}
+            className={`p-3 rounded-lg border text-left text-sm ${
+              swapSlot?.persona_id === p.persona_id
+                ? "border-copper bg-copper/5"
+                : "border-ink/10 hover:border-ink/20"
+            }`}
+          >
+            <div className="font-bold">{p.label}</div>
+            <div className="text-xs text-ink/40">Slot {session.personas.indexOf(p) + 1}</div>
+          </button>
+        ))}
+      </div>
+      {swapSlot && (
+        <div>
+          <div className="text-xs text-ink/50 mb-2">Replace with:</div>
+          <div className="grid grid-cols-3 gap-2">
+            {available.map(p => (
+              <button
+                key={p.id}
+                onClick={() => onSwap(session.personas.indexOf(swapSlot), p.id)}
+                disabled={busy}
+                className="p-2 rounded border border-ink/10 hover:border-green-500 text-xs text-left"
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ResultsPhase({ results, rounds, onHandoff, busy }) {
+  if (!results) {
+    return (
+      <div className="card-flat p-6 text-center">
+        <Loader2 className="w-5 h-5 animate-spin mx-auto mb-2" />
+        <p className="text-sm text-ink/60">Loading results…</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="card-flat p-6">
+        <h2 className="font-heading font-bold text-xl text-ink flex items-center gap-2 mb-4">
+          <Award className="w-5 h-5 text-copper" /> Ranked Results
+        </h2>
+        <div className="space-y-3">
+          {results.ranked_outputs?.map((r, i) => (
+            <div key={r.id} className={`p-4 rounded-lg border ${i === 0 ? "border-copper bg-copper/5" : "border-ink/10"}`}>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <span className={`text-lg font-bold ${i === 0 ? "text-copper" : "text-ink/40"}`}>
+                    #{i + 1}
+                  </span>
+                  <div>
+                    <div className="font-bold text-ink text-sm">{r.persona_label}</div>
+                    <div className="text-xs text-ink/50">Round {r.round_num} · {r.output?.split(" ").length || 0} words</div>
+                  </div>
+                </div>
+                <span className={`text-lg font-bold ${r.final_score >= 70 ? "text-green-600" : r.final_score >= 40 ? "text-amber-600" : "text-red-600"}`}>
+                  {r.final_score}
+                </span>
+              </div>
+              {i === 0 && (
+                <div className="mt-3 bg-ink/[0.02] rounded p-3 text-sm text-ink/70 max-h-32 overflow-y-auto whitespace-pre-wrap">
+                  {r.output}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {results.can_handoff && (
+        <button
+          onClick={onHandoff}
+          disabled={busy}
+          className="btn-primary flex items-center gap-2"
+        >
+          <Crown className="w-4 h-4" /> Score & Hand Off to Hybrid NAM
+        </button>
+      )}
+    </div>
+  );
+}
+
+function ScoringPhase({ rounds, scoreInput, setScoreInput, onSubmitScore, onComplete, busy }) {
+  const [notes, setNotes] = useState("");
+
+  const handleSubmit = async () => {
+    // Submit human scores for all rounds
+    for (const r of rounds) {
+      const val = parseInt(scoreInput[r.id]) || 50;
+      await onSubmitScore(r.id, val, notes, "human");
+    }
+    onComplete();
+  };
+
+  return (
+    <div className="card-flat p-6 space-y-4">
+      <h2 className="font-heading font-bold text-xl text-ink flex items-center gap-2">
+        <Gavel className="w-5 h-5 text-copper" /> Score Each Round
+      </h2>
+      <p className="text-sm text-ink/60">
+        Commissioner auto-scores are already applied. Add your scores to refine the ranking.
+      </p>
+      <div className="space-y-3">
+        {rounds.map(r => (
+          <div key={r.id} className="flex items-center gap-3 p-3 rounded-lg border border-ink/10">
+            <span className="text-xs font-bold text-ink/50 w-16">R{r.round_num} {r.persona_label?.split(" ")[0]}</span>
+            <input
+              type="range"
+              min="0"
+              max="100"
+              value={scoreInput[r.id] || 50}
+              onChange={e => setScoreInput(prev => ({ ...prev, [r.id]: e.target.value }))}
+              className="flex-1"
+            />
+            <span className="text-sm font-bold text-ink w-8 text-right">{scoreInput[r.id] || 50}</span>
+          </div>
+        ))}
+      </div>
+      <div>
+        <label className="block text-sm font-bold text-ink mb-1">Your Notes (optional)</label>
+        <textarea
+          value={notes}
+          onChange={e => setNotes(e.target.value)}
+          className="w-full border border-ink/10 rounded-lg px-3 py-2 text-sm h-16"
+          placeholder="What did you notice? What improved?"
+        />
+      </div>
+      <button
+        onClick={handleSubmit}
+        disabled={busy}
+        className="btn-primary flex items-center gap-2"
+      >
+        {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+        Submit Scores & View Results
+      </button>
+    </div>
+  );
+}
+
+function HandoffPhase({ handoff, session }) {
+  if (!handoff) {
+    return (
+      <div className="card-flat p-6 text-center">
+        <Loader2 className="w-5 h-5 animate-spin mx-auto mb-2" />
+        <p className="text-sm text-ink/60">Hybrid NAM is evaluating mission alignment…</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-green-700 flex items-center gap-2">
+        <CheckCircle2 className="w-5 h-5" /> Handoff complete! Hybrid NAM has evaluated mission alignment.
+      </div>
+
+      <div className="card-flat p-6">
+        <h2 className="font-heading font-bold text-xl text-ink flex items-center gap-2 mb-4">
+          <Crown className="w-5 h-5 text-copper" /> Mission-Aligned Output
+        </h2>
+        <div className="text-sm text-ink/60 mb-3">
+          Best persona: <strong>{handoff.best_persona_label}</strong> · Score: <strong>{handoff.best_score}</strong>
+        </div>
+        <div className="bg-ink/[0.02] rounded-lg p-4 text-sm text-ink/80 whitespace-pre-wrap max-h-96 overflow-y-auto">
+          {handoff.nam_mission_aligned_output}
+        </div>
+      </div>
+
+      <div className="card-flat p-6">
+        <h3 className="font-bold text-ink mb-2">Original Best Output</h3>
+        <div className="bg-ink/[0.02] rounded-lg p-4 text-sm text-ink/70 whitespace-pre-wrap max-h-64 overflow-y-auto">
+          {handoff.original_output}
+        </div>
+      </div>
+
+      <div className="flex gap-3">
+        <Link to="/nam" className="btn-outline flex items-center gap-2">
+          <Crown className="w-4 h-4" /> Open Hybrid NAM
+        </Link>
+        <Link to="/my-projects" className="btn-outline flex items-center gap-2">
+          <FolderPlus className="w-4 h-4" /> View Projects
+        </Link>
+      </div>
+    </div>
+  );
 }

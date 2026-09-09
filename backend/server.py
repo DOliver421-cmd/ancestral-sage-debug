@@ -260,6 +260,7 @@ _ADDITIONAL_API_ROUTER_MODULES = (
     ("workspace", "/api"),
     ("finder", "/api"),
     ("simulation", "/api"),
+    ("arena", "/api"),
 )
 
 # ── Feature Control Center enforcement (read side) ──────────────────────────
