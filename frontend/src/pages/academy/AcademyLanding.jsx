@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { api } from "../../lib/api";
 import { WAI_INSTITUTE_URL } from "../../lib/brand";
 import { PublicHeader, AcademyFooter, TrackTag, LiveChip, TRACK_META } from "./academyKit";
+import NasaApodBanner from "../../components/NasaApodBanner";
 import {
   ArrowRight, BookOpenCheck, ShieldCheck, FileText, Sparkles, Users,
   Target, ListChecks, ExternalLink, GraduationCap, Bot, Star, Award, Wrench, Palette,
@@ -186,6 +187,8 @@ export default function AcademyLanding() {
           </div>
         </div>
       </section>
+
+      <NasaApodBanner />
 
       {/* WAI Institute bridge */}
       <section className="max-w-7xl mx-auto px-6 py-16">

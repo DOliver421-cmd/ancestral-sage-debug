@@ -34,6 +34,52 @@ TRACK_KEYS = ["foundations", "builder", "artist", "scholar", "adult_ed", "life_s
 
 GRADE_RANK = {g: i for i, g in enumerate(GRADES)}
 
+# ── Curriculum catalogue classification (grade-first, per owner spec) ─────────
+CORE_SUBJECTS = {"ela", "math", "science", "social_studies"}
+NON_GRADE_CATEGORIES = {"adult", "trade", "creative"}
+GRADE_ORDER = ["K", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "adult"]
+
+def derive_category(course: dict) -> str:
+    """Top-level bucket: k12_core | k12_elective | adult | trade | creative."""
+    track = course.get("track", "")
+    subject = course.get("subject", "")
+    grades = course.get("grades", [])
+    # Non-grade buckets win first — they are never K-12 electives
+    if track in ("builder",) or subject == "trade":
+        # builder/track trade courses belong in Trade even if grade-tagged
+        # but keep K-12 numbered grades as electives if they also carry grade
+        if any(g in GRADES and g != "adult" for g in grades) and subject == "trade":
+            # trade-math-grade-8 style: grade-specific trade elective
+            return "trade"
+        return "trade"
+    if track in ("artist",) or subject == "art":
+        return "creative"
+    if track in ("adult_ed", "life_skills", "leadership", "career", "entrepreneurship") or "adult" in grades:
+        return "adult"
+    # Remaining K-12 courses: core vs elective by subject
+    if subject in CORE_SUBJECTS:
+        return "k12_core"
+    return "k12_elective"
+
+def derive_course_type(course: dict) -> str:
+    cat = derive_category(course)
+    if cat == "k12_core":
+        return "core"
+    if cat == "k12_elective":
+        return "elective"
+    # non-grade buckets carry their own type label (used as secondary filter)
+    return cat
+
+def enrich_course_card(c: dict) -> dict:
+    """Attach derived catalogue fields used by filtering + audit."""
+    c["category"] = derive_category(c)
+    c["course_type"] = derive_course_type(c)
+    # primary grade_level for card grouping: first non-adult grade or adult
+    gl = c.get("grades", [])
+    c["grade_level"] = gl[0] if gl else "adult" if c["category"] == "adult" else ""
+    c["subject_key"] = c.get("subject", "")
+    return c
+
 
 def bind(_db, _current_user, _audit=None, _notify=None, _assert_role=None):
     """Called by server.py at include time to inject shared dependencies."""
@@ -252,23 +298,76 @@ def _unlock_state(lessons: List[dict], progress: dict) -> dict:
 
 
 # ── Public catalog ───────────────────────────────────────────────────────────
+@router.get("/academy/curriculum-audit")
+async def curriculum_audit():
+    """Per-grade completeness: required cores vs present, missing subjects.
+    Uses published courses only; planned counts as missing."""
+    docs = await db.academy_courses.find({"status": "published"}, {"_id": 0}).to_list(500)
+    # index grade -> set(subjects present as core)
+    grade_subjects: dict = {g: set() for g in GRADES if g != "adult"}
+    grade_course_counts: dict = {g: 0 for g in GRADES if g != "adult"}
+    for c in docs:
+        if derive_category(c) != "k12_core":
+            continue
+        for g in c.get("grades", []):
+            if g in grade_subjects:
+                grade_subjects[g].add(c.get("subject"))
+                grade_course_counts[g] += 1
+    required = sorted(CORE_SUBJECTS)
+    rows = []
+    for g in [x for x in GRADES if x != "adult"]:
+        present = sorted(grade_subjects[g])
+        missing = sorted(set(required) - grade_subjects[g])
+        rows.append({
+            "grade": g,
+            "grade_label": "Kindergarten" if g == "K" else f"Grade {g}",
+            "required": required,
+            "required_count": len(required),
+            "present": present,
+            "present_count": len(present),
+            "missing": missing,
+            "status": "COMPLETE" if not missing else "INCOMPLETE",
+        })
+    # non-grade buckets summary
+    buckets = {k: 0 for k in ["adult", "trade", "creative"]}
+    for c in docs:
+        cat = derive_category(c)
+        if cat in buckets:
+            buckets[cat] += 1
+        elif cat == "trade":
+            buckets["trade"] += 1
+        elif cat == "creative":
+            buckets["creative"] += 1
+    return {"grades": rows, "buckets": buckets, "core_subjects": required}
+
+
 @router.get("/academy/tracks")
 async def academy_tracks():
     from academy_content import TRACKS, SUBJECTS
-    return {"tracks": TRACKS, "subjects": SUBJECTS, "grades": GRADES}
+    return {"tracks": TRACKS, "subjects": SUBJECTS, "grades": GRADES, "core_subjects": sorted(CORE_SUBJECTS), "categories": ["k12_core", "k12_elective", "adult", "trade", "creative"]}
 
 
 @router.get("/academy/courses")
 async def list_courses(grade: Optional[str] = None, track: Optional[str] = None,
-                       subject: Optional[str] = None, q: Optional[str] = None):
-    """Public catalog cards — metadata only (never lesson content)."""
+                       subject: Optional[str] = None, q: Optional[str] = None,
+                       category: Optional[str] = None, course_type: Optional[str] = None):
+    """Public catalog cards — metadata only (never lesson content).
+    Filters: grade, track, subject, q, category (k12_core|k12_elective|adult|trade|creative),
+    course_type (core|elective|adult|trade|creative). Enriches each card with category/course_type/grade_level/subject_key."""
     docs = await db.academy_courses.find({}, {"_id": 0}).to_list(300)
+    # enrich for filtering
+    for c in docs:
+        enrich_course_card(c)
     if grade:
         docs = [c for c in docs if grade in c.get("grades", [])]
     if track:
         docs = [c for c in docs if track in c.get("tracks", [])]
     if subject:
         docs = [c for c in docs if c.get("subject") == subject]
+    if category:
+        docs = [c for c in docs if c.get("category") == category]
+    if course_type:
+        docs = [c for c in docs if c.get("course_type") == course_type]
     if q:
         needle = q.strip().lower()
         docs = [
@@ -277,7 +376,7 @@ async def list_courses(grade: Optional[str] = None, track: Optional[str] = None,
             or needle in (c.get("summary") or "").lower()
             or needle in (c.get("description") or "").lower()
         ]
-    docs.sort(key=lambda c: (c.get("track", ""), c.get("grades", [""])[0] if c.get("grades") else "", c.get("title", "")))
+    docs.sort(key=lambda c: (GRADE_ORDER.index(c.get("grade_level", "99")) if c.get("grade_level") in GRADE_ORDER else 99, c.get("course_type", ""), c.get("title", "")))
     cards = []
     for c in docs:
         lesson_count = sum(len(u.get("lessons", [])) for u in c.get("units", []))
@@ -292,6 +391,10 @@ async def list_courses(grade: Optional[str] = None, track: Optional[str] = None,
             "tracks": c.get("tracks", []),
             "grades": c.get("grades", []),
             "grade_label": c.get("grade_label"),
+            "grade_level": c.get("grade_level"),
+            "category": c.get("category"),
+            "course_type": c.get("course_type"),
+            "subject_key": c.get("subject_key"),
             "status": c.get("status", "planned"),
             "audience": c.get("audience", ""),
             "est_hours": c.get("est_hours", 0),

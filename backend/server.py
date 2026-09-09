@@ -262,6 +262,7 @@ _ADDITIONAL_API_ROUTER_MODULES = (
     ("simulation", "/api"),
     ("arena", "/api"),
     ("resource_hub", "/api"),
+    ("nasa_observatory", "/api"),
 )
 
 # ── Feature Control Center enforcement (read side) ──────────────────────────

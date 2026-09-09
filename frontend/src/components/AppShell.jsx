@@ -123,6 +123,7 @@ const CUSTOMER_TIERS = [
       { to: "/playlist/dashboard", label: "Playlist Manager", icon: Radio, testid: "nav-playlist" },
       { to: "/arcade", label: "Virtual Arcade", icon: Gamepad2, testid: "nav-arcade" },
       { to: "/trash", label: "M.O.R.E. Pantheon", icon: Star, testid: "nav-trash" },
+      { to: "/resources", label: "Resource Hub", icon: Briefcase, testid: "nav-resource-hub" },
       { to: "/payment/history", label: "Payment History", icon: Receipt, testid: "nav-payments" },
     ],
   },
