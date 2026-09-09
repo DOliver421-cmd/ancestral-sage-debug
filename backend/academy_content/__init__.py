@@ -89,6 +89,12 @@ from .science_grade7 import SCIENCE_GRADE_7
 from .math_grade11 import MATH_GRADE_11
 from .ela_grade12 import ELA_GRADE_12
 from .math_grade12 import MATH_GRADE_12
+from .ela_grade11 import ELA_GRADE_11
+from .science_grade11 import SCIENCE_GRADE_11
+from .social_studies_grade11 import SOCIAL_STUDIES_GRADE_11
+from .science_grade12 import SCIENCE_GRADE_12
+from .social_studies_grade12 import SOCIAL_STUDIES_GRADE_12
+from .ascension_protocols import ASCENSION_PROTOCOLS
 
 PUBLISHED_COURSES = [
     READING_GRADE_1,
@@ -151,8 +157,14 @@ PUBLISHED_COURSES = [
     ELA_GRADE_7,
     SCIENCE_GRADE_7,
     MATH_GRADE_11,
+    ELA_GRADE_11,
+    SCIENCE_GRADE_11,
+    SOCIAL_STUDIES_GRADE_11,
     ELA_GRADE_12,
     MATH_GRADE_12,
+    SCIENCE_GRADE_12,
+    SOCIAL_STUDIES_GRADE_12,
+    ASCENSION_PROTOCOLS,
     # Free student handbooks (ebook-style guides, catalog placement)
     HANDBOOK_ELEMENTARY,
     HANDBOOK_MIDDLE,
