@@ -85,6 +85,17 @@ const ROUTES = [
     },
   },
   {
+    match: "/academy",
+    wai: {
+      title: "Homeschool Academy — Florida K-12 & Adult Education",
+      desc: "54 free courses, 4 student handbooks, embedded educational videos, and Florida homeschool compliance tools. K–12 curriculum, cultural counter-narratives, and adult education.",
+    },
+    more: {
+      title: "Homeschool Academy — Free K-12 & Adult Courses",
+      desc: "54 free courses across 4 tracks: Cultural & Counter-Narrative, K-8 Foundations, Entrepreneurship, and Adult Education. Florida compliance tools, Bright Futures transcripts, and on-site video enrichment.",
+    },
+  },
+  {
     match: "/help-center",
     wai: {
       title: "Help Center — M.O.R.E.",
