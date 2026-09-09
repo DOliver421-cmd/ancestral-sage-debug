@@ -236,7 +236,7 @@ _ADDITIONAL_API_ROUTER_MODULES = (
     ("media", "/api"),
     ("missing", "/api"),
     ("nam", ""),
-    ("hybrid_nam", "/api/hybrid-nam"),
+    ("hybrid_nam", ""),
     ("position", "/api"),
     ("projects", "/api"),
     ("promo_codes", "/api"),
@@ -264,8 +264,8 @@ _ADDITIONAL_API_ROUTER_MODULES = (
     ("workspace", "/api"),
     ("finder", "/api"),
     ("simulation", "/api"),
-    ("arena", "/api"),
-    ("resource_hub", "/api"),
+    ("arena", ""),
+    ("resource_hub", ""),
     ("nasa_observatory", "/api"),
 )
 
