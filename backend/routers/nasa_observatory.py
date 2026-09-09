@@ -19,7 +19,7 @@ router = APIRouter(tags=["observatory"])
 
 db = None
 
-def bind(_db, *rest, **kw):
+def bind(_db, **_kw):
     global db
     db = _db
 

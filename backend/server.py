@@ -163,7 +163,11 @@ def _get_the9_engine():
             logger.warning("WAI: The9FusionEngine init failed: %s", _e)
     return _the9_engine
 
-JWT_SECRET = os.environ['JWT_SECRET']
+JWT_SECRET = os.environ.get('JWT_SECRET', '')
+if not JWT_SECRET:
+    import secrets as _secrets
+    JWT_SECRET = _secrets.token_urlsafe(32)
+    print('⚠️ FATAL: JWT_SECRET is not set — generated ephemeral secret; all sessions will invalidate on restart. Set JWT_SECRET in Railway Variables.')
 JWT_ALGO = os.environ.get('JWT_ALGORITHM', 'HS256')
 JWT_EXPIRE_HOURS = int(os.environ.get('JWT_EXPIRE_HOURS', '168'))
 EMERGENT_LLM_KEY = os.environ.get('EMERGENT_LLM_KEY', '')
@@ -10567,7 +10571,11 @@ def _bind_router_dependencies(router_module):
         "_require_role": require_role,
         "_app": app,
     }
-    values = [available[parameter.name] for parameter in inspect.signature(bind).parameters.values()]
+    values = []
+    for parameter in inspect.signature(bind).parameters.values():
+        if parameter.kind in ( __import__('inspect').Parameter.VAR_POSITIONAL, __import__('inspect').Parameter.VAR_KEYWORD):
+            continue
+        values.append(available[parameter.name])
     bind(*values)
 
 
