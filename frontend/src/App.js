@@ -151,6 +151,7 @@ import ProjectDashboard from "./pages/ProjectDashboard";
 import AITeamBridge from "./pages/AITeamBridge";
 import BYOK from "./pages/BYOK";
 import ResourceHub from "./pages/ResourceHub";
+import LegalWorkflows from "./pages/LegalWorkflows";
 // SiteGuide page retired — /site-guide now opens the combined HelpGuide widget
 // (one help + guide feature). Keeping a redirect component for old links/bookmarks.
 function SiteGuideRedirect() {
@@ -514,6 +515,7 @@ function App() {
           <Route path="/studio" element={<Protected><TierGate feature="studio"><CreatorStudio /></TierGate></Protected>} />
           <Route path="/arena" element={<Protected roles={["instructor", "support_staff", "admin", "executive_admin"]}><CompetitionArena /></Protected>} />
           <Route path="/resources" element={<Protected><ResourceHub /></Protected>} />
+          <Route path="/legal" element={<Protected><LegalWorkflows /></Protected>} />
           <Route path="/unifier" element={<Protected><UnifierPage /></Protected>} />
           <Route path="/executive-suite" element={<BoundedAdmin roles={["admin"]} label="Executive Suite"><ExecutiveSuite /></BoundedAdmin>} />
           <Route path="/admin/bridge" element={<BoundedAdmin roles={["admin"]} label="AI Team Bridge" backTo="/admin"><AITeamBridge /></BoundedAdmin>} />

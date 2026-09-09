@@ -169,12 +169,12 @@ export default function UnifiedGateway() {
                 fontSize: "clamp(2rem, 5vw, 3.5rem)", fontWeight: 900,
                 color: "#111111", lineHeight: 1.08, margin: "0 0 1rem",
               }}>
-                Florida homeschool,<br />
+                homeschool,<br />
                 <span style={{ color: "#8a5a00" }}>done right.</span>
               </h2>
               <p style={{ fontSize: "clamp(0.95rem, 1.8vw, 1.15rem)", color: "#3f3a34", maxWidth: 540, lineHeight: 1.7, marginBottom: "1.5rem" }}>
                 54 courses · 4 student handbooks · embedded educational videos ·
-                Bright Futures transcript builder · Florida compliance tools.
+                Bright Futures transcript builder · compliance tools.
                 K–12 and adult — every course free to browse and enroll.
               </p>
 
@@ -229,7 +229,7 @@ export default function UnifiedGateway() {
                 ))}
                 <div className="mt-4 pt-3 border-t" style={{ borderColor: "#f0ebe3" }}>
                   <div className="flex items-center gap-2 text-sm" style={{ color: "#4a4238" }}>
-                    <span>📋</span> Florida IHIP & quarterly report tools
+                    <span>📋</span> IHIP & quarterly report tools
                   </div>
                   <div className="flex items-center gap-2 text-sm mt-1" style={{ color: "#4a4238" }}>
                     <span>🎓</span> Bright Futures transcript builder

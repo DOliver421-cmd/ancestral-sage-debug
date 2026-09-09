@@ -16,7 +16,7 @@ import {
   Loader2, DollarSign, Heart, Briefcase, Bot, Search, Filter,
   Plus, CheckCircle2, Clock, AlertTriangle, ArrowRight, FileText,
   Target, Award, BookOpen, ExternalLink, ChevronDown, ChevronUp,
-  Send, Sparkles, Users, TrendingUp, Calendar,
+  Send, Sparkles, Users, TrendingUp, Calendar, Scale,
 } from "lucide-react";
 
 const TABS = [
@@ -24,6 +24,7 @@ const TABS = [
   { id: "grants", label: "Grants", icon: Award },
   { id: "fundraising", label: "Fundraising", icon: Heart },
   { id: "resources", label: "Business Resources", icon: Briefcase },
+  { id: "legal", label: "Legal Workflows", icon: Scale },
   { id: "assistant", label: "Assistant", icon: Bot },
 ];
 
@@ -132,6 +133,7 @@ export default function ResourceHub() {
         {tab === "grants" && <GrantsTab />}
         {tab === "fundraising" && <FundraisingTab />}
         {tab === "resources" && <ResourcesTab />}
+        {tab === "legal" && <LegalWorkflowTab />}
         {tab === "assistant" && <AssistantTab />}
       </div>
     </AppShell>
@@ -517,6 +519,29 @@ function ResourceForm({ onCreated }) {
         {busy ? <Loader2 className="w-4 h-4 animate-spin inline" /> : "Save Resource"}
       </button>
     </form>
+  );
+}
+
+// ── Legal Workflow Tab ──────────────────────────────────────────────────
+
+function LegalWorkflowTab() {
+  return (
+    <div className="space-y-6">
+      <h2 className="font-heading text-xl font-bold text-ink flex items-center gap-2">
+        <Scale className="w-5 h-5 text-copper" /> Legal Workflow Engine
+      </h2>
+      <p className="text-sm text-ink/60">
+        Case analysis, evidence checklists, damage calculators, contract review, grant legal readiness,
+        IP protection, dispute preparation, attorney consultation packets, and document generation.
+      </p>
+      <Link to="/legal" className="card-flat p-6 hover:border-copper/60 transition-all block text-center group">
+        <Scale className="w-10 h-10 text-copper mx-auto mb-3" />
+        <div className="font-bold text-ink group-hover:text-copper transition-colors text-lg">Open Legal Workflows</div>
+        <p className="text-sm text-ink/60 mt-1">
+          12 workflows · 9 document types · Case analysis · Strategy tree · Nuclear options
+        </p>
+      </Link>
+    </div>
   );
 }
 
