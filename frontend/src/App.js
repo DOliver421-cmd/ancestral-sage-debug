@@ -511,7 +511,7 @@ function App() {
           <Route path="/arcade" element={<Protected><ArcadeLanding /></Protected>} />
           <Route path="/arcade/:slug" element={<Protected><ArcadeGame /></Protected>} />
           <Route path="/studio" element={<Protected><TierGate feature="studio"><CreatorStudio /></TierGate></Protected>} />
-          <Route path="/arena" element={<BoundedAdmin roles={["executive_admin"]} label="The Arena"><CompetitionArena /></BoundedAdmin>} />
+          <Route path="/arena" element={<Protected roles={["instructor", "support_staff", "admin", "executive_admin"]}><CompetitionArena /></Protected>} />
           <Route path="/unifier" element={<Protected><UnifierPage /></Protected>} />
           <Route path="/executive-suite" element={<BoundedAdmin roles={["admin"]} label="Executive Suite"><ExecutiveSuite /></BoundedAdmin>} />
           <Route path="/admin/bridge" element={<BoundedAdmin roles={["admin"]} label="AI Team Bridge" backTo="/admin"><AITeamBridge /></BoundedAdmin>} />
