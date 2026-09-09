@@ -54,6 +54,7 @@ export const TIER_FOR_FEATURE = {
   payouts: "plus",        // creator payouts
   artist_mgmt: "pro",     // artist management
   mass_post: "patron",    // mass posting
+  resource_hub: "member", // Resource Hub — Member+ (staff free via role bypass)
   sovereign: "executive", // platform control - admin/exec role only (bypass above)
 };
 

@@ -23,7 +23,26 @@ export default function NasaApodBanner() {
       </section>
     );
   }
-  if (err || !apod) return null;
+  // Never render as empty — on any failure show a retryable Observatory card so the feature is visibly present.
+  if (err || !apod) {
+    return (
+      <section className="max-w-7xl mx-auto px-6 py-10" data-testid="nasa-apod-banner-error">
+        <div className="flex items-center gap-2 mb-3">
+          <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-ink text-signal text-xs font-black uppercase tracking-widest">
+            <Rocket className="w-3.5 h-3.5" /> Virtual Observatory
+          </span>
+          <span className="text-xs font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">Live NASA feed unavailable — tap retry</span>
+        </div>
+        <div className="card-flat p-7 flex flex-col gap-3">
+          <p className="text-sm text-ink/70 leading-relaxed">The Virtual Observatory pulls the daily NASA Astronomy Picture of the Day. When the feed is rate-limited it shows a curated Earth-at-night view instead — this error state means the request never reached the server (network or auth). Use retry; the feed is cached 24h on the next success.</p>
+          {err && <p className="text-xs text-ink/40 font-mono break-all">{err}</p>}
+          <button onClick={() => { setLoading(true); setErr(""); api.get("/nasa/apod").then((r)=>setApod(r.data)).catch((e)=>setErr(e?.response?.data?.detail||e.message||"Could not load observatory feed")).finally(()=>setLoading(false)); }} className="self-start btn-outline text-xs inline-flex items-center gap-1.5">
+            <Loader2 className="w-3.5 h-3.5" /> Retry Observatory
+          </button>
+        </div>
+      </section>
+    );
+  }
 
   const isVideo = apod.media_type === "video";
   return (
