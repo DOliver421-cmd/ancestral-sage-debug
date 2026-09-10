@@ -112,7 +112,7 @@ def _require_rank(*roles):
     async def _dep(authorization: Optional[str] = Header(None)):
         user = await _dep_current_user(authorization)
         if not user:
-            raise HTTPException(401, "Authentication required")
+            raise HTTPException(401, "Sign in or register to access this content.")
         user_role = getattr(user, "role", "student")
         if user_role not in set(roles):
             raise HTTPException(403, f"Required role: {', '.join(roles)}")

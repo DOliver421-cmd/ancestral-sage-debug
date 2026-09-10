@@ -38,7 +38,7 @@ def get_current_user_from_request(request: Request):
     """Extract authenticated user from request context"""
     user = getattr(request.state, "user", None)
     if not user:
-        raise HTTPException(status_code=401, detail="Authentication required")
+        raise HTTPException(status_code=401, detail="Sign in or register to access this feature.")
     return user
 
 

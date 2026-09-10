@@ -75,7 +75,7 @@ def _require_rank(*roles):
     """
     async def dep(request: Request, authorization: Optional[str] = Header(None)) -> User:
         if not authorization or not authorization.startswith("Bearer "):
-            raise HTTPException(status_code=401, detail="Authentication required")
+            raise HTTPException(status_code=401, detail="Sign in or register to access this feature.")
         token = authorization.split(" ", 1)[1]
         secret, algo = _get_jwt_secret()
         if not secret:

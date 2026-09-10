@@ -91,7 +91,7 @@ def _get_jwt_secret():
 async def require_auth(authorization: Optional[str] = Header(None)) -> dict:
     """Validate JWT token, return user dict."""
     if not authorization or not authorization.startswith("Bearer "):
-        raise HTTPException(401, "Authentication required")
+        raise HTTPException(401, "Sign in or register to access this feature.")
     token = authorization.split(" ", 1)[1]
     secret, algo = _get_jwt_secret()
     if not secret:

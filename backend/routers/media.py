@@ -480,7 +480,7 @@ async def get_media_file(
     asset_kind = metadata.get("kind", "")
     public_saga_asset = asset_kind in {"saga_image", "saga_video", "saga_track"}
     if user is None and not public_saga_asset:
-        raise HTTPException(401, "Authentication required")
+        raise HTTPException(401, "Sign in or register to access this content.")
     full_access = bool(
         public_saga_asset and asset_kind in {"saga_image", "saga_video"}
         or product and user and (
@@ -588,7 +588,7 @@ async def get_content_file(
     if product and product.get("price_cents", 0) > 0:
         # Paid content requires authentication
         if user is None:
-            raise HTTPException(401, "Authentication required to download this content")
+            raise HTTPException(401, "Sign in or purchase to download this content.")
         owner = product.get("owner_id", "")
         is_owner = owner == user.id
         is_admin = ROLE_RANK.get(user.role, 0) >= ROLE_RANK.get("admin", 6)

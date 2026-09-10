@@ -199,7 +199,7 @@ async def _resolve_actor(user=None, agent_id=None, agent_token=None) -> dict:
             raise HTTPException(401, "Invalid agent token")
         return {"identity": ident, "human": None, "agent": ident}
     if user is None:
-        raise HTTPException(401, "Authentication required")
+        raise HTTPException(401, "Sign in or register to access this feature.")
     ident = await _ensure_human_identity(user)
     return {"identity": ident, "human": user, "agent": None}
 
