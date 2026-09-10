@@ -66,6 +66,7 @@ from .ethnomathematics_stem import ETHNOMATHEMATICS_STEM
 from .global_african_diaspora import GLOBAL_AFRICAN_DIASPORA
 from .diaspora_mathematics import DIASPORA_MATHEMATICS
 from .african_philosophy_ethics import AFRICAN_PHILOSOPHY_ETHICS
+from .architecture_of_omission import ARCHITECTURE_OF_OMISSION
 from .handbook_elementary import HANDBOOK_ELEMENTARY
 from .handbook_middle import HANDBOOK_MIDDLE
 from .handbook_high import HANDBOOK_HIGH
@@ -95,6 +96,12 @@ from .social_studies_grade11 import SOCIAL_STUDIES_GRADE_11
 from .science_grade12 import SCIENCE_GRADE_12
 from .social_studies_grade12 import SOCIAL_STUDIES_GRADE_12
 from .ascension_protocols import ASCENSION_PROTOCOLS
+from .cooperative_economics_mutual_aid import COOPERATIVE_ECONOMICS_MUTUAL_AID
+from .legalized_subjugation import LEGALIZED_SUBJUGATION
+from .radical_wealth_literacy import RADICAL_WEALTH_LITERACY
+from .african_ecosystems_land_stewardship import AFRICAN_ECOSYSTEMS_LAND_STEWARDSHIP
+from .resistance_rebellion_counter_narrative import RESISTANCE_REBELLION_COUNTER_NARRATIVE
+from .economics_of_extraction import ECONOMICS_OF_EXTRACTION
 
 PUBLISHED_COURSES = [
     READING_GRADE_1,
@@ -139,6 +146,13 @@ PUBLISHED_COURSES = [
     GLOBAL_AFRICAN_DIASPORA,
     DIASPORA_MATHEMATICS,
     AFRICAN_PHILOSOPHY_ETHICS,
+    ARCHITECTURE_OF_OMISSION,
+    LEGALIZED_SUBJUGATION,
+    AFRICAN_ECOSYSTEMS_LAND_STEWARDSHIP,
+    RESISTANCE_REBELLION_COUNTER_NARRATIVE,
+    ECONOMICS_OF_EXTRACTION,
+    RADICAL_WEALTH_LITERACY,
+    COOPERATIVE_ECONOMICS_MUTUAL_AID,
     # ── Gap-fill: missing K-12 core curriculum (2026-09-09 audit) ──
     MATH_KINDERGARTEN,
     SCIENCE_KINDERGARTEN,
@@ -197,53 +211,7 @@ def _planned(slug, title, summary, description, subject, subject_label, track,
 
 
 PLANNED_COURSES = [
-    # ── Cultural & Historical Focus (owner-curated, 2026-09-08) ──
-    _planned(
-        "african-ecosystems-land-stewardship",
-        "Eco-Systems and Indigenous Land Stewardship in Africa",
-        "Indigenous agricultural, ecological, and water management technologies across African biomes — Sahelian terracing, rainforest agroforestry, pastoral water management — and modern climate resilience.",
-        "Studies indigenous agricultural and water-management technologies and their modern implications for climate resilience.",
-        "science", "Science", "foundations", ["foundations", "scholar"],
-        ["7", "8", "9", "10"], "Grades 7–10", est_hours=19),
-
-    # ── History from the Vantage of the Oppressed series ──
-    _planned(
-        "architecture-of-omission",
-        "The Architecture of Omission: Exposing the Logic Gaps in U.S. History",
-        "Systematic analysis of standard curriculum omissions — expropriation, the legal mechanics of racial capitalism, and the sanitization of colonial expansion — through primary-source cross-examination.",
-        "Students deconstruct historical narratives by cross-examining primary source documents against institutional outcomes; capstone is a counter-narrative curriculum module or policy brief.",
-        "social_studies", "Social Studies", "scholar", ["scholar"],
-        ["9", "10", "11", "12"], "Grades 9–12", est_hours=24),
-    _planned(
-        "resistance-rebellion-counter-narrative",
-        "Resistance, Rebellion, and the Counter-Narrative",
-        "Organized resistance of the enslaved, colonized, and exploited — Maroon societies, the Haitian Revolution, indigenous sovereignty struggles, and cross-racial labor movements.",
-        "Shifts the lens from the dominant class to organized resistance across the Americas, including the Haitian Revolution as a disruption of Enlightenment philosophy.",
-        "social_studies", "Social Studies", "foundations", ["foundations", "scholar"],
-        ["8", "9", "10", "11"], "Grades 8–11", est_hours=26),
-    _planned(
-        "legalized-subjugation",
-        "Legalized Subjugation: The Evolution of Structural Controls",
-        "The direct lineage of institutional control — Black Codes, Jim Crow, redlining — and how law has engineered economic disparity, disenfranchisement, and social stratification.",
-        "Bypasses standard civic mythologies to examine law as an instrument of engineered disparity, from the Black Codes to modern systemic frameworks.",
-        "social_studies", "Social Studies", "scholar", ["scholar"],
-        ["10", "11", "12"], "Grades 10–12", est_hours=22),
-    _planned(
-        "economics-of-extraction",
-        "Economics of Extraction: The True Ledger of Western Growth",
-        "The material reality behind industrialization and global capital accumulation — forced labor, resource extraction, and unequal trade policies.",
-        "Analyzes how Western institutional wealth was built on forced labor, resource extraction, and unequal global trade, filling the gap between innovation narratives and expropriation.",
-        "social_studies", "Social Studies", "scholar", ["scholar"],
-        ["9", "10", "11", "12"], "Grades 9–12", est_hours=20),
-
     # ── Business & Entrepreneurship: Counter-Narrative & Economic Autonomy ──
-    _planned(
-        "cooperative-economics-mutual-aid",
-        "Cooperative Economics and Mutual Aid Networks",
-        "Cooperative economics, credit unions, mutual aid societies, and cooperative land tenure — how communities built sustainable economic infrastructure through collective ownership.",
-        "The Collective Ledger: historical and modern cooperative models from burial societies and susu systems to community land trusts, CDCUs, and platform cooperativism; capstone is a functional manifesto for student entrepreneurs.",
-        "entrepreneurship", "Entrepreneurship", "entrepreneurship", ["entrepreneurship", "scholar"],
-        ["9", "10", "11", "12"], "Grades 9–12", est_hours=21),
     _planned(
         "autonomous-enterprise-black-commerce",
         "Autonomous Enterprise: History and Mechanics of Black Commerce",
@@ -251,13 +219,6 @@ PLANNED_COURSES = [
         "Analyzes capital generation, localized supply chains, and self-determined market creation, including the targeted destruction of prosperous Black commercial districts and modern digital sovereignty strategies; capstone is a complete autonomous business plan.",
         "entrepreneurship", "Entrepreneurship", "entrepreneurship", ["entrepreneurship", "scholar"],
         ["10", "11", "12"], "Grades 10–12", est_hours=24),
-    _planned(
-        "radical-wealth-literacy",
-        "Radical Wealth Literacy: Deconstructing Capital, Credit, and Extraction",
-        "The mechanics of wealth extraction, predatory lending, redlining, and generational asset stripping — with asset protection, debt leverage, and community capital retention.",
-        "Replaces superficial financial advice with a structural critique of modern banking, teaching asset protection and community capital retention.",
-        "entrepreneurship", "Entrepreneurship", "career", ["career", "scholar"],
-        ["9", "10", "11", "12"], "Grades 9–12", est_hours=18),
 ]
 
 ACADEMY_COURSES = PUBLISHED_COURSES + PLANNED_COURSES
