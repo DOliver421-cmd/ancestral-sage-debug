@@ -123,7 +123,6 @@ const CUSTOMER_TIERS = [
       { to: "/playlist/dashboard", label: "Playlist Manager", icon: Radio, testid: "nav-playlist" },
       { to: "/arcade", label: "Virtual Arcade", icon: Gamepad2, testid: "nav-arcade" },
       { to: "/trash", label: "M.O.R.E. Pantheon", icon: Star, testid: "nav-trash" },
-      { to: "/resources", label: "Resource Hub", icon: Briefcase, testid: "nav-resource-hub" },
       { to: "/payment/history", label: "Payment History", icon: Receipt, testid: "nav-payments" },
     ],
   },
@@ -148,6 +147,7 @@ const CUSTOMER_TIERS = [
       { to: "/sanctuary", label: "Sanctuary", icon: ShieldCheck, testid: "nav-sanctuary" },
       { to: "/creator/earnings", label: "My Earnings", icon: DollarSign, testid: "nav-creator-earnings" },
       { to: "/creator/payouts", label: "Payout Dashboard", icon: Receipt, testid: "nav-creator-payouts" },
+      { to: "/resources", label: "Resource Hub", icon: Briefcase, testid: "nav-resource-hub" },
     ],
   },
   {
