@@ -232,7 +232,7 @@ export default function AgentRegistryView() {
                 <option value="cerebras">Cerebras</option>
                 <option value="gemini">Gemini</option>
                 <option value="openai">OpenAI</option>
-                <option value="anthropic">Anthropic</option>
+
                 <option value="custom">Custom / Self-hosted</option>
               </select>
               <button onClick={register} disabled={isBusy("register")} className="btn-copper px-4 py-2.5 rounded-xl text-sm font-black flex items-center justify-center gap-2 disabled:opacity-50">

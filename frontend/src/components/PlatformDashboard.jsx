@@ -72,10 +72,6 @@ const DEFAULT_PROJECTS = [
     tasks: ["Monitor submissions", "Approve / reject weekly", "Add new gateways as needed"] },
 
   // Legal
-  { id: "l1", area: "Legal", priority: "high", status: "sent",
-    title: "Notice of Dispute — Anthropic PBC",
-    note: "Formal Notice of Dispute re: platform malfunction & unauthorized AI actions. Certified mail sent 6/3/26 to 548 Market St PMB 90375, San Francisco CA 94104. Awaiting response.",
-    tasks: ["✅ Send certified mail", "Wait for Anthropic response (30 days)", "Follow up if no response by 7/3/26", "Document all AI behavior logs as evidence"] },
   { id: "l2", area: "Legal", priority: "medium", status: "pending",
     title: "Copyright — NAM Oshun Poetry",
     note: "Register original works. Catalog all published and unpublished poems.",

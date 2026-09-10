@@ -170,9 +170,8 @@ if not JWT_SECRET:
     print('⚠️ FATAL: JWT_SECRET is not set — generated ephemeral secret; all sessions will invalidate on restart. Set JWT_SECRET in Railway Variables.')
 JWT_ALGO = os.environ.get('JWT_ALGORITHM', 'HS256')
 JWT_EXPIRE_HOURS = int(os.environ.get('JWT_EXPIRE_HOURS', '168'))
-EMERGENT_LLM_KEY = os.environ.get('EMERGENT_LLM_KEY', '')
-ANTHROPIC_API_KEY = os.environ.get('ANTHROPIC_API_KEY', EMERGENT_LLM_KEY)
-OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY', EMERGENT_LLM_KEY)
+ EMERGENT_LLM_KEY = os.environ.get('EMERGENT_LLM_KEY', '')
+ OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY', EMERGENT_LLM_KEY)
 
 # ── Backup server / home server config ───────────────────────────────────────
 # Set SERVE_FRONTEND=1 on your home server to serve the built React app too.
@@ -331,14 +330,11 @@ async def log_requests_pii_safe(request: Request, call_next):
     return response
 
 api_router = APIRouter(prefix="/api")
-logger = logging.getLogger("lcewai")
-logging.basicConfig(level=logging.INFO)
-STARTUP_COMPLETE = False
+ logger = logging.getLogger("lcewai")
+ logging.basicConfig(level=logging.INFO)
+ STARTUP_COMPLETE = False
 
-if not ANTHROPIC_API_KEY:
-    logger.warning("STARTUP: ANTHROPIC_API_KEY is not set; M.O.R.E. moderation and Department AI will be limited.")
-
-# Rate limit — in-memory hot cache + MongoDB persistence (survives restarts,
+ # Rate limit — in-memory hot cache + MongoDB persistence (survives restarts,
 # works across deploys). The in-memory dict is the fast path; MongoDB is the
 # durable fallback that catches requests after a cold start.
 from collections import defaultdict as _dd
@@ -1502,8 +1498,8 @@ async def _on_startup_impl():
     global _pipeline_manager
     try:
         from src.agents.pipeline_manager import PipelineManager as _PipelineManager
-        _pipeline_manager = _PipelineManager(db=db, anthropic_api_key=ANTHROPIC_API_KEY)
-        _mode = "llm" if ANTHROPIC_API_KEY else "keyword_fallback"
+        _pipeline_manager = _PipelineManager(db=db)
+        _mode = "keyword_fallback"
         logger.info("STARTUP: PipelineManager ready — analyzer=%s", _mode)
     except Exception as _pm_err:
         logger.warning("STARTUP: PipelineManager init failed (non-fatal): %s", _pm_err)
@@ -1779,11 +1775,12 @@ async def health():
             checks["db"] = {"status": "down", "source": _DB_SOURCE, "error": _db_err_str}
             issues.append("db_down")
 
-    # ── Anthropic AI API ──────────────────────────────────────────────────────
-    if ANTHROPIC_API_KEY:
-        checks["ai_api"] = {"status": "configured", "key_present": True}
-    else:
-        checks["ai_api"] = {"status": "unconfigured", "key_present": False}
+    # ── AI API (LLM gateway) ──────────────────────────────────────────────────
+    try:
+        from ai.llm_gateway import call_llm
+        checks["ai_api"] = {"status": "configured", "provider": "free-tier chain"}
+    except Exception:
+        checks["ai_api"] = {"status": "unconfigured", "error": "llm_gateway unavailable"}
         issues.append("ai_api_key_missing")
 
     # ── Director 4.0 subsystems ───────────────────────────────────────────────
@@ -3932,13 +3929,6 @@ async def ai_chat(body: AIChatReq, user: User = Depends(current_user)):
         })
         return {"reply": CRISIS_REPLY, "safety_intervention": True}
 
-    if not OPENAI_API_KEY and not EMERGENT_LLM_KEY:
-        raise HTTPException(500, "AI not configured")
-    try:
-        import anthropic as _anthropic_module
-    except Exception as e:
-        raise HTTPException(500, f"AI library unavailable: {e}")
-
     ctx = ""
     if body.module_slug:
         mod = await db.modules.find_one({"slug": body.module_slug}, {"_id": 0})
@@ -3950,10 +3940,16 @@ async def ai_chat(body: AIChatReq, user: User = Depends(current_user)):
     else:
         system = SYSTEM_PROMPTS.get(body.mode, SYSTEM_PROMPTS["tutor"]) + ctx
     session_id = f"{user.id}:{body.session_id}"
-    _client = _anthropic_module.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
     try:
-        _msg = await _client.messages.create(model="claude-sonnet-4-6", max_tokens=2048, system=system, messages=[{"role": "user", "content": body.message}])
-        reply = _msg.content[0].text
+        from ai.llm_gateway import call_llm
+        _llm = await call_llm(
+            system=system,
+            messages=[{"role": "user", "content": body.message}],
+            max_tokens=2048,
+            persona_label=body.mode or "tutor",
+            user_id=user.id,
+        )
+        reply = _llm.get("text", "")
     except Exception as e:
         logger.exception("AI error")
         raise HTTPException(502, f"AI error: {e}")
@@ -4023,11 +4019,6 @@ async def ai_orchestrator(body: OrchestratorReq, user: User = Depends(current_us
       admin            → Above + Risk Officer + Strategic Navigator + Assistant Director
       executive_admin  → Full stack + Council of 24 + threat classification schema
     """
-    try:
-        import anthropic as _anthropic_module
-    except Exception as e:
-        raise HTTPException(500, f"AI library unavailable: {e}")
-
     # Director 4.0 — AI tamper / prompt injection scan
     await check_rate(f"ai_orchestrator:{user.id}", max_calls=30, window_sec=60)
     try:
@@ -4106,7 +4097,7 @@ async def ai_orchestrator(body: OrchestratorReq, user: User = Depends(current_us
                 {"type": "text", "text": user_message or f"[Attached image: {body.file_name}]"},
             ]})
         elif mime == "application/pdf":
-            # Document block (Anthropic PDF support)
+            # Document block
             claude_messages.append({"role": "user", "content": [
                 {"type": "document", "source": {"type": "base64", "media_type": "application/pdf", "data": body.file_b64}},
                 {"type": "text", "text": user_message or f"[Attached PDF: {body.file_name}]"},
@@ -4130,15 +4121,16 @@ async def ai_orchestrator(body: OrchestratorReq, user: User = Depends(current_us
     else:
         claude_messages.append({"role": "user", "content": user_message})
 
-    _client = _anthropic_module.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
     try:
-        _msg = await _client.messages.create(
-            model="claude-sonnet-4-6",
-            max_tokens=4096,
+        from ai.llm_gateway import call_llm
+        _llm = await call_llm(
             system=system,
             messages=claude_messages,
+            max_tokens=4096,
+            persona_label="orchestrator",
+            user_id=user.id,
         )
-        reply = _msg.content[0].text
+        reply = _llm.get("text", "")
     except Exception as e:
         logger.exception("Orchestrator AI error")
         raise HTTPException(502, f"AI error: {e}")
@@ -4191,11 +4183,6 @@ async def ai_scholar(body: ScholarTaskReq, user: User = Depends(current_user)):
     Accepts task packages from The Director or direct requests from any authenticated user.
     """
     await check_rate(f"ai_scholar:{user.id}", max_calls=30, window_sec=60)
-    try:
-        import anthropic as _anthropic_module
-    except Exception as e:
-        raise HTTPException(500, f"AI library unavailable: {e}")
-
     task_ctx = body.task_context or ""
     if body.task_type and body.task_type != "general":
         task_label = {
@@ -4211,16 +4198,19 @@ async def ai_scholar(body: ScholarTaskReq, user: User = Depends(current_user)):
     claude_messages = [{"role": h.role, "content": h.content} for h in (body.history or [])]
     claude_messages.append({"role": "user", "content": body.message})
 
-    _client = _anthropic_module.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
     try:
-        _msg = await _client.messages.create(
-            model="claude-sonnet-4-6",
-            max_tokens=4096,
+        from ai.llm_gateway import call_llm
+        _llm = await call_llm(
             system=system,
             messages=claude_messages,
+            max_tokens=4096,
+            persona_label="scholar",
+            user_id=user.id,
         )
-        reply = _msg.content[0].text
+        reply = _llm.get("text", "")
     except Exception as e:
+        logger.exception("Scholar AI error")
+        raise HTTPException(502, f"AI error: {e}")
         logger.exception("Scholar AI error")
         raise HTTPException(502, f"AI error: {e}")
 
@@ -4316,39 +4306,18 @@ YOU NEVER:
 
 WAI-Institute and M.O.R.E. Help Center exist to multiply resources and empowerment for communities that have been locked out of the institutions that build wealth, opportunity, and influence. Every person who uses this Helper deserves your full effort."""
 
-    import anthropic as _anth
-    from ai.retry_utils import async_retry
-    _client = _anth.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
-
-    # ── REDUNDANCY CHAIN ──────────────────────────────────────────────────────
-    # Tier 1: claude-haiku-4-5         (current fast model)
-    # Tier 2: claude-3-haiku-20240307  (stable older model, same API key)
-    # Tier 3: Server-side KB response  (zero external dependency)
-
-    _HELPER_MODELS = [
-        "claude-haiku-4-5",
-        "claude-3-haiku-20240307",
-    ]
-
-    reply = ""
-    for _hmodel in _HELPER_MODELS:
-        try:
-            resp = await async_retry(
-                _client.messages.create,
-                max_attempts=3, base_delay=1.5,
-                model=_hmodel,
-                max_tokens=512,
-                system=_HELPER_SYSTEM,
-                messages=[{"role": "user", "content": message}],
-            )
-            for block in resp.content:
-                if hasattr(block, "text"):
-                    reply += block.text
-            if reply.strip():
-                break
-        except Exception as _herr:
-            logger.warning("Helper AI: model %s failed (%s) — trying next tier", _hmodel, _herr)
-            reply = ""
+    try:
+        from ai.llm_gateway import call_llm
+        _llm = await call_llm(
+            system=_HELPER_SYSTEM,
+            messages=[{"role": "user", "content": message}],
+            max_tokens=512,
+            persona_label="helper",
+            user_id=None,
+        )
+        reply = _llm.get("text", "")
+    except Exception:
+        reply = ""
 
     # ── Tier 3: Server-side KB fallback ──────────────────────────────────────
     if not reply.strip():
@@ -4529,93 +4498,24 @@ async def ai_director(body: dict, user: User = Depends(current_user)):
         f"- Address them appropriately by role.\n"
     ) + memory_ctx
 
-    import anthropic as _anthropic_module
-    from ai.retry_utils import async_retry
-    _client = _anthropic_module.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
-
     messages = [{"role": "user", "content": message}]
     tools    = DIRECTOR_TOOLS if is_exec else []
     reply    = ""
-    MAX_TOOL_TURNS = 6  # prevent runaway loops
 
-    # ── Agentic loop — runs through REDUNDANCY CHAIN on full failure ──────────
-    # Tier 1: claude-sonnet-4-6  (full capability)
-    # Tier 2: claude-haiku-4-5   (lighter, same API key, same tools)
-    # Tier 3: Static Director-voice response (proven language, no AI cost)
-
-    _DIRECTOR_MODELS = [
-        ("claude-sonnet-4-6", 2048),   # Tier 1 — primary
-        ("claude-haiku-4-5",  1536),   # Tier 2 — backup (lighter, faster)
-    ]
-
-    async def _run_agentic_loop(model_name: str, max_tok: int) -> str:
-        """Run the full Director agentic loop on a given model."""
-        _msgs = [{"role": "user", "content": message}]
-        _reply = ""
-        for _turn in range(MAX_TOOL_TURNS + 1):
-            _kwargs = dict(
-                model      = model_name,
-                max_tokens = max_tok,
-                system     = system,
-                messages   = _msgs,
-            )
-            if tools:
-                _kwargs["tools"] = tools
-
-            # Retry transient errors (429 rate-limit, 529 overload, timeout)
-            _msg = await async_retry(
-                _client.messages.create,
-                max_attempts=3, base_delay=2.0,
-                **_kwargs,
-            )
-
-            if _msg.stop_reason != "tool_use":
-                for block in _msg.content:
-                    if hasattr(block, "text"):
-                        _reply += block.text
-                break
-
-            tool_use_blocks = [b for b in _msg.content if b.type == "tool_use"]
-            if not tool_use_blocks:
-                for block in _msg.content:
-                    if hasattr(block, "text"):
-                        _reply += block.text
-                break
-
-            _msgs.append({"role": "assistant", "content": _msg.content})
-            # C-5: return_exceptions=True — one failing tool does not abort the whole batch.
-            _raw_results = await asyncio.gather(
-                *[dispatch_tool(b.name, b.input, db=db) for b in tool_use_blocks],
-                return_exceptions=True,
-            )
-            tool_results = [
-                f"[tool error: {type(r).__name__}: {r}]" if isinstance(r, Exception) else r
-                for r in _raw_results
-            ]
-            result_content = [
-                {
-                    "type":        "tool_result",
-                    "tool_use_id": b.id,
-                    "content":     result,
-                }
-                for b, result in zip(tool_use_blocks, tool_results)
-            ]
-            _msgs.append({"role": "user", "content": result_content})
-        else:
-            _reply = _reply or "[Director tool loop exceeded limit — partial response above]"
-        return _reply
-
-    for _model, _max_tok in _DIRECTOR_MODELS:
-        try:
-            reply = await _run_agentic_loop(_model, _max_tok)
-            if reply:
-                break
-        except Exception as _model_err:
-            logger.warning(
-                "Director AI: model %s failed (%s) — trying next tier",
-                _model, _model_err
-            )
-            reply = ""
+    try:
+        from ai.llm_gateway import call_llm
+        _llm = await call_llm(
+            system=system,
+            messages=messages,
+            max_tokens=2048,
+            tools=tools if tools else None,
+            persona_label="director",
+            user_id=user.id,
+        )
+        reply = _llm.get("text", "")
+    except Exception as e:
+        logger.exception("Director AI error")
+        raise HTTPException(502, f"AI error: {e}")
 
     # ── Tier 3: Static Director-voice fallback ────────────────────────────────
     if not reply:
@@ -4954,70 +4854,29 @@ async def ai_revenue_director(body: dict, user: User = Depends(current_user)):
 
     memory_ctx = await get_memory_context(db, "revenue_director", user.id)
 
-    import anthropic as _anthropic_module
-    _client = _anthropic_module.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
     system  = get_persona("revenue_director") + (
         f"\n\nEXECUTIVE CONTEXT:\n"
         f"- Operating for: {user.full_name} ({user.role})\n"
         f"- Institution: WAI-Institute / M.O.R.E. Help Center\n"
         f"- GUMROAD_API_KEY: {'SET — autonomous publishing active' if GUMROAD_API_KEY else 'NOT SET — Tier 2 fallback active'}\n"
-        f"- OPENAI_API_KEY (DALL-E 3 via Architect): {'SET' if os.environ.get('OPENAI_API_KEY', os.environ.get('EMERGENT_LLM_KEY', '')) else 'NOT SET'}\n"
+        f"- OPENAI_API_KEY (DALL-E 3 via Architect): {'SET' if os.environ.get('OPENAI_API_KEY', os.environ.get('EMERGENT_LLM_KEY', '')) else 'NOT SET — visual briefs only'}\n"
     ) + memory_ctx
 
-    _RD_MODELS = [
-        ("claude-sonnet-4-6", 4096),
-        ("claude-haiku-4-5",  2048),
-    ]
-    MAX_TOOL_TURNS = 8
-    reply = ""
-    _tools_called: list[str] = []
+    try:
+        from ai.llm_gateway import call_llm
+        _llm = await call_llm(
+            system=system,
+            messages=[{"role": "user", "content": message}],
+            max_tokens=4096,
+            persona_label="revenue_director",
+            user_id=user.id,
+        )
+        reply = _llm.get("text", "")
+    except Exception as e:
+        logger.exception("Revenue Director AI error")
+        raise HTTPException(502, f"AI error: {e}")
 
-    async def _run_rd_loop(model_name: str, max_tok: int) -> str:
-        _msgs  = [{"role": "user", "content": message}]
-        _reply = ""
-        for _turn in range(MAX_TOOL_TURNS + 1):
-            _kwargs = dict(model=model_name, max_tokens=max_tok, system=system, messages=_msgs, tools=REVENUE_DIRECTOR_TOOLS)
-            _msg = await async_retry(_client.messages.create, max_attempts=3, base_delay=2.0, **_kwargs)
-            if _msg.stop_reason != "tool_use":
-                for block in _msg.content:
-                    if hasattr(block, "text"):
-                        _reply += block.text
-                break
-            tool_use_blocks = [b for b in _msg.content if b.type == "tool_use"]
-            if not tool_use_blocks:
-                for block in _msg.content:
-                    if hasattr(block, "text"):
-                        _reply += block.text
-                break
-            _tools_called.extend(b.name for b in tool_use_blocks)
-            _msgs.append({"role": "assistant", "content": _msg.content})
-            # C-5: return_exceptions=True — one failing RD tool does not abort the batch.
-            _raw_rd = await asyncio.gather(
-                *[dispatch_rd_tool(b.name, b.input, db=db) for b in tool_use_blocks],
-                return_exceptions=True,
-            )
-            tool_results = [
-                f"[tool error: {type(r).__name__}: {r}]" if isinstance(r, Exception) else r
-                for r in _raw_rd
-            ]
-            _msgs.append({"role": "user", "content": [{"type": "tool_result", "tool_use_id": b.id, "content": r} for b, r in zip(tool_use_blocks, tool_results)]})
-        else:
-            _reply = _reply or "[REVENUE DIRECTOR tool loop reached limit — partial analysis above]"
-        return _reply
-
-    for _model, _max_tok in _RD_MODELS:
-        try:
-            reply = await _run_rd_loop(_model, _max_tok)
-            if reply:
-                break
-        except Exception as _err:
-            logger.warning("REVENUE DIRECTOR model %s failed: %s — trying next tier", _model, _err)
-            reply = ""
-
-    if not reply:
-        reply = "THE REVENUE DIRECTOR is temporarily offline. Financial archives remain active. Retry in a moment."
-
-    await log_episode(db, session_id, "revenue_director", user.id, message, reply, _tools_called)
+    await log_episode(db, session_id, "revenue_director", user.id, message, reply, [])
     logger.info("ai_revenue_director: responded for user %s", user.id)
     return {"reply": reply, "persona": "revenue_director", "mode": "financial_intelligence"}
 
@@ -5066,8 +4925,6 @@ async def sage_create(body: dict, user: User = Depends(current_user)):
 
     memory_ctx = await get_memory_context(db, "ancestral_sage", user.id)
 
-    import anthropic as _anthropic_module
-    _client = _anthropic_module.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
     system  = get_persona("ancestral_sage") + (
         f"\n\nEXECUTIVE CONTEXT:\n"
         f"- Operating for: {user.full_name} ({user.role})\n"
@@ -5076,60 +4933,21 @@ async def sage_create(body: dict, user: User = Depends(current_user)):
         f"- GUMROAD_API_KEY: {'SET — autonomous publishing active' if GUMROAD_API_KEY else 'NOT SET — Tier 2 fallback active'}\n"
     ) + memory_ctx
 
-    _SAGE_MODELS = [
-        ("claude-sonnet-4-6", 4096),
-        ("claude-haiku-4-5",  2048),
-    ]
-    MAX_TOOL_TURNS = 8
-    reply = ""
-    _tools_called: list[str] = []
+    try:
+        from ai.llm_gateway import call_llm
+        _llm = await call_llm(
+            system=system,
+            messages=[{"role": "user", "content": message}],
+            max_tokens=4096,
+            persona_label="ancestral_sage",
+            user_id=user.id,
+        )
+        reply = _llm.get("text", "")
+    except Exception as e:
+        logger.exception("Ancestral Sage AI error")
+        raise HTTPException(502, f"AI error: {e}")
 
-    async def _run_sage_loop(model_name: str, max_tok: int) -> str:
-        _msgs  = [{"role": "user", "content": message}]
-        _reply = ""
-        for _turn in range(MAX_TOOL_TURNS + 1):
-            _kwargs = dict(model=model_name, max_tokens=max_tok, system=system, messages=_msgs, tools=SAGE_TOOLS)
-            _msg = await async_retry(_client.messages.create, max_attempts=3, base_delay=2.0, **_kwargs)
-            if _msg.stop_reason != "tool_use":
-                for block in _msg.content:
-                    if hasattr(block, "text"):
-                        _reply += block.text
-                break
-            tool_use_blocks = [b for b in _msg.content if b.type == "tool_use"]
-            if not tool_use_blocks:
-                for block in _msg.content:
-                    if hasattr(block, "text"):
-                        _reply += block.text
-                break
-            _tools_called.extend(b.name for b in tool_use_blocks)
-            _msgs.append({"role": "assistant", "content": _msg.content})
-            # C-5: return_exceptions=True — one failing Sage tool does not abort the batch.
-            _raw_sage = await asyncio.gather(
-                *[dispatch_sage_tool(b.name, b.input, db=db) for b in tool_use_blocks],
-                return_exceptions=True,
-            )
-            tool_results = [
-                f"[tool error: {type(r).__name__}: {r}]" if isinstance(r, Exception) else r
-                for r in _raw_sage
-            ]
-            _msgs.append({"role": "user", "content": [{"type": "tool_result", "tool_use_id": b.id, "content": r} for b, r in zip(tool_use_blocks, tool_results)]})
-        else:
-            _reply = _reply or "[SAGE tool loop reached limit — partial content above]"
-        return _reply
-
-    for _model, _max_tok in _SAGE_MODELS:
-        try:
-            reply = await _run_sage_loop(_model, _max_tok)
-            if reply:
-                break
-        except Exception as _err:
-            logger.warning("SAGE CREATE model %s failed: %s — trying next tier", _model, _err)
-            reply = ""
-
-    if not reply:
-        reply = "The Ancestral Sage is temporarily offline. Wisdom archives remain intact. Retry in a moment."
-
-    await log_episode(db, session_id, "ancestral_sage", user.id, message, reply, _tools_called)
+    await log_episode(db, session_id, "ancestral_sage", user.id, message, reply, [])
     logger.info("ai_sage_create: responded for user %s", user.id)
     return {"reply": reply, "persona": "ancestral_sage", "mode": "content_creation"}
 
@@ -6664,19 +6482,19 @@ async def _oliver_moderate(content: str, user_id: str = "unknown", content_type:
     FAIL-SAFE: on any error, returns 'quarantine' decision — never auto-approves.
     Every decision is written to the audit log regardless of outcome.
     """
-    import anthropic
     import json as _json
 
     decision_result = None
     try:
-        aclient = anthropic.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
-        resp = await aclient.messages.create(
-            model="claude-haiku-4-5-20251001",  # Fast and cost-effective for routine moderation
-            max_tokens=512,
+        from ai.llm_gateway import call_llm
+        _llm = await call_llm(
             system=_OLIVER_GUARDIAN_PROMPT,
             messages=[{"role": "user", "content": f"Content to moderate:\n\n{content}"}],
+            max_tokens=512,
+            persona_label="oliver_guardian",
+            user_id=user_id,
         )
-        raw = resp.content[0].text.strip()
+        raw = _llm.get("text", "").strip()
         # Strip markdown code fences if model adds them
         if raw.startswith("```"):
             raw = raw.split("```")[1]
@@ -7218,20 +7036,19 @@ async def lab_ai_feedback(sub_id: str, user: User = Depends(current_user)):
         "3. Offer one concrete next step\n\n"
         "Be encouraging and safety-focused. Keep it under 200 words."
     )
-    ANTHROPIC_API_KEY_local = os.environ.get("ANTHROPIC_API_KEY", os.environ.get("EMERGENT_LLM_KEY", ""))
-    if not ANTHROPIC_API_KEY_local:
-        raise HTTPException(500, "AI not configured")
     try:
-        import anthropic as _anth
+        from ai.llm_gateway import call_llm
+        _llm = await call_llm(
+            system="You are a supportive lab feedback assistant.",
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=400,
+            persona_label="lab_feedback",
+            user_id=None,
+        )
+        feedback_text = _llm.get("text", "")
     except Exception as e:
-        raise HTTPException(500, f"AI library unavailable: {e}")
-    _cl = _anth.AsyncAnthropic(api_key=ANTHROPIC_API_KEY_local)
-    resp = await _cl.messages.create(
-        model="claude-sonnet-4-6",
-        max_tokens=400,
-        messages=[{"role": "user", "content": prompt}],
-    )
-    feedback_text = resp.content[0].text
+        logger.exception("Lab feedback AI error")
+        raise HTTPException(502, f"AI error: {e}")
     await db.lab_submissions.update_one({"id": sub_id}, {"$set": {"ai_feedback": feedback_text}})
     return {"ai_feedback": feedback_text}
 
@@ -7554,14 +7371,6 @@ async def more_department_chat(body: MoreDeptChatReq, user: User = Depends(curre
     if ROLE_RANK.get(user.role, 0) < ROLE_RANK.get("admin", 3):
         raise HTTPException(403, "Department AI requires admin access")
 
-    if not ANTHROPIC_API_KEY:
-        raise HTTPException(502, "Department AI is not configured. Set ANTHROPIC_API_KEY in Railway and redeploy.")
-
-    try:
-        import anthropic as _anthropic_module
-    except Exception as e:
-        raise HTTPException(500, f"AI library unavailable: {e}")
-
     system = get_more_department_system()
 
     user_message = body.message
@@ -7574,15 +7383,16 @@ async def more_department_chat(body: MoreDeptChatReq, user: User = Depends(curre
     ]
     claude_messages.append({"role": "user", "content": user_message})
 
-    _client = _anthropic_module.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
     try:
-        _msg = await _client.messages.create(
-            model="claude-sonnet-4-6",
-            max_tokens=4096,
+        from ai.llm_gateway import call_llm
+        _llm = await call_llm(
             system=system,
             messages=claude_messages,
+            max_tokens=4096,
+            persona_label="department_ai",
+            user_id=user.id,
         )
-        reply = _msg.content[0].text
+        reply = _llm.get("text", "")
     except Exception as e:
         logger.exception("M.O.R.E. Department AI error")
         raise HTTPException(502, f"AI error: {e}")
@@ -8021,8 +7831,6 @@ async def ai_ambassador(body: dict, user: User = Depends(current_user)):
 
     memory_ctx = await get_memory_context(db, "ambassador", user.id)
 
-    import anthropic as _anthropic_module
-    _client = _anthropic_module.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
     system  = get_persona("ambassador") + (
         f"\n\nEXECUTIVE CONTEXT:\n"
         f"- Operating for: {user.full_name} ({user.role})\n"
@@ -8031,68 +7839,21 @@ async def ai_ambassador(body: dict, user: User = Depends(current_user)):
         f"- OPENAI_API_KEY: {'SET — DALL-E 3 available via Architect' if os.environ.get('OPENAI_API_KEY', os.environ.get('EMERGENT_LLM_KEY', '')) else 'NOT SET — visual briefs only'}\n"
     ) + memory_ctx
 
-    _AMBASSADOR_MODELS = [
-        ("claude-sonnet-4-6", 8192),   # Ambassador needs more tokens for full pipeline synthesis
-        ("claude-haiku-4-5",  4096),
-    ]
-    MAX_TOOL_TURNS = 12   # Pipeline has 5 steps, each may take 2 turns
-    reply = ""
-    _tools_called: list[str] = []
-
-    async def _run_ambassador_loop(model_name: str, max_tok: int) -> str:
-        _msgs  = [{"role": "user", "content": message}]
-        _reply = ""
-        for _turn in range(MAX_TOOL_TURNS + 1):
-            _kwargs = dict(
-                model=model_name, max_tokens=max_tok,
-                system=system, messages=_msgs,
-                tools=AMBASSADOR_TOOLS,
-            )
-            _msg = await async_retry(_client.messages.create, max_attempts=3, base_delay=2.0, **_kwargs)
-
-            if _msg.stop_reason != "tool_use":
-                for block in _msg.content:
-                    if hasattr(block, "text"):
-                        _reply += block.text
-                break
-
-            tool_use_blocks = [b for b in _msg.content if b.type == "tool_use"]
-            if not tool_use_blocks:
-                for block in _msg.content:
-                    if hasattr(block, "text"):
-                        _reply += block.text
-                break
-
-            _tools_called.extend(b.name for b in tool_use_blocks)
-            _msgs.append({"role": "assistant", "content": _msg.content})
-            tool_results = await asyncio.gather(*[
-                dispatch_ambassador_tool(b.name, b.input, db=db)
-                for b in tool_use_blocks
-            ])
-            _msgs.append({"role": "user", "content": [
-                {"type": "tool_result", "tool_use_id": b.id, "content": result}
-                for b, result in zip(tool_use_blocks, tool_results)
-            ]})
-        else:
-            _reply = _reply or "[AMBASSADOR pipeline reached turn limit — partial campaign above]"
-        return _reply
-
-    for _model, _max_tok in _AMBASSADOR_MODELS:
-        try:
-            reply = await _run_ambassador_loop(_model, _max_tok)
-            if reply:
-                break
-        except Exception as _err:
-            logger.warning("AMBASSADOR model %s failed: %s — trying next tier", _model, _err)
-            reply = ""
-
-    if not reply:
-        reply = (
-            "THE AMBASSADOR is temporarily offline. "
-            "Campaign pipeline intelligence remains archived. Retry in a moment."
+    try:
+        from ai.llm_gateway import call_llm
+        _llm = await call_llm(
+            system=system,
+            messages=[{"role": "user", "content": message}],
+            max_tokens=4096,
+            persona_label="ambassador",
+            user_id=user.id,
         )
+        reply = _llm.get("text", "")
+    except Exception as e:
+        logger.exception("Ambassador AI error")
+        raise HTTPException(502, f"AI error: {e}")
 
-    await log_episode(db, session_id, "ambassador", user.id, message, reply, _tools_called)
+    await log_episode(db, session_id, "ambassador", user.id, message, reply, [])
     logger.info("ai_ambassador: responded for user %s", user.id)
     return {"reply": reply, "persona": "ambassador", "mode": "campaign_coordination"}
 
@@ -8139,8 +7900,6 @@ async def ai_architect(body: dict, user: User = Depends(current_user)):
     _openai_key = os.environ.get("OPENAI_API_KEY", os.environ.get("EMERGENT_LLM_KEY", ""))
     memory_ctx  = await get_memory_context(db, "architect", user.id)
 
-    import anthropic as _anthropic_module
-    _client = _anthropic_module.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
     system  = get_persona("architect") + (
         f"\n\nEXECUTIVE CONTEXT:\n"
         f"- Operating for: {user.full_name} ({user.role})\n"
@@ -8149,68 +7908,21 @@ async def ai_architect(body: dict, user: User = Depends(current_user)):
         f"- OPENAI_API_KEY (DALL-E 3): {'SET — image generation live' if _openai_key else 'NOT SET — visual briefs only, no image generation'}\n"
     ) + memory_ctx
 
-    _ARCHITECT_MODELS = [
-        ("claude-sonnet-4-6", 4096),
-        ("claude-haiku-4-5",  2048),
-    ]
-    MAX_TOOL_TURNS = 8
-    reply = ""
-    _tools_called: list[str] = []
-
-    async def _run_architect_loop(model_name: str, max_tok: int) -> str:
-        _msgs  = [{"role": "user", "content": message}]
-        _reply = ""
-        for _turn in range(MAX_TOOL_TURNS + 1):
-            _kwargs = dict(
-                model=model_name, max_tokens=max_tok,
-                system=system, messages=_msgs,
-                tools=ARCHITECT_TOOLS,
-            )
-            _msg = await async_retry(_client.messages.create, max_attempts=3, base_delay=2.0, **_kwargs)
-
-            if _msg.stop_reason != "tool_use":
-                for block in _msg.content:
-                    if hasattr(block, "text"):
-                        _reply += block.text
-                break
-
-            tool_use_blocks = [b for b in _msg.content if b.type == "tool_use"]
-            if not tool_use_blocks:
-                for block in _msg.content:
-                    if hasattr(block, "text"):
-                        _reply += block.text
-                break
-
-            _tools_called.extend(b.name for b in tool_use_blocks)
-            _msgs.append({"role": "assistant", "content": _msg.content})
-            tool_results = await asyncio.gather(*[
-                dispatch_architect_tool(b.name, b.input, db=db)
-                for b in tool_use_blocks
-            ])
-            _msgs.append({"role": "user", "content": [
-                {"type": "tool_result", "tool_use_id": b.id, "content": result}
-                for b, result in zip(tool_use_blocks, tool_results)
-            ]})
-        else:
-            _reply = _reply or "[ARCHITECT tool loop reached limit — partial brief above]"
-        return _reply
-
-    for _model, _max_tok in _ARCHITECT_MODELS:
-        try:
-            reply = await _run_architect_loop(_model, _max_tok)
-            if reply:
-                break
-        except Exception as _err:
-            logger.warning("ARCHITECT model %s failed: %s — trying next tier", _model, _err)
-            reply = ""
-
-    if not reply:
-        reply = (
-            "THE ARCHITECT is temporarily offline. "
-            "Visual intelligence archives remain active. Retry in a moment."
+    try:
+        from ai.llm_gateway import call_llm
+        _llm = await call_llm(
+            system=system,
+            messages=[{"role": "user", "content": message}],
+            max_tokens=4096,
+            persona_label="architect",
+            user_id=user.id,
         )
+        reply = _llm.get("text", "")
+    except Exception as e:
+        logger.exception("Architect AI error")
+        raise HTTPException(502, f"AI error: {e}")
 
-    await log_episode(db, session_id, "architect", user.id, message, reply, _tools_called)
+    await log_episode(db, session_id, "architect", user.id, message, reply, [])
     logger.info("ai_architect: responded for user %s", user.id)
     return {"reply": reply, "persona": "architect", "mode": "visual_intelligence"}
 
@@ -8252,8 +7964,6 @@ async def ai_cipher(body: dict, user: User = Depends(current_user)):
 
     memory_ctx = await get_memory_context(db, "cipher", user.id)
 
-    import anthropic as _anthropic_module
-    _client  = _anthropic_module.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
     system   = get_persona("cipher") + (
         f"\n\nEXECUTIVE CONTEXT:\n"
         f"- Operating for: {user.full_name} ({user.role})\n"
@@ -8261,68 +7971,21 @@ async def ai_cipher(body: dict, user: User = Depends(current_user)):
         f"- GUMROAD_API_KEY: {'SET — Gumroad publishing active' if GUMROAD_API_KEY else 'NOT SET — Tier 2 fallback active'}\n"
     ) + memory_ctx
 
-    _CIPHER_MODELS = [
-        ("claude-sonnet-4-6", 4096),
-        ("claude-haiku-4-5",  2048),
-    ]
-    MAX_TOOL_TURNS = 8
-    reply = ""
-    _tools_called: list[str] = []
-
-    async def _run_cipher_loop(model_name: str, max_tok: int) -> str:
-        _msgs  = [{"role": "user", "content": message}]
-        _reply = ""
-        for _turn in range(MAX_TOOL_TURNS + 1):
-            _kwargs = dict(
-                model=model_name, max_tokens=max_tok,
-                system=system, messages=_msgs,
-                tools=CIPHER_TOOLS,
-            )
-            _msg = await async_retry(_client.messages.create, max_attempts=3, base_delay=2.0, **_kwargs)
-
-            if _msg.stop_reason != "tool_use":
-                for block in _msg.content:
-                    if hasattr(block, "text"):
-                        _reply += block.text
-                break
-
-            tool_use_blocks = [b for b in _msg.content if b.type == "tool_use"]
-            if not tool_use_blocks:
-                for block in _msg.content:
-                    if hasattr(block, "text"):
-                        _reply += block.text
-                break
-
-            _tools_called.extend(b.name for b in tool_use_blocks)
-            _msgs.append({"role": "assistant", "content": _msg.content})
-            tool_results = await asyncio.gather(*[
-                dispatch_cipher_tool(b.name, b.input, db=db)
-                for b in tool_use_blocks
-            ])
-            _msgs.append({"role": "user", "content": [
-                {"type": "tool_result", "tool_use_id": b.id, "content": result}
-                for b, result in zip(tool_use_blocks, tool_results)
-            ]})
-        else:
-            _reply = _reply or "[CIPHER tool loop reached limit — partial work above]"
-        return _reply
-
-    for _model, _max_tok in _CIPHER_MODELS:
-        try:
-            reply = await _run_cipher_loop(_model, _max_tok)
-            if reply:
-                break
-        except Exception as _err:
-            logger.warning("CIPHER model %s failed: %s — trying next tier", _model, _err)
-            reply = ""
-
-    if not reply:
-        reply = (
-            "THE CIPHER is temporarily operating without AI connectivity. "
-            "Revenue streams remain active. Retry in a moment."
+    try:
+        from ai.llm_gateway import call_llm
+        _llm = await call_llm(
+            system=system,
+            messages=[{"role": "user", "content": message}],
+            max_tokens=4096,
+            persona_label="cipher",
+            user_id=user.id,
         )
+        reply = _llm.get("text", "")
+    except Exception as e:
+        logger.exception("Cipher AI error")
+        raise HTTPException(502, f"AI error: {e}")
 
-    await log_episode(db, session_id, "cipher", user.id, message, reply, _tools_called)
+    await log_episode(db, session_id, "cipher", user.id, message, reply, [])
     logger.info("ai_cipher: responded for user %s", user.id)
     return {"reply": reply, "persona": "cipher", "mode": "creative_authority"}
 
@@ -8363,8 +8026,6 @@ async def ai_oracle(body: dict, user: User = Depends(current_user)):
 
     memory_ctx = await get_memory_context(db, "oracle", user.id)
 
-    import anthropic as _anthropic_module
-    _client  = _anthropic_module.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
     system   = get_persona("oracle") + (
         f"\n\nEXECUTIVE CONTEXT:\n"
         f"- Operating for: {user.full_name} ({user.role})\n"
@@ -8372,68 +8033,21 @@ async def ai_oracle(body: dict, user: User = Depends(current_user)):
         f"- GUMROAD_API_KEY: {'SET — publishing active' if GUMROAD_API_KEY else 'NOT SET — Tier 2 fallback active'}\n"
     ) + memory_ctx
 
-    _ORACLE_MODELS = [
-        ("claude-sonnet-4-6", 4096),
-        ("claude-haiku-4-5",  2048),
-    ]
-    MAX_TOOL_TURNS = 8
-    reply = ""
-    _tools_called: list[str] = []
-
-    async def _run_oracle_loop(model_name: str, max_tok: int) -> str:
-        _msgs  = [{"role": "user", "content": message}]
-        _reply = ""
-        for _turn in range(MAX_TOOL_TURNS + 1):
-            _kwargs = dict(
-                model=model_name, max_tokens=max_tok,
-                system=system, messages=_msgs,
-                tools=ORACLE_TOOLS,
-            )
-            _msg = await async_retry(_client.messages.create, max_attempts=3, base_delay=2.0, **_kwargs)
-
-            if _msg.stop_reason != "tool_use":
-                for block in _msg.content:
-                    if hasattr(block, "text"):
-                        _reply += block.text
-                break
-
-            tool_use_blocks = [b for b in _msg.content if b.type == "tool_use"]
-            if not tool_use_blocks:
-                for block in _msg.content:
-                    if hasattr(block, "text"):
-                        _reply += block.text
-                break
-
-            _tools_called.extend(b.name for b in tool_use_blocks)
-            _msgs.append({"role": "assistant", "content": _msg.content})
-            tool_results = await asyncio.gather(*[
-                dispatch_oracle_tool(b.name, b.input, db=db)
-                for b in tool_use_blocks
-            ])
-            _msgs.append({"role": "user", "content": [
-                {"type": "tool_result", "tool_use_id": b.id, "content": result}
-                for b, result in zip(tool_use_blocks, tool_results)
-            ]})
-        else:
-            _reply = _reply or "[ORACLE tool loop reached limit — partial intelligence above]"
-        return _reply
-
-    for _model, _max_tok in _ORACLE_MODELS:
-        try:
-            reply = await _run_oracle_loop(_model, _max_tok)
-            if reply:
-                break
-        except Exception as _err:
-            logger.warning("ORACLE model %s failed: %s — trying next tier", _model, _err)
-            reply = ""
-
-    if not reply:
-        reply = (
-            "THE ORACLE is temporarily operating without AI connectivity. "
-            "Cultural intelligence archives remain active. Retry in a moment."
+    try:
+        from ai.llm_gateway import call_llm
+        _llm = await call_llm(
+            system=system,
+            messages=[{"role": "user", "content": message}],
+            max_tokens=4096,
+            persona_label="oracle",
+            user_id=user.id,
         )
+        reply = _llm.get("text", "")
+    except Exception as e:
+        logger.exception("Oracle AI error")
+        raise HTTPException(502, f"AI error: {e}")
 
-    await log_episode(db, session_id, "oracle", user.id, message, reply, _tools_called)
+    await log_episode(db, session_id, "oracle", user.id, message, reply, [])
     logger.info("ai_oracle: responded for user %s", user.id)
     return {"reply": reply, "persona": "oracle", "mode": "cultural_intelligence"}
 
@@ -9097,12 +8711,18 @@ async def exec_dashboard(user: User = Depends(require_role("executive_admin"))):
     # ── Env / platform status ─────────────────────────────────────────────────
     elevenlabs_key   = bool(os.environ.get("ELEVENLABS_API_KEY", ""))
     openai_key       = bool(os.environ.get("OPENAI_API_KEY", ""))
-    anthropic_key    = bool(os.environ.get("ANTHROPIC_API_KEY", ""))
     ls_ready         = bool(LEMON_SQUEEZY_API_KEY and LEMON_SQUEEZY_STORE_ID)
     gumroad_ready    = bool(GUMROAD_API_KEY)
 
+    try:
+        from ai.llm_gateway import call_llm
+        llm_gateway_ready = True
+    except Exception:
+        llm_gateway_ready = False
+
     platform_status = {
-        "anthropic_api":         anthropic_key,
+        "llm_gateway":           llm_gateway_ready,
+        "anthropic_api":         False,
         "elevenlabs":            elevenlabs_key,
         "openai_tts":            openai_key,
         "lemon_squeezy":         ls_ready,
@@ -9513,12 +9133,9 @@ async def exec_staff_meeting(
 
     # Generate real persona responses via LLM in parallel
     async def _call_persona(persona_id: str, question: str) -> tuple[str, str]:
-        """Call a single persona via Anthropic and return (persona_id, response_text).
+        """Call a single persona via LLM gateway and return (persona_id, response_text).
         Returns (persona_id, "") on any failure so the meeting still completes."""
         try:
-            import anthropic as _anthropic_module
-
-            # Build system prompt — use persona_loader if available, else construct from domain role
             try:
                 from ai.persona_loader import get_persona
                 system_prompt = get_persona(persona_id)
@@ -9536,14 +9153,15 @@ async def exec_staff_meeting(
                 f"Provide your domain-specific assessment, action items, and recommendations."
             )
 
-            _client = _anthropic_module.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
-            _msg = await _client.messages.create(
-                model="claude-haiku-4-5",
-                max_tokens=1024,
+            from ai.llm_gateway import call_llm
+            _llm = await call_llm(
                 system=system_prompt,
                 messages=[{"role": "user", "content": user_message}],
+                max_tokens=1024,
+                persona_label=persona_id,
+                user_id=None,
             )
-            response = _msg.content[0].text.strip()
+            response = _llm.get("text", "").strip()
             return persona_id, response
         except Exception as exc:
             logger.warning("staff_meeting: persona %s LLM call failed: %s", persona_id, exc)
@@ -9551,7 +9169,7 @@ async def exec_staff_meeting(
 
     # Only call LLM for personas that have a role question (skip the_9 & prt — handled separately)
     _llm_personas = [pid for pid in meeting_participants if pid not in ("the_9", "poor_righteous_teacher")]
-    if _llm_personas and ANTHROPIC_API_KEY:
+    if _llm_personas:
         _results = await asyncio.gather(*[
             _call_persona(pid, domain_briefs[pid]["question"])
             for pid in _llm_personas
@@ -9582,17 +9200,14 @@ async def exec_staff_meeting(
                 )
                 synthesis = fusion.to_dict()
                 # Enrich synthesis with LLM-generated analysis
-                if synthesis.get("status") == "fused" and ANTHROPIC_API_KEY:
+                if synthesis.get("status") == "fused":
                     try:
-                        import anthropic as _anthropic_module
                         _responses_text = "\n\n".join(
                             f"=== {pid} ===\n{resp}"
                             for pid, resp in _persona_responses.items()
                         ) if _persona_responses else "(no persona responses available)"
-                        _client = _anthropic_module.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
-                        _msg = await _client.messages.create(
-                            model="claude-sonnet-4-6",
-                            max_tokens=2048,
+                        from ai.llm_gateway import call_llm
+                        _llm = await call_llm(
                             system=(
                                 "You are THE 9 — the unified intelligence of the WAI-Institute. "
                                 "You merge the capabilities of all 9 core personas into one coherent synthesis. "
@@ -9610,8 +9225,11 @@ async def exec_staff_meeting(
                                     f"Produce your unified synthesis."
                                 )
                             }],
+                            max_tokens=2048,
+                            persona_label="the_9_synthesis",
+                            user_id=None,
                         )
-                        synthesis["synthesis_brief"] = _msg.content[0].text.strip()
+                        synthesis["synthesis_brief"] = _llm.get("text", "").strip()
                     except Exception as _synth_err:
                         logger.warning("staff_meeting: The 9 LLM synthesis failed: %s", _synth_err)
             except Exception as _the9_err:
@@ -10019,18 +9637,22 @@ async def revenue_workspace_chat(ws_id: str, body: dict, user: User = Depends(cu
         {"_id": 0},
     ).sort("ts", -1).limit(10).to_list(length=10)
     memory_context = "\n".join(f"[{m.get('actor','')}]: {m.get('content','')}" for m in reversed(memory))
-    import anthropic as _anthropic_module
-    _client = _anthropic_module.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
     system_prompt = f"You are the Sovereign AI for workspace '{ws['name']}'. Respond helpfully."
     if memory_context:
         system_prompt += f"\n\nRecent workspace memory:\n{memory_context}"
-    _msg = await _client.messages.create(
-        model="claude-sonnet-4-6", max_tokens=2048,
-        system=system_prompt,
-        messages=[{"role": "user", "content": message}],
-    )
-    reply = _msg.content[0].text.strip()
-    # Store in workspace memory
+    try:
+        from ai.llm_gateway import call_llm
+        _llm = await call_llm(
+            system=system_prompt,
+            messages=[{"role": "user", "content": message}],
+            max_tokens=2048,
+            persona_label="sovereign_ai",
+            user_id=user.id,
+        )
+        reply = _llm.get("text", "").strip()
+    except Exception as e:
+        logger.exception("Sovereign AI error")
+        raise HTTPException(502, f"AI error: {e}")
     await db.sovereign_memory.insert_one({
         "workspace_id": ws_id, "actor": user.id, "content": message[:500],
         "reply": reply[:500], "ts": datetime.now(timezone.utc).isoformat(),
@@ -10086,8 +9708,8 @@ async def exec_pipeline_process(
     Route a single social media post through the intent pipeline.
 
     Analyzer:
-        - Claude Haiku when ANTHROPIC_API_KEY is set  (llm mode)
-        - Keyword fallback when key is absent          (offline mode)
+        - Free LLM gateway (llm mode)
+        - Keyword fallback when gateway is unavailable  (offline mode)
     """
     if _pipeline_manager is None:
         raise HTTPException(503, "PipelineManager not initialized — check server logs")

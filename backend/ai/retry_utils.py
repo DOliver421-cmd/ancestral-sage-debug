@@ -1,11 +1,11 @@
 """
-retry_utils.py — Director 4.0 Async Retry Infrastructure
-==========================================================
+retry_utils.py — Async Retry Infrastructure
+============================================
 Provides `async_retry`: an exponential-backoff wrapper for any awaitable call.
 
 Used by:
-  - Director AI endpoint  (Anthropic claude-sonnet-4-6 / claude-haiku-4-5)
-  - Helper AI endpoint    (Anthropic claude-haiku-4-5 / claude-3-haiku-20240307)
+  - Director AI endpoint
+  - Helper AI endpoint
   - Any tool that makes an external HTTP call and wants silent recovery
 
 Design:
@@ -21,7 +21,7 @@ from typing import Any, Callable, Coroutine, Type, Tuple
 
 logger = logging.getLogger("lcewai.retry")
 
-# Anthropic / httpx error types we treat as transient
+# Transient error types we treat as retryable
 _TRANSIENT_MESSAGES = (
     "rate_limit",
     "overloaded",
