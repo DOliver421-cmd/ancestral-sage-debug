@@ -1017,7 +1017,7 @@ function LearnTab({ user, status }) {
 }
 
 // ── Accordion Tool Section ─────────────────────────────────────────────────────
-function AccordionToolSection({ section }) {
+function AccordionToolSection({ section, onOpenTool, activeTool }) {
   const [open, setOpen] = useState(false);
   return (
     <div className="border border-ink/10 rounded-xl overflow-hidden">
@@ -1031,18 +1031,397 @@ function AccordionToolSection({ section }) {
       </button>
       {open && (
         <div className="p-2 space-y-1 bg-white">
-          {section.items.map(item => (
-            <Link
-              key={item.to}
-              to={item.to}
-              className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-copper/5 transition-colors group"
-            >
-              <item.icon className="w-4 h-4 text-copper/60 group-hover:text-copper shrink-0 transition-colors" />
-              <span className="text-sm text-ink/70 group-hover:text-ink transition-colors">{item.label}</span>
-            </Link>
+          {section.items.map(item => {
+            const isActive = activeTool === item.id;
+            return (
+              <button
+                key={item.id}
+                onClick={() => onOpenTool(isActive ? null : item.id)}
+                className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${
+                  isActive
+                    ? "bg-copper/10 text-copper"
+                    : "hover:bg-copper/5 text-ink/70 hover:text-ink"
+                }`}
+              >
+                <item.icon className="w-4 h-4 shrink-0 transition-colors" />
+                <span className="text-sm transition-colors">{item.label}</span>
+                {isActive && <span className="ml-auto text-xs">← Back</span>}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Workspace Content Router ──────────────────────────────────────────────────
+function WorkspaceContent({ tool, user, status, profile, onSaved }) {
+  switch (tool) {
+    case "ai-tutor":
+      return <AIAssistantPanel user={user} status={status} />;
+    case "byok":
+      return <ByokKeyCard />;
+    case "resource-hub":
+      return <ResourceHubPanel user={user} />;
+    case "social-blast":
+      return <InlineSocialPublisher canUseAI={canAccess(user, status, "publisher_ai")} />;
+    case "ghost-producer":
+      return <InlineGhostProducer />;
+    case "creator-studio":
+      return <InlineCreatorStudio user={user} />;
+    case "curriculum":
+      return <InlineCurriculum user={user} />;
+    case "academy":
+    case "academy-curriculum":
+      return <InlineAcademy user={user} />;
+    default:
+      return (
+        <div className="text-center py-12 text-ink/40">
+          <div className="font-heading font-bold text-sm mb-1">Coming Soon</div>
+          <div className="text-xs">This tool is being prepared for inline use.</div>
+        </div>
+      );
+  }
+}
+
+// ── Inline Tool Wrappers ──────────────────────────────────────────────────────
+function InlineCreatorStudio({ user }) {
+  return (
+    <div className="space-y-4">
+      <div className="font-heading font-bold text-sm text-ink/60 uppercase tracking-widest">Creator Studio</div>
+      <div className="card-flat p-6 text-center text-ink/40">
+        <Radio className="w-8 h-8 mx-auto mb-2 text-copper/40" />
+        <p className="text-sm">Creator Studio tools are being integrated into your workspace.</p>
+        <p className="text-xs mt-1">Use the full studio for now while we embed the complete interface.</p>
+      </div>
+    </div>
+  );
+}
+
+function InlineCurriculum({ user }) {
+  const [enrolled, setEnrolled] = useState([]);
+  const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    async function load() {
+      try {
+        const { data } = await api.get("/auth/me");
+        setEnrolled(data?.enrolled_modules || data?.enrollments || []);
+      } catch (_) {}
+      finally { setLoading(false); }
+    }
+    load();
+  }, []);
+  if (loading) return <div className="flex items-center justify-center py-8"><div className="w-5 h-5 border-2 border-copper border-t-transparent rounded-full animate-spin" /></div>;
+  return (
+    <div className="space-y-4">
+      <div className="font-heading font-bold text-sm text-ink/60 uppercase tracking-widest">Your Curriculum</div>
+      {enrolled.length === 0 ? (
+        <div className="card-flat p-6 text-center text-ink/40">
+          <BookOpen className="w-8 h-8 mx-auto mb-2 text-copper/40" />
+          <p className="text-sm">No courses yet.</p>
+          <Link to="/modules" className="text-xs text-copper font-bold mt-2 inline-block">Browse courses →</Link>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {enrolled.slice(0, 5).map((m, i) => (
+            <div key={m.module_id || i} className="card-flat p-4 flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-copper/10 flex items-center justify-center shrink-0">
+                <BookOpen className="w-5 h-5 text-copper" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="font-bold text-sm truncate">{m.title || m.module_title || "Module"}</div>
+                <div className="flex items-center gap-2 mt-1.5">
+                  <div className="flex-1 h-1.5 bg-ink/10 rounded-full overflow-hidden">
+                    <div className="h-full bg-copper rounded-full transition-all" style={{ width: `${m.progress || 0}%` }} />
+                  </div>
+                  <span className="text-xs text-ink/40 shrink-0">{m.progress || 0}%</span>
+                </div>
+              </div>
+              <Link to={`/modules/${m.module_id || m.id}`} className="text-xs font-bold text-copper hover:underline shrink-0">
+                {m.progress >= 100 ? "Review" : "Continue"}
+              </Link>
+            </div>
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+function InlineAcademy({ user }) {
+  return (
+    <div className="space-y-4">
+      <div className="font-heading font-bold text-sm text-ink/60 uppercase tracking-widest">Homeschool Academy</div>
+      <div className="card-flat p-6 text-center text-ink/40">
+        <GraduationCap className="w-8 h-8 mx-auto mb-2 text-copper/40" />
+        <p className="text-sm">Academy courses and curriculum are being integrated into your workspace.</p>
+        <Link to="/academy/curriculum" className="text-xs text-copper font-bold mt-2 inline-block">Browse Academy →</Link>
+      </div>
+    </div>
+  );
+}
+
+function InlineCertificates() {
+  const [certs, setCerts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    async function load() {
+      try {
+        const { data } = await api.get("/certificates/me");
+        setCerts(data?.certificates || data || []);
+      } catch (_) {}
+      finally { setLoading(false); }
+    }
+    load();
+  }, []);
+  if (loading) return <div className="flex items-center justify-center py-8"><div className="w-5 h-5 border-2 border-copper border-t-transparent rounded-full animate-spin" /></div>;
+  return (
+    <div className="space-y-4">
+      <div className="font-heading font-bold text-sm text-ink/60 uppercase tracking-widest">Certificates</div>
+      {certs.length === 0 ? (
+        <p className="text-sm text-ink/40">No certificates earned yet.</p>
+      ) : (
+        <div className="grid sm:grid-cols-2 gap-3">
+          {certs.slice(0, 6).map((c, i) => (
+            <div key={c.id || i} className="card-flat p-4 flex items-center gap-3">
+              <Award className="w-6 h-6 text-copper shrink-0" />
+              <div className="min-w-0">
+                <div className="font-bold text-sm truncate">{c.title || c.course_title || "Certificate"}</div>
+                {c.issued_at && <div className="text-xs text-ink/40">{new Date(c.issued_at).toLocaleDateString()}</div>}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function InlineCredentials() {
+  const [creds, setCreds] = useState([]);
+  const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    async function load() {
+      try {
+        const { data } = await api.get("/credentials");
+        setCreds(data?.credentials || data || []);
+      } catch (_) {}
+      finally { setLoading(false); }
+    }
+    load();
+  }, []);
+  if (loading) return <div className="flex items-center justify-center py-8"><div className="w-5 h-5 border-2 border-copper border-t-transparent rounded-full animate-spin" /></div>;
+  return (
+    <div className="space-y-4">
+      <div className="font-heading font-bold text-sm text-ink/60 uppercase tracking-widest">Credentials</div>
+      {creds.length === 0 ? (
+        <p className="text-sm text-ink/40">No credentials yet.</p>
+      ) : (
+        <div className="space-y-2">
+          {creds.slice(0, 6).map((c, i) => (
+            <div key={c.id || i} className="card-flat p-3 flex items-center gap-3">
+              <CheckCircle className="w-5 h-5 text-green-500 shrink-0" />
+              <div className="min-w-0">
+                <div className="font-bold text-sm truncate">{c.title || c.label || "Credential"}</div>
+                {c.issued_at && <div className="text-xs text-ink/40">{new Date(c.issued_at).toLocaleDateString()}</div>}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function InlineAdaptive() {
+  return (
+    <div className="space-y-4">
+      <div className="font-heading font-bold text-sm text-ink/60 uppercase tracking-widest">Learning Path</div>
+      <div className="card-flat p-6 text-center text-ink/40">
+        <Brain className="w-8 h-8 mx-auto mb-2 text-copper/40" />
+        <p className="text-sm">Adaptive learning paths are being prepared.</p>
+      </div>
+    </div>
+  );
+}
+
+function InlineCourseManager() {
+  return (
+    <div className="space-y-4">
+      <div className="font-heading font-bold text-sm text-ink/60 uppercase tracking-widest">Course Manager</div>
+      <div className="card-flat p-6 text-center text-ink/40">
+        <FileText className="w-8 h-8 mx-auto mb-2 text-copper/40" />
+        <p className="text-sm">Course management is being integrated into your workspace.</p>
+        <Link to="/creator/courses" className="text-xs text-copper font-bold mt-2 inline-block">Open full manager →</Link>
+      </div>
+    </div>
+  );
+}
+
+function InlineBand() {
+  return (
+    <div className="space-y-4">
+      <div className="font-heading font-bold text-sm text-ink/60 uppercase tracking-widest">Band on a Page</div>
+      <div className="card-flat p-6 text-center text-ink/40">
+        <Globe className="w-8 h-8 mx-auto mb-2 text-copper/40" />
+        <p className="text-sm">Band page tools are being integrated into your workspace.</p>
+        <Link to="/band" className="text-xs text-copper font-bold mt-2 inline-block">Open full page →</Link>
+      </div>
+    </div>
+  );
+}
+
+function InlineEarnings() {
+  return (
+    <div className="space-y-4">
+      <div className="font-heading font-bold text-sm text-ink/60 uppercase tracking-widest">My Earnings</div>
+      <div className="card-flat p-6 text-center text-ink/40">
+        <TrendingUp className="w-8 h-8 mx-auto mb-2 text-copper/40" />
+        <p className="text-sm">Earnings dashboard is being integrated into your workspace.</p>
+        <Link to="/creator/earnings" className="text-xs text-copper font-bold mt-2 inline-block">Open full dashboard →</Link>
+      </div>
+    </div>
+  );
+}
+
+function InlinePayouts() {
+  return (
+    <div className="space-y-4">
+      <div className="font-heading font-bold text-sm text-ink/60 uppercase tracking-widest">Payout Dashboard</div>
+      <div className="card-flat p-6 text-center text-ink/40">
+        <Receipt className="w-8 h-8 mx-auto mb-2 text-copper/40" />
+        <p className="text-sm">Payout dashboard is being integrated into your workspace.</p>
+        <Link to="/creator/payouts" className="text-xs text-copper font-bold mt-2 inline-block">Open full dashboard →</Link>
+      </div>
+    </div>
+  );
+}
+
+function InlineStore() {
+  return (
+    <div className="space-y-4">
+      <div className="font-heading font-bold text-sm text-ink/60 uppercase tracking-widest">Store</div>
+      <div className="card-flat p-6 text-center text-ink/40">
+        <ShoppingBag className="w-8 h-8 mx-auto mb-2 text-copper/40" />
+        <p className="text-sm">Store management is being integrated into your workspace.</p>
+        <Link to="/store" className="text-xs text-copper font-bold mt-2 inline-block">Open store →</Link>
+      </div>
+    </div>
+  );
+}
+
+function InlinePaymentHistory() {
+  return (
+    <div className="space-y-4">
+      <div className="font-heading font-bold text-sm text-ink/60 uppercase tracking-widest">Payment History</div>
+      <div className="card-flat p-6 text-center text-ink/40">
+        <DollarSign className="w-8 h-8 mx-auto mb-2 text-copper/40" />
+        <p className="text-sm">Payment history is being integrated into your workspace.</p>
+        <Link to="/payment/history" className="text-xs text-copper font-bold mt-2 inline-block">View full history →</Link>
+      </div>
+    </div>
+  );
+}
+
+function InlineCreatorLounge() {
+  return (
+    <div className="space-y-4">
+      <div className="font-heading font-bold text-sm text-ink/60 uppercase tracking-widest">Creator Lounge</div>
+      <div className="card-flat p-6 text-center text-ink/40">
+        <Mic className="w-8 h-8 mx-auto mb-2 text-copper/40" />
+        <p className="text-sm">Creator Lounge is being integrated into your workspace.</p>
+        <Link to="/creator-lounge" className="text-xs text-copper font-bold mt-2 inline-block">Open lounge →</Link>
+      </div>
+    </div>
+  );
+}
+
+function InlineCommunity() {
+  return (
+    <div className="space-y-4">
+      <div className="font-heading font-bold text-sm text-ink/60 uppercase tracking-widest">Community</div>
+      <div className="card-flat p-6 text-center text-ink/40">
+        <Radio className="w-8 h-8 mx-auto mb-2 text-copper/40" />
+        <p className="text-sm">Community features are being integrated into your workspace.</p>
+      </div>
+    </div>
+  );
+}
+
+function InlinePersonas() {
+  return (
+    <div className="space-y-4">
+      <div className="font-heading font-bold text-sm text-ink/60 uppercase tracking-widest">AI Team</div>
+      <div className="card-flat p-6 text-center text-ink/40">
+        <BrainCircuit className="w-8 h-8 mx-auto mb-2 text-copper/40" />
+        <p className="text-sm">AI persona management is being integrated into your workspace.</p>
+      </div>
+    </div>
+  );
+}
+
+function InlineMusicStudio() {
+  return (
+    <div className="space-y-4">
+      <div className="font-heading font-bold text-sm text-ink/60 uppercase tracking-widest">Music Studio</div>
+      <div className="card-flat p-6 text-center text-ink/40">
+        <Music4 className="w-8 h-8 mx-auto mb-2 text-copper/40" />
+        <p className="text-sm">Music studio is being integrated into your workspace.</p>
+        <Link to="/studio/music" className="text-xs text-copper font-bold mt-2 inline-block">Open music studio →</Link>
+      </div>
+    </div>
+  );
+}
+
+function InlineVideoStudio() {
+  return (
+    <div className="space-y-4">
+      <div className="font-heading font-bold text-sm text-ink/60 uppercase tracking-widest">Video Studio</div>
+      <div className="card-flat p-6 text-center text-ink/40">
+        <Video className="w-8 h-8 mx-auto mb-2 text-copper/40" />
+        <p className="text-sm">Video studio is being integrated into your workspace.</p>
+        <Link to="/video-studio" className="text-xs text-copper font-bold mt-2 inline-block">Open video studio →</Link>
+      </div>
+    </div>
+  );
+}
+
+function InlineHelpCenter() {
+  return (
+    <div className="space-y-4">
+      <div className="font-heading font-bold text-sm text-ink/60 uppercase tracking-widest">Help Center</div>
+      <div className="card-flat p-6 text-center text-ink/40">
+        <HelpCircle className="w-8 h-8 mx-auto mb-2 text-copper/40" />
+        <p className="text-sm">Help Center is being integrated into your workspace.</p>
+        <Link to="/help-center" className="text-xs text-copper font-bold mt-2 inline-block">Open Help Center →</Link>
+      </div>
+    </div>
+  );
+}
+
+function InlineKnowledgeFinder() {
+  return (
+    <div className="space-y-4">
+      <div className="font-heading font-bold text-sm text-ink/60 uppercase tracking-widest">Knowledge Finder</div>
+      <div className="card-flat p-6 text-center text-ink/40">
+        <Search className="w-8 h-8 mx-auto mb-2 text-copper/40" />
+        <p className="text-sm">Knowledge Finder is being integrated into your workspace.</p>
+        <Link to="/knowledge" className="text-xs text-copper font-bold mt-2 inline-block">Open finder →</Link>
+      </div>
+    </div>
+  );
+}
+
+function InlineVonnSaga() {
+  return (
+    <div className="space-y-4">
+      <div className="font-heading font-bold text-sm text-ink/60 uppercase tracking-widest">Vonn's Saga</div>
+      <div className="card-flat p-6 text-center text-ink/40">
+        <BookOpen className="w-8 h-8 mx-auto mb-2 text-copper/40" />
+        <p className="text-sm">Vonn's Saga is being integrated into your workspace.</p>
+        <Link to="/vonns-saga" className="text-xs text-copper font-bold mt-2 inline-block">Open →</Link>
+      </div>
     </div>
   );
 }
@@ -1058,6 +1437,7 @@ export default function UnifiedProfile() {
   const [status, setStatus]     = useState(null);
   const [loading, setLoading]   = useState(true);
   const [activeTab, setActiveTab] = useState("home");
+  const [activeTool, setActiveTool] = useState(null);
 
   // Determine if viewer is the owner
   const isOwner = user && (profile?.is_owner === true || (!username && !!user));
@@ -1310,77 +1690,100 @@ export default function UnifiedProfile() {
                               label: "Learning",
                               desc: "Courses, Academy, Certificates, Credentials",
                               items: [
-                                { to: "/modules", label: "Curriculum", icon: BookOpen },
-                                { to: "/academy/curriculum", label: "Homeschool Academy", icon: GraduationCap },
-                                { to: "/certificates", label: "Certificates", icon: Award },
-                                { to: "/credentials", label: "Credentials", icon: CheckCircle },
-                                { to: "/adaptive", label: "Learning Path", icon: Brain },
+                                { id: "curriculum", label: "Curriculum", icon: BookOpen, component: InlineCurriculum },
+                                { id: "academy", label: "Homeschool Academy", icon: GraduationCap, component: InlineAcademy },
+                                { id: "certificates", label: "Certificates", icon: Award, component: InlineCertificates },
+                                { id: "credentials", label: "Credentials", icon: CheckCircle, component: InlineCredentials },
+                                { id: "adaptive", label: "Learning Path", icon: Brain, component: InlineAdaptive },
                               ],
                             },
                             {
                               label: "Create & Publish",
                               desc: "Studio, Courses, Ghost, Social",
                               items: [
-                                { to: "/studio", label: "Creator Studio", icon: Radio },
-                                { to: "/creator/courses", label: "Course Manager", icon: FileText },
-                                { to: "/ghost-producer", label: "Ghost Producer", icon: Music },
-                                { to: "/social/publish", label: "Social Blast", icon: Megaphone },
-                                { to: "/band", label: "Band on a Page", icon: Globe },
+                                { id: "creator-studio", label: "Creator Studio", icon: Radio, component: InlineCreatorStudio },
+                                { id: "course-manager", label: "Course Manager", icon: FileText, component: InlineCourseManager },
+                                { id: "ghost-producer", label: "Ghost Producer", icon: Music, component: InlineGhostProducer },
+                                { id: "social-blast", label: "Social Blast", icon: Megaphone, component: InlineSocialPublisher },
+                                { id: "band", label: "Band on a Page", icon: Globe, component: InlineBand },
                               ],
                             },
                             {
                               label: "Business & Work",
                               desc: "Earnings, Store, Resource Hub, Payments",
                               items: [
-                                { to: "/creator/earnings", label: "My Earnings", icon: TrendingUp },
-                                { to: "/creator/payouts", label: "Payout Dashboard", icon: Receipt },
-                                { to: "/store", label: "Store", icon: ShoppingBag },
-                                { to: "/resources", label: "Resource Hub", icon: Briefcase },
-                                { to: "/payment/history", label: "Payment History", icon: DollarSign },
+                                { id: "earnings", label: "My Earnings", icon: TrendingUp, component: InlineEarnings },
+                                { id: "payouts", label: "Payout Dashboard", icon: Receipt, component: InlinePayouts },
+                                { id: "store", label: "Store", icon: ShoppingBag, component: InlineStore },
+                                { id: "resource-hub", label: "Resource Hub", icon: Briefcase, component: ResourceHubPanel },
+                                { id: "payment-history", label: "Payment History", icon: DollarSign, component: InlinePaymentHistory },
                               ],
                             },
                             {
                               label: "Community",
                               desc: "Creator Lounge, Community",
                               items: [
-                                { to: "/creator-lounge", label: "Creator Lounge", icon: Mic },
-                                { to: "/community", label: "Community", icon: Radio },
+                                { id: "creator-lounge", label: "Creator Lounge", icon: Mic, component: InlineCreatorLounge },
+                                { id: "community", label: "Community", icon: Radio, component: InlineCommunity },
                               ],
                             },
                             {
                               label: "AI & Technology",
                               desc: "AI Tutor, BYOK, Personas",
                               items: [
-                                { to: "/ai", label: "AI Tutor", icon: Zap },
-                                { to: "/byok", label: "My AI Keys", icon: KeyRound },
-                                { to: "/personas", label: "AI Team", icon: BrainCircuit },
+                                { id: "ai-tutor", label: "AI Tutor", icon: Zap, component: AIAssistantPanel },
+                                { id: "byok", label: "My AI Keys", icon: KeyRound, component: ByokKeyCard },
+                                { id: "personas", label: "AI Team", icon: BrainCircuit, component: InlinePersonas },
                               ],
                             },
                             {
                               label: "Media Studio",
                               desc: "Music, Video, Band",
                               items: [
-                                { to: "/studio", label: "Creator Studio", icon: Radio },
-                                { to: "/studio/music", label: "Music Studio", icon: Music4 },
-                                { to: "/video-studio", label: "Video Studio", icon: Video },
-                                { to: "/band", label: "Band on a Page", icon: Globe },
+                                { id: "studio", label: "Creator Studio", icon: Radio, component: InlineCreatorStudio },
+                                { id: "music-studio", label: "Music Studio", icon: Music4, component: InlineMusicStudio },
+                                { id: "video-studio", label: "Video Studio", icon: Video, component: InlineVideoStudio },
+                                { id: "band-page", label: "Band on a Page", icon: Globe, component: InlineBand },
                               ],
                             },
                             {
                               label: "Resources & Library",
                               desc: "Help, Knowledge, Legacy",
                               items: [
-                                { to: "/help-center", label: "Help Center", icon: HelpCircle },
-                                { to: "/knowledge", label: "Knowledge Finder", icon: Search },
-                                { to: "/vonns-saga", label: "Vonn's Saga", icon: BookOpen },
-                                { to: "/academy/curriculum", label: "Homeschool Academy", icon: GraduationCap },
+                                { id: "help-center", label: "Help Center", icon: HelpCircle, component: InlineHelpCenter },
+                                { id: "knowledge", label: "Knowledge Finder", icon: Search, component: InlineKnowledgeFinder },
+                                { id: "vonns-saga", label: "Vonn's Saga", icon: BookOpen, component: InlineVonnSaga },
+                                { id: "academy-curriculum", label: "Homeschool Academy", icon: GraduationCap, component: InlineAcademy },
                               ],
                             },
                           ].map((section, idx) => (
-                            <AccordionToolSection key={idx} section={section} />
+                            <AccordionToolSection
+                              key={idx}
+                              section={section}
+                              onOpenTool={setActiveTool}
+                              activeTool={activeTool}
+                            />
                           ))}
                         </div>
                       </div>
+
+                      {/* Inline workspace panel */}
+                      {activeTool && (
+                        <div className="mt-4 card-flat overflow-hidden">
+                          <div className="flex items-center justify-between px-4 py-3 border-b border-ink/10 bg-ink/3">
+                            <span className="font-heading font-bold text-sm">My Workspace</span>
+                            <button
+                              onClick={() => setActiveTool(null)}
+                              className="text-xs font-bold text-copper hover:text-copper/70"
+                            >
+                              ← Back to Tools
+                            </button>
+                          </div>
+                          <div className="p-4">
+                            <WorkspaceContent tool={activeTool} user={user} status={viewerStatus} profile={profile} onSaved={reloadProfile} />
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
 
