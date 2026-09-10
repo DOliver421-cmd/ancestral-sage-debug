@@ -52,6 +52,15 @@ const MusicStudioPage = React.lazy(() => import("../pages/Studio.jsx"));
 const VideoStudioPage = React.lazy(() => import("../pages/VideoStudioPage.jsx"));
 const VonnSagaPage = React.lazy(() => import("../pages/VonnsSaga.jsx"));
 
+// ── Workspace State Hook ───────────────────────────────────────────────────────
+function useWorkspaceState(workspaceState, key, defaultValue) {
+  const wsRef = useRef(workspaceState || {});
+  const ws = wsRef.current;
+  const [state, setState] = useState(() => ws[key] ?? defaultValue);
+  useEffect(() => { ws[key] = state; }, [ws, key, state]);
+  return [state, setState];
+}
+
 // ── Sub-components ────────────────────────────────────────────────────────────
 
 function LockedFeature({ name, requiredTier, compact = false, children }) {
@@ -80,11 +89,11 @@ function LockedFeature({ name, requiredTier, compact = false, children }) {
   );
 }
 
-function AIAssistantPanel({ user, status }) {
-  const [msgs, setMsgs] = useState([]);
-  const [input, setInput] = useState("");
-  const [sending, setSending] = useState(false);
-  const [audioOn, setAudioOn] = useState(false);
+function AIAssistantPanel({ user, status, workspaceState }) {
+  const [msgs, setMsgs] = useWorkspaceState(workspaceState, "ai-tutor-msgs", []);
+  const [input, setInput] = useWorkspaceState(workspaceState, "ai-tutor-input", "");
+  const [sending, setSending] = useWorkspaceState(workspaceState, "ai-tutor-sending", false);
+  const [audioOn, setAudioOn] = useWorkspaceState(workspaceState, "ai-tutor-audioOn", false);
   const endRef = useRef(null);
   const { listening, toggle: toggleMic } = useMic({
     onResult: (t) => setInput(p => p ? `${p} ${t}` : t),
@@ -178,13 +187,13 @@ const SOCIAL_PLATFORMS = [
   { id: "tiktok",    label: "🎵 TikTok",    limit: 2200,  shareUrl: null },
 ];
 
-function InlineSocialPublisher({ canUseAI }) {
-  const [text, setText]         = useState("");
-  const [link, setLink]         = useState("");
-  const [selected, setSelected] = useState(["twitter", "instagram"]);
-  const [results, setResults]   = useState(null);
-  const [loading, setLoading]   = useState(false);
-  const [copied, setCopied]     = useState(null);
+function InlineSocialPublisher({ canUseAI, workspaceState }) {
+  const [text, setText]         = useWorkspaceState(workspaceState, "social-blast-text", "");
+  const [link, setLink]         = useWorkspaceState(workspaceState, "social-blast-link", "");
+  const [selected, setSelected] = useWorkspaceState(workspaceState, "social-blast-selected", ["twitter", "instagram"]);
+  const [results, setResults]   = useWorkspaceState(workspaceState, "social-blast-results", null);
+  const [loading, setLoading]   = useWorkspaceState(workspaceState, "social-blast-loading", false);
+  const [copied, setCopied]     = useWorkspaceState(workspaceState, "social-blast-copied", null);
 
   const toggle = (id) => setSelected(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id]);
 
@@ -390,11 +399,11 @@ const GHOST_CLONES = [
   { id: "marketer",  icon: "📈", label: "Ghost Marketer",  color: "#ff0066", system: "You are the Ghost Marketer. Create a release strategy, rollout timeline, visual art direction brief, and audience targeting plan. Think 3 moves ahead.", placeholder: "Describe your music, brand, and goals…", btn: "Build Strategy" },
 ];
 
-function InlineGhostProducer() {
-  const [activeClone, setActiveClone] = useState(null);
-  const [input, setInput]   = useState("");
-  const [output, setOutput] = useState("");
-  const [loading, setLoading] = useState(false);
+function InlineGhostProducer({ workspaceState }) {
+  const [activeClone, setActiveClone] = useWorkspaceState(workspaceState, "ghost-producer-activeClone", null);
+  const [input, setInput]   = useWorkspaceState(workspaceState, "ghost-producer-input", "");
+  const [output, setOutput] = useWorkspaceState(workspaceState, "ghost-producer-output", "");
+  const [loading, setLoading] = useWorkspaceState(workspaceState, "ghost-producer-loading", false);
 
   function selectClone(c) { setActiveClone(c); setInput(""); setOutput(""); }
 
@@ -486,12 +495,12 @@ function ServiceCard({ icon: Icon, title, desc, to, locked, requiredTier }) {
 
 // ── Settings Tab ──────────────────────────────────────────────────────────────
 // ── BYOK — simple single-key AI connection (owner only) ───────────────────────
-function ByokKeyCard() {
-  const [status, setStatus] = useState(null);
-  const [provider, setProvider] = useState("");
-  const [keyInput, setKeyInput] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [msg, setMsg] = useState(null);
+function ByokKeyCard({ workspaceState }) {
+  const [status, setStatus] = useWorkspaceState(workspaceState, "byok-status", null);
+  const [provider, setProvider] = useWorkspaceState(workspaceState, "byok-provider", "");
+  const [keyInput, setKeyInput] = useWorkspaceState(workspaceState, "byok-keyInput", "");
+  const [busy, setBusy] = useWorkspaceState(workspaceState, "byok-busy", false);
+  const [msg, setMsg] = useWorkspaceState(workspaceState, "byok-msg", null);
 
   const flash = (m) => { setMsg(m); setTimeout(() => setMsg(null), 6000); };
 
@@ -501,6 +510,7 @@ function ByokKeyCard() {
       const firstUnconfigured = (data.providers || []).find(p => !p.configured);
       if (firstUnconfigured) setProvider(firstUnconfigured.key);
     }).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function saveAndTest(e) {
@@ -1143,17 +1153,17 @@ function WorkspaceDrawer({ tool, user, status, profile, onSaved, onClose, worksp
 function WorkspaceContent({ tool, user, status, profile, onSaved, workspaceState }) {
   switch (tool) {
     case "ai-tutor":
-      return <AIAssistantPanel user={user} status={status} />;
+      return <AIAssistantPanel user={user} status={status} workspaceState={workspaceState} />;
     case "byok":
-      return <ByokKeyCard />;
+      return <ByokKeyCard workspaceState={workspaceState} />;
     case "resource-hub":
       return <ResourceHubPanel user={user} />;
     case "social-blast":
-      return <InlineSocialPublisher canUseAI={canAccess(user, status, "publisher_ai")} />;
+      return <InlineSocialPublisher canUseAI={canAccess(user, status, "publisher_ai")} workspaceState={workspaceState} />;
     case "ghost-producer":
-      return <InlineGhostProducer />;
+      return <InlineGhostProducer workspaceState={workspaceState} />;
     case "curriculum":
-      return <InlineCurriculum user={user} />;
+      return <InlineCurriculum user={user} workspaceState={workspaceState} />;
     case "academy":
     case "academy-curriculum":
       return null; // handled by drawer
@@ -1163,9 +1173,9 @@ function WorkspaceContent({ tool, user, status, profile, onSaved, workspaceState
 }
 
 // ── Inline Tool Wrappers ──────────────────────────────────────────────────────
-function InlineCurriculum({ user }) {
-  const [enrolled, setEnrolled] = useState([]);
-  const [loading, setLoading] = useState(true);
+function InlineCurriculum({ user, workspaceState }) {
+  const [enrolled, setEnrolled] = useWorkspaceState(workspaceState, "curriculum-enrolled", []);
+  const [loading, setLoading] = useWorkspaceState(workspaceState, "curriculum-loading", true);
   useEffect(() => {
     async function load() {
       try {
@@ -1175,6 +1185,7 @@ function InlineCurriculum({ user }) {
       finally { setLoading(false); }
     }
     load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   if (loading) return <div className="flex items-center justify-center py-8"><div className="w-5 h-5 border-2 border-copper border-t-transparent rounded-full animate-spin" /></div>;
   return (
