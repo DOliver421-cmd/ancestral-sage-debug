@@ -39,9 +39,18 @@ const CreatorStudioPage = React.lazy(() => import("../pages/CreatorStudio.jsx"))
 const StorePage = React.lazy(() => import("../pages/Store.jsx"));
 const PaymentHistoryPage = React.lazy(() => import("../pages/PaymentHistory.jsx"));
 const CreatorPayoutsPage = React.lazy(() => import("../pages/CreatorPayoutDashboard.jsx"));
-const PartnershipPage = React.lazy(() => import("../pages/PartnershipDashboard.jsx"));
 const HelpCenterPage = React.lazy(() => import("../pages/HelpCenter.jsx"));
 const KnowledgeFinderPage = React.lazy(() => import("../pages/KnowledgeFinder.jsx"));
+const AcademyPage = React.lazy(() => import("../pages/academy/AcademyLanding.jsx"));
+const CourseManagerPage = React.lazy(() => import("../pages/CreatorCourses.jsx"));
+const BandPage = React.lazy(() => import("../pages/BandOnPage.jsx"));
+const EarningsPage = React.lazy(() => import("../pages/CreatorEarnings.jsx"));
+const CreatorLoungePage = React.lazy(() => import("../pages/CreatorLounge.jsx"));
+const CommunityPage = React.lazy(() => import("../pages/Community.jsx"));
+const PersonasPage = React.lazy(() => import("../pages/Personas.jsx"));
+const MusicStudioPage = React.lazy(() => import("../pages/Studio.jsx"));
+const VideoStudioPage = React.lazy(() => import("../pages/VideoStudioPage.jsx"));
+const VonnSagaPage = React.lazy(() => import("../pages/VonnsSaga.jsx"));
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 
@@ -1069,20 +1078,22 @@ function AccordionToolSection({ section, onOpenTool, activeTool }) {
 function WorkspaceDrawer({ tool, user, status, profile, onSaved, onClose }) {
   const drawerContent = {
     "creator-studio": <CreatorStudioPage />,
-    "course-manager": <div className="p-8 text-center text-ink/40">Course Manager — use the full page for now.</div>,
-    "band": <div className="p-8 text-center text-ink/40">Band on a Page — use the full page for now.</div>,
-    "earnings": <CreatorPayoutsPage />,
+    "course-manager": <CourseManagerPage />,
+    "band": <BandPage />,
+    "earnings": <EarningsPage />,
     "payouts": <CreatorPayoutsPage />,
     "store": <StorePage />,
     "payment-history": <PaymentHistoryPage />,
-    "creator-lounge": <div className="p-8 text-center text-ink/40">Creator Lounge — use the full page for now.</div>,
-    "community": <div className="p-8 text-center text-ink/40">Community — use the full page for now.</div>,
-    "personas": <div className="p-8 text-center text-ink/40">AI Team — use the full page for now.</div>,
-    "music-studio": <div className="p-8 text-center text-ink/40">Music Studio — use the full page for now.</div>,
-    "video-studio": <div className="p-8 text-center text-ink/40">Video Studio — use the full page for now.</div>,
+    "creator-lounge": <CreatorLoungePage />,
+    "community": <CommunityPage />,
+    "personas": <PersonasPage />,
+    "music-studio": <MusicStudioPage />,
+    "video-studio": <VideoStudioPage />,
     "help-center": <HelpCenterPage />,
     "knowledge": <KnowledgeFinderPage />,
-    "vonns-saga": <div className="p-8 text-center text-ink/40">Vonn's Saga — use the full page for now.</div>,
+    "vonns-saga": <VonnSagaPage />,
+    "academy": <AcademyPage />,
+    "academy-curriculum": <AcademyPage />,
   };
 
   return (
@@ -1129,27 +1140,15 @@ function WorkspaceContent({ tool, user, status, profile, onSaved }) {
       return <InlineCurriculum user={user} />;
     case "academy":
     case "academy-curriculum":
-      return <InlineAcademy user={user} />;
+      return null; // handled by drawer
     default:
-      return null;
+      return null; // handled by drawer or not implemented
   }
+}
 }
 
 // ── Inline Tool Wrappers ──────────────────────────────────────────────────────
-function InlineCreatorStudio({ user }) {
-  return (
-    <div className="space-y-4">
-      <div className="font-heading font-bold text-sm text-ink/60 uppercase tracking-widest">Creator Studio</div>
-      <div className="card-flat p-6 text-center text-ink/40">
-        <Radio className="w-8 h-8 mx-auto mb-2 text-copper/40" />
-        <p className="text-sm">Creator Studio tools are being integrated into your workspace.</p>
-        <p className="text-xs mt-1">Use the full studio for now while we embed the complete interface.</p>
-      </div>
-    </div>
-  );
-}
-
-function InlineCurriculum({ user }) {
+// (kept for tools rendered inline in WorkspaceContent)
   const [enrolled, setEnrolled] = useState([]);
   const [loading, setLoading] = useState(true);
   useEffect(() => {
@@ -1195,283 +1194,6 @@ function InlineCurriculum({ user }) {
           ))}
         </div>
       )}
-    </div>
-  );
-}
-
-function InlineAcademy({ user }) {
-  return (
-    <div className="space-y-4">
-      <div className="font-heading font-bold text-sm text-ink/60 uppercase tracking-widest">Homeschool Academy</div>
-      <div className="card-flat p-6 text-center text-ink/40">
-        <GraduationCap className="w-8 h-8 mx-auto mb-2 text-copper/40" />
-        <p className="text-sm">Academy courses and curriculum are being integrated into your workspace.</p>
-        <Link to="/academy/curriculum" className="text-xs text-copper font-bold mt-2 inline-block">Browse Academy →</Link>
-      </div>
-    </div>
-  );
-}
-
-function InlineCertificates() {
-  const [certs, setCerts] = useState([]);
-  const [loading, setLoading] = useState(true);
-  useEffect(() => {
-    async function load() {
-      try {
-        const { data } = await api.get("/certificates/me");
-        setCerts(data?.certificates || data || []);
-      } catch (_) {}
-      finally { setLoading(false); }
-    }
-    load();
-  }, []);
-  if (loading) return <div className="flex items-center justify-center py-8"><div className="w-5 h-5 border-2 border-copper border-t-transparent rounded-full animate-spin" /></div>;
-  return (
-    <div className="space-y-4">
-      <div className="font-heading font-bold text-sm text-ink/60 uppercase tracking-widest">Certificates</div>
-      {certs.length === 0 ? (
-        <p className="text-sm text-ink/40">No certificates earned yet.</p>
-      ) : (
-        <div className="grid sm:grid-cols-2 gap-3">
-          {certs.slice(0, 6).map((c, i) => (
-            <div key={c.id || i} className="card-flat p-4 flex items-center gap-3">
-              <Award className="w-6 h-6 text-copper shrink-0" />
-              <div className="min-w-0">
-                <div className="font-bold text-sm truncate">{c.title || c.course_title || "Certificate"}</div>
-                {c.issued_at && <div className="text-xs text-ink/40">{new Date(c.issued_at).toLocaleDateString()}</div>}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function InlineCredentials() {
-  const [creds, setCreds] = useState([]);
-  const [loading, setLoading] = useState(true);
-  useEffect(() => {
-    async function load() {
-      try {
-        const { data } = await api.get("/credentials");
-        setCreds(data?.credentials || data || []);
-      } catch (_) {}
-      finally { setLoading(false); }
-    }
-    load();
-  }, []);
-  if (loading) return <div className="flex items-center justify-center py-8"><div className="w-5 h-5 border-2 border-copper border-t-transparent rounded-full animate-spin" /></div>;
-  return (
-    <div className="space-y-4">
-      <div className="font-heading font-bold text-sm text-ink/60 uppercase tracking-widest">Credentials</div>
-      {creds.length === 0 ? (
-        <p className="text-sm text-ink/40">No credentials yet.</p>
-      ) : (
-        <div className="space-y-2">
-          {creds.slice(0, 6).map((c, i) => (
-            <div key={c.id || i} className="card-flat p-3 flex items-center gap-3">
-              <CheckCircle className="w-5 h-5 text-green-500 shrink-0" />
-              <div className="min-w-0">
-                <div className="font-bold text-sm truncate">{c.title || c.label || "Credential"}</div>
-                {c.issued_at && <div className="text-xs text-ink/40">{new Date(c.issued_at).toLocaleDateString()}</div>}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function InlineAdaptive() {
-  return (
-    <div className="space-y-4">
-      <div className="font-heading font-bold text-sm text-ink/60 uppercase tracking-widest">Learning Path</div>
-      <div className="card-flat p-6 text-center text-ink/40">
-        <Brain className="w-8 h-8 mx-auto mb-2 text-copper/40" />
-        <p className="text-sm">Adaptive learning paths are being prepared.</p>
-      </div>
-    </div>
-  );
-}
-
-function InlineCourseManager() {
-  return (
-    <div className="space-y-4">
-      <div className="font-heading font-bold text-sm text-ink/60 uppercase tracking-widest">Course Manager</div>
-      <div className="card-flat p-6 text-center text-ink/40">
-        <FileText className="w-8 h-8 mx-auto mb-2 text-copper/40" />
-        <p className="text-sm">Course management is being integrated into your workspace.</p>
-        <Link to="/creator/courses" className="text-xs text-copper font-bold mt-2 inline-block">Open full manager →</Link>
-      </div>
-    </div>
-  );
-}
-
-function InlineBand() {
-  return (
-    <div className="space-y-4">
-      <div className="font-heading font-bold text-sm text-ink/60 uppercase tracking-widest">Band on a Page</div>
-      <div className="card-flat p-6 text-center text-ink/40">
-        <Globe className="w-8 h-8 mx-auto mb-2 text-copper/40" />
-        <p className="text-sm">Band page tools are being integrated into your workspace.</p>
-        <Link to="/band" className="text-xs text-copper font-bold mt-2 inline-block">Open full page →</Link>
-      </div>
-    </div>
-  );
-}
-
-function InlineEarnings() {
-  return (
-    <div className="space-y-4">
-      <div className="font-heading font-bold text-sm text-ink/60 uppercase tracking-widest">My Earnings</div>
-      <div className="card-flat p-6 text-center text-ink/40">
-        <TrendingUp className="w-8 h-8 mx-auto mb-2 text-copper/40" />
-        <p className="text-sm">Earnings dashboard is being integrated into your workspace.</p>
-        <Link to="/creator/earnings" className="text-xs text-copper font-bold mt-2 inline-block">Open full dashboard →</Link>
-      </div>
-    </div>
-  );
-}
-
-function InlinePayouts() {
-  return (
-    <div className="space-y-4">
-      <div className="font-heading font-bold text-sm text-ink/60 uppercase tracking-widest">Payout Dashboard</div>
-      <div className="card-flat p-6 text-center text-ink/40">
-        <Receipt className="w-8 h-8 mx-auto mb-2 text-copper/40" />
-        <p className="text-sm">Payout dashboard is being integrated into your workspace.</p>
-        <Link to="/creator/payouts" className="text-xs text-copper font-bold mt-2 inline-block">Open full dashboard →</Link>
-      </div>
-    </div>
-  );
-}
-
-function InlineStore() {
-  return (
-    <div className="space-y-4">
-      <div className="font-heading font-bold text-sm text-ink/60 uppercase tracking-widest">Store</div>
-      <div className="card-flat p-6 text-center text-ink/40">
-        <ShoppingBag className="w-8 h-8 mx-auto mb-2 text-copper/40" />
-        <p className="text-sm">Store management is being integrated into your workspace.</p>
-        <Link to="/store" className="text-xs text-copper font-bold mt-2 inline-block">Open store →</Link>
-      </div>
-    </div>
-  );
-}
-
-function InlinePaymentHistory() {
-  return (
-    <div className="space-y-4">
-      <div className="font-heading font-bold text-sm text-ink/60 uppercase tracking-widest">Payment History</div>
-      <div className="card-flat p-6 text-center text-ink/40">
-        <DollarSign className="w-8 h-8 mx-auto mb-2 text-copper/40" />
-        <p className="text-sm">Payment history is being integrated into your workspace.</p>
-        <Link to="/payment/history" className="text-xs text-copper font-bold mt-2 inline-block">View full history →</Link>
-      </div>
-    </div>
-  );
-}
-
-function InlineCreatorLounge() {
-  return (
-    <div className="space-y-4">
-      <div className="font-heading font-bold text-sm text-ink/60 uppercase tracking-widest">Creator Lounge</div>
-      <div className="card-flat p-6 text-center text-ink/40">
-        <Mic className="w-8 h-8 mx-auto mb-2 text-copper/40" />
-        <p className="text-sm">Creator Lounge is being integrated into your workspace.</p>
-        <Link to="/creator-lounge" className="text-xs text-copper font-bold mt-2 inline-block">Open lounge →</Link>
-      </div>
-    </div>
-  );
-}
-
-function InlineCommunity() {
-  return (
-    <div className="space-y-4">
-      <div className="font-heading font-bold text-sm text-ink/60 uppercase tracking-widest">Community</div>
-      <div className="card-flat p-6 text-center text-ink/40">
-        <Radio className="w-8 h-8 mx-auto mb-2 text-copper/40" />
-        <p className="text-sm">Community features are being integrated into your workspace.</p>
-      </div>
-    </div>
-  );
-}
-
-function InlinePersonas() {
-  return (
-    <div className="space-y-4">
-      <div className="font-heading font-bold text-sm text-ink/60 uppercase tracking-widest">AI Team</div>
-      <div className="card-flat p-6 text-center text-ink/40">
-        <BrainCircuit className="w-8 h-8 mx-auto mb-2 text-copper/40" />
-        <p className="text-sm">AI persona management is being integrated into your workspace.</p>
-      </div>
-    </div>
-  );
-}
-
-function InlineMusicStudio() {
-  return (
-    <div className="space-y-4">
-      <div className="font-heading font-bold text-sm text-ink/60 uppercase tracking-widest">Music Studio</div>
-      <div className="card-flat p-6 text-center text-ink/40">
-        <Music4 className="w-8 h-8 mx-auto mb-2 text-copper/40" />
-        <p className="text-sm">Music studio is being integrated into your workspace.</p>
-        <Link to="/studio/music" className="text-xs text-copper font-bold mt-2 inline-block">Open music studio →</Link>
-      </div>
-    </div>
-  );
-}
-
-function InlineVideoStudio() {
-  return (
-    <div className="space-y-4">
-      <div className="font-heading font-bold text-sm text-ink/60 uppercase tracking-widest">Video Studio</div>
-      <div className="card-flat p-6 text-center text-ink/40">
-        <Video className="w-8 h-8 mx-auto mb-2 text-copper/40" />
-        <p className="text-sm">Video studio is being integrated into your workspace.</p>
-        <Link to="/video-studio" className="text-xs text-copper font-bold mt-2 inline-block">Open video studio →</Link>
-      </div>
-    </div>
-  );
-}
-
-function InlineHelpCenter() {
-  return (
-    <div className="space-y-4">
-      <div className="font-heading font-bold text-sm text-ink/60 uppercase tracking-widest">Help Center</div>
-      <div className="card-flat p-6 text-center text-ink/40">
-        <HelpCircle className="w-8 h-8 mx-auto mb-2 text-copper/40" />
-        <p className="text-sm">Help Center is being integrated into your workspace.</p>
-        <Link to="/help-center" className="text-xs text-copper font-bold mt-2 inline-block">Open Help Center →</Link>
-      </div>
-    </div>
-  );
-}
-
-function InlineKnowledgeFinder() {
-  return (
-    <div className="space-y-4">
-      <div className="font-heading font-bold text-sm text-ink/60 uppercase tracking-widest">Knowledge Finder</div>
-      <div className="card-flat p-6 text-center text-ink/40">
-        <Search className="w-8 h-8 mx-auto mb-2 text-copper/40" />
-        <p className="text-sm">Knowledge Finder is being integrated into your workspace.</p>
-        <Link to="/knowledge" className="text-xs text-copper font-bold mt-2 inline-block">Open finder →</Link>
-      </div>
-    </div>
-  );
-}
-
-function InlineVonnSaga() {
-  return (
-    <div className="space-y-4">
-      <div className="font-heading font-bold text-sm text-ink/60 uppercase tracking-widest">Vonn's Saga</div>
-      <div className="card-flat p-6 text-center text-ink/40">
-        <BookOpen className="w-8 h-8 mx-auto mb-2 text-copper/40" />
-        <p className="text-sm">Vonn's Saga is being integrated into your workspace.</p>
-        <Link to="/vonns-saga" className="text-xs text-copper font-bold mt-2 inline-block">Open →</Link>
-      </div>
     </div>
   );
 }
@@ -1740,70 +1462,70 @@ export default function UnifiedProfile() {
                               label: "Learning",
                               desc: "Courses, Academy, Certificates, Credentials",
                               items: [
-                                { id: "curriculum", label: "Curriculum", icon: BookOpen, component: InlineCurriculum },
-                                { id: "academy", label: "Homeschool Academy", icon: GraduationCap, component: InlineAcademy },
-                                { id: "certificates", label: "Certificates", icon: Award, component: InlineCertificates },
-                                { id: "credentials", label: "Credentials", icon: CheckCircle, component: InlineCredentials },
-                                { id: "adaptive", label: "Learning Path", icon: Brain, component: InlineAdaptive },
+                                { id: "curriculum", label: "Curriculum", icon: BookOpen },
+                                { id: "academy", label: "Homeschool Academy", icon: GraduationCap },
+                                { id: "certificates", label: "Certificates", icon: Award },
+                                { id: "credentials", label: "Credentials", icon: CheckCircle },
+                                { id: "adaptive", label: "Learning Path", icon: Brain },
                               ],
                             },
                             {
                               label: "Create & Publish",
                               desc: "Studio, Courses, Ghost, Social",
                               items: [
-                                { id: "creator-studio", label: "Creator Studio", icon: Radio, component: InlineCreatorStudio },
-                                { id: "course-manager", label: "Course Manager", icon: FileText, component: InlineCourseManager },
-                                { id: "ghost-producer", label: "Ghost Producer", icon: Music, component: InlineGhostProducer },
-                                { id: "social-blast", label: "Social Blast", icon: Megaphone, component: InlineSocialPublisher },
-                                { id: "band", label: "Band on a Page", icon: Globe, component: InlineBand },
+                                { id: "creator-studio", label: "Creator Studio", icon: Radio },
+                                { id: "course-manager", label: "Course Manager", icon: FileText },
+                                { id: "ghost-producer", label: "Ghost Producer", icon: Music },
+                                { id: "social-blast", label: "Social Blast", icon: Megaphone },
+                                { id: "band", label: "Band on a Page", icon: Globe },
                               ],
                             },
                             {
                               label: "Business & Work",
                               desc: "Earnings, Store, Resource Hub, Payments",
                               items: [
-                                { id: "earnings", label: "My Earnings", icon: TrendingUp, component: InlineEarnings },
-                                { id: "payouts", label: "Payout Dashboard", icon: Receipt, component: InlinePayouts },
-                                { id: "store", label: "Store", icon: ShoppingBag, component: InlineStore },
-                                { id: "resource-hub", label: "Resource Hub", icon: Briefcase, component: ResourceHubPanel },
-                                { id: "payment-history", label: "Payment History", icon: DollarSign, component: InlinePaymentHistory },
+                                { id: "earnings", label: "My Earnings", icon: TrendingUp },
+                                { id: "payouts", label: "Payout Dashboard", icon: Receipt },
+                                { id: "store", label: "Store", icon: ShoppingBag },
+                                { id: "resource-hub", label: "Resource Hub", icon: Briefcase },
+                                { id: "payment-history", label: "Payment History", icon: DollarSign },
                               ],
                             },
                             {
                               label: "Community",
                               desc: "Creator Lounge, Community",
                               items: [
-                                { id: "creator-lounge", label: "Creator Lounge", icon: Mic, component: InlineCreatorLounge },
-                                { id: "community", label: "Community", icon: Radio, component: InlineCommunity },
+                                { id: "creator-lounge", label: "Creator Lounge", icon: Mic },
+                                { id: "community", label: "Community", icon: Radio },
                               ],
                             },
                             {
                               label: "AI & Technology",
                               desc: "AI Tutor, BYOK, Personas",
                               items: [
-                                { id: "ai-tutor", label: "AI Tutor", icon: Zap, component: AIAssistantPanel },
-                                { id: "byok", label: "My AI Keys", icon: KeyRound, component: ByokKeyCard },
-                                { id: "personas", label: "AI Team", icon: BrainCircuit, component: InlinePersonas },
+                                { id: "ai-tutor", label: "AI Tutor", icon: Zap },
+                                { id: "byok", label: "My AI Keys", icon: KeyRound },
+                                { id: "personas", label: "AI Team", icon: BrainCircuit },
                               ],
                             },
                             {
                               label: "Media Studio",
                               desc: "Music, Video, Band",
                               items: [
-                                { id: "studio", label: "Creator Studio", icon: Radio, component: InlineCreatorStudio },
-                                { id: "music-studio", label: "Music Studio", icon: Music4, component: InlineMusicStudio },
-                                { id: "video-studio", label: "Video Studio", icon: Video, component: InlineVideoStudio },
-                                { id: "band-page", label: "Band on a Page", icon: Globe, component: InlineBand },
+                                { id: "studio", label: "Creator Studio", icon: Radio },
+                                { id: "music-studio", label: "Music Studio", icon: Music4 },
+                                { id: "video-studio", label: "Video Studio", icon: Video },
+                                { id: "band-page", label: "Band on a Page", icon: Globe },
                               ],
                             },
                             {
                               label: "Resources & Library",
                               desc: "Help, Knowledge, Legacy",
                               items: [
-                                { id: "help-center", label: "Help Center", icon: HelpCircle, component: InlineHelpCenter },
-                                { id: "knowledge", label: "Knowledge Finder", icon: Search, component: InlineKnowledgeFinder },
-                                { id: "vonns-saga", label: "Vonn's Saga", icon: BookOpen, component: InlineVonnSaga },
-                                { id: "academy-curriculum", label: "Homeschool Academy", icon: GraduationCap, component: InlineAcademy },
+                                { id: "help-center", label: "Help Center", icon: HelpCircle },
+                                { id: "knowledge", label: "Knowledge Finder", icon: Search },
+                                { id: "vonns-saga", label: "Vonn's Saga", icon: BookOpen },
+                                { id: "academy-curriculum", label: "Homeschool Academy", icon: GraduationCap },
                               ],
                             },
                           ].map((section, idx) => (
@@ -1818,7 +1540,7 @@ export default function UnifiedProfile() {
                       </div>
 
                       {/* Inline workspace panel */}
-                      {activeTool && !["creator-studio", "course-manager", "band", "earnings", "payouts", "store", "payment-history", "creator-lounge", "community", "personas", "music-studio", "video-studio", "help-center", "knowledge", "vonns-saga"].includes(activeTool) && (
+                      {activeTool && !["creator-studio", "course-manager", "band", "earnings", "payouts", "store", "payment-history", "creator-lounge", "community", "personas", "music-studio", "video-studio", "help-center", "knowledge", "vonns-saga", "academy", "academy-curriculum"].includes(activeTool) && (
                         <div className="mt-4 card-flat overflow-hidden">
                           <div className="flex items-center justify-between px-4 py-3 border-b border-ink/10 bg-ink/3">
                             <span className="font-heading font-bold text-sm">My Workspace</span>
@@ -1835,8 +1557,8 @@ export default function UnifiedProfile() {
                         </div>
                       )}
 
-                      {/* Workspace drawer for tools not yet inline */}
-                      {activeTool && ["creator-studio", "course-manager", "band", "earnings", "payouts", "store", "payment-history", "creator-lounge", "community", "personas", "music-studio", "video-studio", "help-center", "knowledge", "vonns-saga"].includes(activeTool) && (
+                      {/* Workspace drawer for tools rendered as full-page overlays */}
+                      {activeTool && ["creator-studio", "course-manager", "band", "earnings", "payouts", "store", "payment-history", "creator-lounge", "community", "personas", "music-studio", "video-studio", "help-center", "knowledge", "vonns-saga", "academy", "academy-curriculum"].includes(activeTool) && (
                         <WorkspaceDrawer
                           tool={activeTool}
                           user={user}
