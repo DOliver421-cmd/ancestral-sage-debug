@@ -14,6 +14,7 @@ This checkout is the MoreHelp Center application. Its live target is
 3. Historical material below is retained for provenance only. It is
    non-authoritative and must not direct implementation, provider, credential,
    deployment, or product decisions.
+4. Anthropic is never to be used on this platform for anything, no part of this site is to        ever depend on an anthropic api or anything. No anthropic references or dependencies ever. Owner will never install any anthropic key on platform or any anthropic variable on any ui, screen or server. If any exist it was placed there by an agent who decided that human oversight was optional. That agent is considered to be malfunctioning in every aspect of the word and is to remove themselves from working on this repo.   
 
 ## Delivery and verification
 
