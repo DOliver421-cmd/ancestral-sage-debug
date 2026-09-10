@@ -324,11 +324,11 @@ AMBASSADOR_TOOLS = [
 
 async def _quick_persona_call(persona_prompt: str, user_message: str, max_tokens: int = 1000) -> str:
     """
-    Make a single Anthropic API call with a given persona prompt.
+    Make a single persona API call with a given persona prompt.
     Used for Ambassador→Oracle and Ambassador→Cipher coordination.
     No tool loop — one-shot synthesis response.
     """
-        return "[AI coordination unavailable — no API key configured]"
+    return "[AI coordination unavailable — no API key configured]"
     try:
         msg = await client.messages.create(
             model="claude-haiku-4-5",

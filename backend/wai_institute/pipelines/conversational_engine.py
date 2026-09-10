@@ -146,7 +146,7 @@ class ConversationalEngine:
         Use Cipher persona to write an empathetic, authentic recommendation.
         Falls back to template response if API unavailable.
         """
-            return self._template_response(product, theme, intent)
+        return self._template_response(product, theme, intent)
 
         tone = RESPONSE_TONE.get(intent, RESPONSE_TONE["none"])
         product_name = product.get("name", "this piece")
