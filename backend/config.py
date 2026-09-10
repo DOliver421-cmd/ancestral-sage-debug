@@ -30,7 +30,7 @@ class Settings(BaseSettings):
     # =====================================================================
     # EMAIL & NOTIFICATIONS
     # =====================================================================
-    SENDGRID_API_KEY: Optional[str] = os.getenv("SENDGRID_API_KEY")
+    RESEND_API_KEY: Optional[str] = os.getenv("RESEND_API_KEY")
     # Env-only — no hardcoded addresses. Alerts fall back to logging when unset.
     ADMIN_EMAIL: str = os.getenv("ADMIN_EMAIL", "")
 
@@ -67,10 +67,10 @@ class Settings(BaseSettings):
     # =====================================================================
     # FEATURE FLAGS
     # =====================================================================
-    # Payments run through Lemon Squeezy → Gumroad (no Stripe). Payouts are
-    # processed manually / via the payout schedule when the flag is on.
+    # Payments run through Lemon Squeezy (primary) → Stripe (fallback) → Gumroad.
+    # Payouts are processed manually / via the payout schedule when the flag is on.
     ENABLE_PAYOUTS: bool = os.getenv("ENABLE_PAYOUTS", "False").lower() == "true"
-    ENABLE_EMAILS: bool = bool(SENDGRID_API_KEY)
+    ENABLE_EMAILS: bool = bool(RESEND_API_KEY)
     ENABLE_SLACK_ALERTS: bool = bool(SLACK_WEBHOOK_URL)
 
     class Config:
