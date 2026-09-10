@@ -29,6 +29,7 @@ import {
   Twitter, Instagram, Facebook, Linkedin, Youtube,
   DollarSign, Heart, TrendingUp, Receipt, Network, Star, Crown, Shield,
   KeyRound, Loader2, Trash2, HelpCircle, Gamepad2, Share2, Briefcase,
+  Brain, BrainCircuit, Search, Music4, Video,
 } from "lucide-react";
 import { useMic } from "../hooks/useMic";
 
@@ -1015,6 +1016,37 @@ function LearnTab({ user, status }) {
   );
 }
 
+// ── Accordion Tool Section ─────────────────────────────────────────────────────
+function AccordionToolSection({ section }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="border border-ink/10 rounded-xl overflow-hidden">
+      <button
+        onClick={() => setOpen(v => !v)}
+        className="w-full flex items-center justify-between px-4 py-3 bg-ink/3 hover:bg-ink/5 transition-colors"
+      >
+        <span className="font-bold text-sm text-ink">{section.label}</span>
+        <span className="text-xs text-ink/40 hidden sm:inline">{section.desc}</span>
+        <span className="text-ink/30 ml-2">{open ? "−" : "+"}</span>
+      </button>
+      {open && (
+        <div className="p-2 space-y-1 bg-white">
+          {section.items.map(item => (
+            <Link
+              key={item.to}
+              to={item.to}
+              className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-copper/5 transition-colors group"
+            >
+              <item.icon className="w-4 h-4 text-copper/60 group-hover:text-copper shrink-0 transition-colors" />
+              <span className="text-sm text-ink/70 group-hover:text-ink transition-colors">{item.label}</span>
+            </Link>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Main component ─────────────────────────────────────────────────────────────
 export default function UnifiedProfile() {
   const { username } = useParams();
@@ -1223,70 +1255,30 @@ export default function UnifiedProfile() {
     <AppShell>
       <div className="min-h-screen bg-bone">
 
-        {/* ── Cover ── */}
-        <div className="relative h-52 sm:h-64" style={{ background: coverBg }}>
-          {isOwner && (
-            <button
-              onClick={() => toast.info("Cover photo upload — coming via profile edit")}
-              className="absolute top-3 right-3 flex items-center gap-1.5 text-xs font-bold bg-black/40 text-white px-3 py-1.5 rounded-full hover:bg-black/60 transition-colors"
-            >
-              <Camera className="w-3.5 h-3.5" /> Edit Cover
-            </button>
-          )}
-        </div>
-
-        {/* ── Avatar + name bar ── */}
-        <div className="max-w-6xl mx-auto px-4 sm:px-6">
-          <div className="flex items-end gap-5 -mt-14 mb-4 relative z-10">
-            <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full border-4 border-white shadow-xl overflow-hidden bg-copper/20 shrink-0 flex items-center justify-center">
+        {/* ── Compact identity header ── */}
+        <div className="border-b border-ink/10 bg-white">
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3 flex items-center gap-4">
+            <div className="w-10 h-10 rounded-full bg-copper/20 flex items-center justify-center shrink-0 overflow-hidden">
               {profile.avatar
                 ? <img src={profile.avatar} alt={profile.display_name} className="w-full h-full object-cover" />
-                : <span className="font-heading font-extrabold text-3xl text-copper">{(profile.display_name || "?")[0]}</span>
-              }
+                : <span className="font-heading font-extrabold text-lg text-copper">{(profile.display_name || "?")[0]}</span>}
             </div>
-            <div className="pb-2 flex-1 min-w-0">
-              <h1 className="font-heading font-extrabold text-2xl sm:text-3xl text-ink truncate">{profile.display_name}</h1>
-              <div className="text-sm text-ink/50">@{profile.slug}{profile.title && ` · ${profile.title}`}</div>
+            <div className="flex-1 min-w-0">
+              <h1 className="font-heading font-extrabold text-lg text-ink truncate">{profile.display_name}</h1>
+              <div className="text-xs text-ink/50 truncate">@{profile.slug}{profile.title ? ` · ${profile.title}` : ""} · {FEATURE_TIER_LABEL[user?.feature_tier] || "Free"} · {(user?.role || "student").replace("_", " ")}</div>
             </div>
-            <div className="pb-2 flex items-center gap-2 shrink-0">
+            <div className="flex items-center gap-2 shrink-0">
               {isOwner && (
                 <button onClick={() => setActiveTab("settings")} className="flex items-center gap-1.5 text-xs font-bold border border-ink/20 px-3 py-1.5 rounded-full hover:border-copper transition-colors">
                   <Edit3 className="w-3.5 h-3.5" /> Edit
                 </button>
               )}
               {canAccess(user, "resource_hub") && (
-                <Link to="/resources" className="flex items-center gap-1.5 text-xs font-bold border border-ink/20 px-3 py-1.5 rounded-full hover:border-copper transition-colors" title="Resource Hub">
-                  <Briefcase className="w-3.5 h-3.5" /> Resource Hub
-                </Link>
+                <button onClick={() => setActiveTab("resources")} className="flex items-center gap-1.5 text-xs font-bold border border-ink/20 px-3 py-1.5 rounded-full hover:border-copper transition-colors" title="Resource Hub">
+                  <Briefcase className="w-3.5 h-3.5" /> Resources
+                </button>
               )}
-              <SharePanel compact url={`/u/${profile.slug}`} title={`${profile.display_name} — M.O.R.E.`} embed />
             </div>
-          </div>
-
-          {/* Tier badge — shows the admin-controlled feature tier */}
-          {profile.feature_tier && profile.feature_tier !== "free" && (
-            <div className="inline-flex items-center gap-1.5 text-xs font-bold bg-copper/10 text-copper border border-copper/20 px-3 py-1 rounded-full mb-4">
-              <Zap className="w-3 h-3" /> {FEATURE_TIER_LABEL[profile.feature_tier] || profile.feature_tier} Member
-            </div>
-          )}
-
-          {/* Bio */}
-          {profile.bio && (
-            <p className="text-sm text-ink/70 max-w-2xl mb-5 leading-relaxed">{profile.bio}</p>
-          )}
-
-          {/* Tab bar */}
-          <div className="flex gap-0.5 border-b border-ink/10 mb-6 overflow-x-auto">
-            {TABS.map(t => (
-              <button key={t.key} onClick={() => setActiveTab(t.key)}
-                className={`px-4 py-2.5 text-sm font-bold border-b-2 whitespace-nowrap transition-colors ${
-                  activeTab === t.key
-                    ? "border-copper text-copper"
-                    : "border-transparent text-ink/40 hover:text-ink/70"
-                }`}>
-                {t.label}
-              </button>
-            ))}
           </div>
         </div>
 
@@ -1302,57 +1294,95 @@ export default function UnifiedProfile() {
                 <>
                   {/* ── Feature launcher: own profile, or admin visiting any profile ── */}
                   {(isOwner || isAdmin) && (
-                    <div>
-                      <div className="flex items-center justify-between mb-3">
-                        <span className="font-heading font-bold">Your Tools</span>
-                        <span className="text-xs text-ink/30 uppercase tracking-widest">{FEATURE_TIER_LABEL[user?.feature_tier] || "Free"} tier</span>
+                    <div className="space-y-6">
+                      {/* AI Tutor workspace */}
+                      <div className="space-y-4">
+                        <AIAssistantPanel user={user} status={viewerStatus} />
+                        {isOwner && <ByokKeyCard />}
                       </div>
-                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                        {[
-                          { feature: "ai_chat",      label: "AI Tutor",        icon: Zap,         to: "/ai",                  desc: "Ask anything",           free: true  },
-                          { feature: "profile",      label: "Social Blast",    icon: Megaphone,   to: "/social/publish",      desc: "Post to all platforms",  free: true  },
-                          { feature: "profile",      label: "Curriculum",      icon: BookOpen,    to: "/modules",             desc: "Browse all courses",     free: true  },
-                          { feature: "profile",      label: "Certificates",    icon: Award,       to: "/certificates",        desc: "Your earned certs",      free: true  },
-                          { feature: "profile",      label: "Help Center",     icon: HelpCircle,  to: "/help-center",         desc: "Guides & support",        free: true  },
-                          { feature: "posts",        label: "Creator Lounge",  icon: Mic,         to: "/creator-lounge",      desc: "Community stage",        free: false },
-                          { feature: "ghost",        label: "Ghost Producer",  icon: Music,       to: "/ghost-producer",      desc: "AI production suite",    free: false },
-                          { feature: "ghost",        label: "Creator Studio",  icon: Radio,       to: "/studio",              desc: "Build & publish",        free: false },
-                          { feature: "band",         label: "Band on a Page",  icon: Globe,       to: "/band",                desc: "Your group page",        free: false },
-                          { feature: "courses",      label: "Course Manager",  icon: FileText,    to: "/creator/courses",     desc: "Sell your knowledge",    free: false },
-                          { feature: "artist_mgmt",  label: "My Earnings",     icon: BarChart2,   to: "/creator/earnings",    desc: "Track income",           free: false },
-                          { feature: "artist_mgmt",  label: "Payouts",         icon: Settings,    to: "/creator/payouts",     desc: "Withdraw funds",         free: false },
-                          { feature: "sovereign",    label: "Admin Control",   icon: Shield,      to: "/admin",               desc: "Platform management",    free: false },
-                        ].map(({ feature, label, icon: Icon, to, desc, free }) => {
-                          const accessible = canAccess(user, viewerStatus, feature);
-                          if (!accessible) return (
-                            <Link key={label} to="/plans"
-                              className="card-flat p-4 flex flex-col gap-1 opacity-40 hover:opacity-60 transition-opacity group">
-                              <div className="flex items-center gap-2">
-                                <Lock className="w-3.5 h-3.5 text-ink/30" />
-                                <span className="font-bold text-sm text-ink/40 truncate">{label}</span>
-                              </div>
-                              <div className="text-xs text-ink/25 truncate">{desc}</div>
-                              <div className="text-xs text-copper font-bold mt-1 opacity-0 group-hover:opacity-100 transition-opacity">Upgrade →</div>
-                            </Link>
-                          );
-                          return (
-                            <Link key={label} to={to}
-                              className="card-flat p-4 flex flex-col gap-1 hover:border-copper transition-colors group">
-                              <div className="flex items-center gap-2">
-                                <Icon className="w-3.5 h-3.5 text-copper shrink-0" />
-                                <span className="font-bold text-sm truncate">{label}</span>
-                              </div>
-                              <div className="text-xs text-ink/50 truncate">{desc}</div>
-                              <div className="text-xs text-copper font-bold mt-1 opacity-0 group-hover:opacity-100 transition-opacity">Open →</div>
-                            </Link>
-                          );
-                        })}
+
+                      {/* Compact accordion toolbox */}
+                      <div>
+                        <div className="font-heading font-bold text-sm text-ink/60 uppercase tracking-widest mb-3">My Tools</div>
+                        <div className="space-y-2">
+                          {[
+                            {
+                              label: "Learning",
+                              desc: "Courses, Academy, Certificates, Credentials",
+                              items: [
+                                { to: "/modules", label: "Curriculum", icon: BookOpen },
+                                { to: "/academy/curriculum", label: "Homeschool Academy", icon: GraduationCap },
+                                { to: "/certificates", label: "Certificates", icon: Award },
+                                { to: "/credentials", label: "Credentials", icon: CheckCircle },
+                                { to: "/adaptive", label: "Learning Path", icon: Brain },
+                              ],
+                            },
+                            {
+                              label: "Create & Publish",
+                              desc: "Studio, Courses, Ghost, Social",
+                              items: [
+                                { to: "/studio", label: "Creator Studio", icon: Radio },
+                                { to: "/creator/courses", label: "Course Manager", icon: FileText },
+                                { to: "/ghost-producer", label: "Ghost Producer", icon: Music },
+                                { to: "/social/publish", label: "Social Blast", icon: Megaphone },
+                                { to: "/band", label: "Band on a Page", icon: Globe },
+                              ],
+                            },
+                            {
+                              label: "Business & Work",
+                              desc: "Earnings, Store, Resource Hub, Payments",
+                              items: [
+                                { to: "/creator/earnings", label: "My Earnings", icon: TrendingUp },
+                                { to: "/creator/payouts", label: "Payout Dashboard", icon: Receipt },
+                                { to: "/store", label: "Store", icon: ShoppingBag },
+                                { to: "/resources", label: "Resource Hub", icon: Briefcase },
+                                { to: "/payment/history", label: "Payment History", icon: DollarSign },
+                              ],
+                            },
+                            {
+                              label: "Community",
+                              desc: "Creator Lounge, Community",
+                              items: [
+                                { to: "/creator-lounge", label: "Creator Lounge", icon: Mic },
+                                { to: "/community", label: "Community", icon: Radio },
+                              ],
+                            },
+                            {
+                              label: "AI & Technology",
+                              desc: "AI Tutor, BYOK, Personas",
+                              items: [
+                                { to: "/ai", label: "AI Tutor", icon: Zap },
+                                { to: "/byok", label: "My AI Keys", icon: KeyRound },
+                                { to: "/personas", label: "AI Team", icon: BrainCircuit },
+                              ],
+                            },
+                            {
+                              label: "Media Studio",
+                              desc: "Music, Video, Band",
+                              items: [
+                                { to: "/studio", label: "Creator Studio", icon: Radio },
+                                { to: "/studio/music", label: "Music Studio", icon: Music4 },
+                                { to: "/video-studio", label: "Video Studio", icon: Video },
+                                { to: "/band", label: "Band on a Page", icon: Globe },
+                              ],
+                            },
+                            {
+                              label: "Resources & Library",
+                              desc: "Help, Knowledge, Legacy",
+                              items: [
+                                { to: "/help-center", label: "Help Center", icon: HelpCircle },
+                                { to: "/knowledge", label: "Knowledge Finder", icon: Search },
+                                { to: "/vonns-saga", label: "Vonn's Saga", icon: BookOpen },
+                                { to: "/academy/curriculum", label: "Homeschool Academy", icon: GraduationCap },
+                              ],
+                            },
+                          ].map((section, idx) => (
+                            <AccordionToolSection key={idx} section={section} />
+                          ))}
+                        </div>
                       </div>
                     </div>
                   )}
-
-                  {/* Your AI Key — simple single-key BYOK interface */}
-                  {isOwner && <ByokKeyCard />}
 
                   {/* Tracks */}
                   {profile.tracks?.length > 0 && (
@@ -1531,13 +1561,8 @@ export default function UnifiedProfile() {
               )}
             </div>
 
-            {/* ── Right rail ── */}
+            {/* ── Right rail (reduced — only share + revenue + upgrade) ── */}
             <div className="space-y-5">
-
-              {/* AI Assistant */}
-              <AIAssistantPanel user={user} status={viewerStatus} />
-
-              {/* Socials */}
               {profile.socials?.length > 0 && (
                 <div className="card-flat p-4 space-y-2 hidden lg:block">
                   <div className="text-xs font-bold uppercase tracking-widest text-ink/40 mb-2">Connect</div>
