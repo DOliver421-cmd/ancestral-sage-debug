@@ -170,8 +170,8 @@ if not JWT_SECRET:
     print('⚠️ FATAL: JWT_SECRET is not set — generated ephemeral secret; all sessions will invalidate on restart. Set JWT_SECRET in Railway Variables.')
 JWT_ALGO = os.environ.get('JWT_ALGORITHM', 'HS256')
 JWT_EXPIRE_HOURS = int(os.environ.get('JWT_EXPIRE_HOURS', '168'))
- EMERGENT_LLM_KEY = os.environ.get('EMERGENT_LLM_KEY', '')
- OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY', EMERGENT_LLM_KEY)
+EMERGENT_LLM_KEY = os.environ.get('EMERGENT_LLM_KEY', '')
+OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY', EMERGENT_LLM_KEY)
 
 # ── Backup server / home server config ───────────────────────────────────────
 # Set SERVE_FRONTEND=1 on your home server to serve the built React app too.
@@ -330,11 +330,11 @@ async def log_requests_pii_safe(request: Request, call_next):
     return response
 
 api_router = APIRouter(prefix="/api")
- logger = logging.getLogger("lcewai")
- logging.basicConfig(level=logging.INFO)
- STARTUP_COMPLETE = False
+logger = logging.getLogger("lcewai")
+logging.basicConfig(level=logging.INFO)
+STARTUP_COMPLETE = False
 
- # Rate limit — in-memory hot cache + MongoDB persistence (survives restarts,
+# Rate limit — in-memory hot cache + MongoDB persistence (survives restarts,
 # works across deploys). The in-memory dict is the fast path; MongoDB is the
 # durable fallback that catches requests after a cold start.
 from collections import defaultdict as _dd
@@ -8722,7 +8722,6 @@ async def exec_dashboard(user: User = Depends(require_role("executive_admin"))):
 
     platform_status = {
         "llm_gateway":           llm_gateway_ready,
-        "anthropic_api":         False,
         "elevenlabs":            elevenlabs_key,
         "openai_tts":            openai_key,
         "lemon_squeezy":         ls_ready,

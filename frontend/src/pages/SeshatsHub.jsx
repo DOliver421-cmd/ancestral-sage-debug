@@ -88,7 +88,7 @@ const TABS = [
 
 // ALL_ROLES comes from lib/roles.js — canonical 7-role RBAC (backend/roles.py).
 const ROLE_LABEL = { student:"Student", instructor:"Instructor", admin:"Admin", executive_admin:"Executive Admin" };
-const PROVIDERS  = ["groq","cerebras","gemini","xai","cohere","openrouter","huggingface","anthropic"];
+const PROVIDERS  = ["groq","cerebras","gemini","xai","cohere","openrouter","huggingface"];
 const PERM_KEYS  = ["content_read","content_create","content_edit_own","content_delete_own","user_warn","user_mute","user_ban","api_access","billing_view","export_data"];
 
 // ── Shared styles ─────────────────────────────────────────────────────────────
