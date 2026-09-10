@@ -1075,7 +1075,7 @@ function AccordionToolSection({ section, onOpenTool, activeTool }) {
 }
 
 // ── Workspace Drawer (Option B: overlay on profile) ──────────────────────────
-function WorkspaceDrawer({ tool, user, status, profile, onSaved, onClose }) {
+function WorkspaceDrawer({ tool, user, status, profile, onSaved, onClose, workspaceState }) {
   const drawerContent = {
     "creator-studio": <CreatorStudioPage />,
     "course-manager": <CourseManagerPage />,
@@ -1094,6 +1094,22 @@ function WorkspaceDrawer({ tool, user, status, profile, onSaved, onClose }) {
     "vonns-saga": <VonnSagaPage />,
     "academy": <AcademyPage />,
     "academy-curriculum": <AcademyPage />,
+    "settings": <SettingsTab profile={profile} onSaved={onSaved} />,
+    "learn-tab": <LearnTab user={user} status={status} />,
+    "workspace-tab": <WorkspacePanel />,
+    "control-tab": (
+      <div className="space-y-4">
+        <div className="font-heading font-bold text-lg">Admin Control</div>
+        <div className="grid sm:grid-cols-2 gap-3">
+          <ServiceCard icon={BarChart2}  title="Admin Dashboard"    desc="Platform overview"         to="/admin" />
+          <ServiceCard icon={Users}       title="User Management"    desc="Roles, accounts, access"   to="/admin/users" />
+          <ServiceCard icon={Settings}    title="System Health"      desc="Uptime, errors, services"  to="/admin/health" />
+          <ServiceCard icon={BarChart2}   title="Analytics"          desc="Users, engagement, trends" to="/admin/analytics" />
+          <ServiceCard icon={Radio}       title="Providers"          desc="LLM keys, AI routing"      to="/admin/providers" />
+          <ServiceCard icon={Globe}       title="Audit Log"          desc="Full platform activity"    to="/admin/audit" />
+        </div>
+      </div>
+    ),
   };
 
   return (
@@ -1124,7 +1140,7 @@ function WorkspaceDrawer({ tool, user, status, profile, onSaved, onClose }) {
 }
 
 // ── Workspace Content Router ──────────────────────────────────────────────────
-function WorkspaceContent({ tool, user, status, profile, onSaved }) {
+function WorkspaceContent({ tool, user, status, profile, onSaved, workspaceState }) {
   switch (tool) {
     case "ai-tutor":
       return <AIAssistantPanel user={user} status={status} />;
@@ -1210,6 +1226,9 @@ export default function UnifiedProfile() {
   const [loading, setLoading]   = useState(true);
   const [activeTab, setActiveTab] = useState("home");
   const [activeTool, setActiveTool] = useState(null);
+
+  // Shared workspace state — persists across tool switches so context is preserved
+  const workspaceState = useRef({});
 
   // Determine if viewer is the owner
   const isOwner = user && (profile?.is_owner === true || (!username && !!user));
@@ -1394,10 +1413,6 @@ export default function UnifiedProfile() {
     { key: "resources", label: "Resources", ownerOnly: true },
     { key: "create",   label: "Create",  ownerOnly: true },
     { key: "publish",  label: "Publish", ownerOnly: true },
-    { key: "learn",    label: "Learn",   ownerOnly: true },
-    { key: "settings", label: "Settings", ownerOnly: true },
-    { key: "workspace", label: "Workspace", ownerOnly: true },
-    ...(isAdmin && isOwner ? [{ key: "control", label: "Control", ownerOnly: true }] : []),
   ].filter(t => !t.ownerOnly || isOwner);
 
   const canUsePublisherAI = canAccess(user, viewerStatus, "publisher_ai");
@@ -1519,13 +1534,24 @@ export default function UnifiedProfile() {
                               ],
                             },
                             {
+                              label: "My Account",
+                              desc: "Settings, Saved Work, Admin",
+                              items: [
+                                { id: "settings", label: "Settings", icon: Settings },
+                                { id: "learn-tab", label: "Learn", icon: GraduationCap },
+                                { id: "workspace-tab", label: "Workspace", icon: FolderOpen },
+                                ...(isAdmin ? [{ id: "control-tab", label: "Control", icon: Shield }] : []),
+                              ],
+                            },
+                            {
                               label: "Resources & Library",
                               desc: "Help, Knowledge, Legacy",
                               items: [
                                 { id: "help-center", label: "Help Center", icon: HelpCircle },
                                 { id: "knowledge", label: "Knowledge Finder", icon: Search },
                                 { id: "vonns-saga", label: "Vonn's Saga", icon: BookOpen },
-                                { id: "academy-curriculum", label: "Homeschool Academy", icon: GraduationCap },
+                                { id: "academy", label: "Homeschool Academy", icon: GraduationCap },
+                                { id: "academy-curriculum", label: "Academy Curriculum", icon: BookOpen },
                               ],
                             },
                           ].map((section, idx) => (
@@ -1540,7 +1566,7 @@ export default function UnifiedProfile() {
                       </div>
 
                       {/* Inline workspace panel */}
-                      {activeTool && !["creator-studio", "course-manager", "band", "earnings", "payouts", "store", "payment-history", "creator-lounge", "community", "personas", "music-studio", "video-studio", "help-center", "knowledge", "vonns-saga", "academy", "academy-curriculum"].includes(activeTool) && (
+                      {activeTool && !["creator-studio", "course-manager", "band", "earnings", "payouts", "store", "payment-history", "creator-lounge", "community", "personas", "music-studio", "video-studio", "help-center", "knowledge", "vonns-saga", "academy", "academy-curriculum", "settings", "learn-tab", "workspace-tab", "control-tab"].includes(activeTool) && (
                         <div className="mt-4 card-flat overflow-hidden">
                           <div className="flex items-center justify-between px-4 py-3 border-b border-ink/10 bg-ink/3">
                             <span className="font-heading font-bold text-sm">My Workspace</span>
@@ -1552,13 +1578,13 @@ export default function UnifiedProfile() {
                             </button>
                           </div>
                           <div className="p-4">
-                            <WorkspaceContent tool={activeTool} user={user} status={viewerStatus} profile={profile} onSaved={reloadProfile} />
+                            <WorkspaceContent tool={activeTool} user={user} status={viewerStatus} profile={profile} onSaved={reloadProfile} workspaceState={workspaceState} />
                           </div>
                         </div>
                       )}
 
                       {/* Workspace drawer for tools rendered as full-page overlays */}
-                      {activeTool && ["creator-studio", "course-manager", "band", "earnings", "payouts", "store", "payment-history", "creator-lounge", "community", "personas", "music-studio", "video-studio", "help-center", "knowledge", "vonns-saga", "academy", "academy-curriculum"].includes(activeTool) && (
+                      {activeTool && ["creator-studio", "course-manager", "band", "earnings", "payouts", "store", "payment-history", "creator-lounge", "community", "personas", "music-studio", "video-studio", "help-center", "knowledge", "vonns-saga", "academy", "academy-curriculum", "settings", "learn-tab", "workspace-tab", "control-tab"].includes(activeTool) && (
                         <WorkspaceDrawer
                           tool={activeTool}
                           user={user}
@@ -1566,6 +1592,7 @@ export default function UnifiedProfile() {
                           profile={profile}
                           onSaved={reloadProfile}
                           onClose={() => setActiveTool(null)}
+                          workspaceState={workspaceState}
                         />
                       )}
                     </div>
@@ -1714,38 +1741,8 @@ export default function UnifiedProfile() {
                 </div>
               )}
 
-              {/* ══ LEARN tab ══ */}
-              {activeTab === "learn" && isOwner && (
-                <LearnTab user={user} status={viewerStatus} />
-              )}
-
-              {/* ══ SETTINGS tab ══ */}
-              {activeTab === "settings" && isOwner && (
-                <SettingsTab profile={profile} onSaved={reloadProfile} />
-              )}
-
-               {/* ══ RESOURCES tab — Resource Hub IN profile (Plus+/staff, tiers.js:resource_hub) ══ */}
+              {/* ══ RESOURCES tab — Resource Hub embedded ══ */}
               {activeTab === "resources" && isOwner && <ResourceHubPanel user={user} />}
-
-              {/* WORKSPACE tab (personal workspace: saved items + notes/plans) */}
-              {activeTab === "workspace" && isOwner && (
-                <WorkspacePanel />
-              )}
-
-              {/* ══ CONTROL tab (admin/exec only) ══ */}
-              {activeTab === "control" && isOwner && isAdmin && (
-                <div className="space-y-4">
-                  <div className="font-heading font-bold text-lg">Admin Control</div>
-                  <div className="grid sm:grid-cols-2 gap-3">
-                    <ServiceCard icon={BarChart2}  title="Admin Dashboard"    desc="Platform overview"         to="/admin" />
-                    <ServiceCard icon={Users}       title="User Management"    desc="Roles, accounts, access"   to="/admin/users" />
-                    <ServiceCard icon={Settings}    title="System Health"      desc="Uptime, errors, services"  to="/admin/health" />
-                    <ServiceCard icon={BarChart2}   title="Analytics"          desc="Users, engagement, trends" to="/admin/analytics" />
-                    <ServiceCard icon={Radio}       title="Providers"          desc="LLM keys, AI routing"      to="/admin/providers" />
-                    <ServiceCard icon={Globe}       title="Audit Log"          desc="Full platform activity"    to="/admin/audit" />
-                  </div>
-                </div>
-              )}
             </div>
 
             {/* ── Right rail (reduced — only share + revenue + upgrade) ── */}
