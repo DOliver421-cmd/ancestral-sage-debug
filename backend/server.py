@@ -7688,11 +7688,12 @@ class CheckoutReq(BaseModel):
 
 @api_router.get("/payments/products")
 async def list_payment_products():
-    return {
-        "publishable_key": STRIPE_PUBLISHABLE_KEY,
-        "products": PAYMENT_PRODUCTS,
-        "stripe_enabled": bool(STRIPE_SECRET_KEY),
-    }
+    """Delegate to routers/payments.py so the live product catalog and provider
+    state (payments_enabled / provider) are reported truthfully."""
+    from routers import payments as payment_routes
+    payment_routes.bind(db, audit, notify, current_user)
+    payment_routes.reload_payment_keys(db)
+    return await payment_routes.list_payment_products()
 
 
 @api_router.post("/payments/checkout")
@@ -7709,11 +7710,19 @@ async def create_checkout_session(req: CheckoutReq, user=Depends(current_user)):
 
 
 @api_router.post("/payments/webhook")
-async def stripe_webhook(request: Request):
+async def lemon_squeezy_webhook(request: Request):
     from routers import payments as payment_routes
 
     payment_routes.bind(db, audit, notify, current_user)
     return await payment_routes.payments_webhook(request)
+
+
+@api_router.post("/payments/stripe-webhook")
+async def stripe_webhook(request: Request):
+    from routers import payments as payment_routes
+
+    payment_routes.bind(db, audit, notify, current_user)
+    return await payment_routes.stripe_webhook(request)
 
 
 async def _stripe_checkout_done(session):
@@ -7823,8 +7832,10 @@ async def customer_portal(user=Depends(current_user)):
 
 @api_router.get("/payments/history")
 async def payment_history(user=Depends(current_user)):
-    cursor = db.payments.find({"user_id": user.id}, {"_id": 0}).sort("created_at", -1).limit(50)
-    return {"payments": await cursor.to_list(50)}
+    from routers import payments as payment_routes
+
+    payment_routes.bind(db, audit, notify, current_user)
+    return await payment_routes.payment_history(user)
 
 
 @api_router.get("/admin/payments")
