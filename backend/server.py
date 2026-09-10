@@ -1502,8 +1502,8 @@ async def _on_startup_impl():
     global _pipeline_manager
     try:
         from src.agents.pipeline_manager import PipelineManager as _PipelineManager
-        _pipeline_manager = _PipelineManager(db=db, anthropic_api_key=ANTHROPIC_API_KEY)
-        _mode = "llm" if ANTHROPIC_API_KEY else "keyword_fallback"
+        _pipeline_manager = _PipelineManager(db=db)
+        _mode = "keyword_fallback"
         logger.info("STARTUP: PipelineManager ready — analyzer=%s", _mode)
     except Exception as _pm_err:
         logger.warning("STARTUP: PipelineManager init failed (non-fatal): %s", _pm_err)
@@ -1779,11 +1779,12 @@ async def health():
             checks["db"] = {"status": "down", "source": _DB_SOURCE, "error": _db_err_str}
             issues.append("db_down")
 
-    # ── Anthropic AI API ──────────────────────────────────────────────────────
-    if ANTHROPIC_API_KEY:
-        checks["ai_api"] = {"status": "configured", "key_present": True}
-    else:
-        checks["ai_api"] = {"status": "unconfigured", "key_present": False}
+    # ── AI API (LLM gateway) ──────────────────────────────────────────────────
+    try:
+        from ai.llm_gateway import call_llm
+        checks["ai_api"] = {"status": "configured", "provider": "free-tier chain"}
+    except Exception:
+        checks["ai_api"] = {"status": "unconfigured", "error": "llm_gateway unavailable"}
         issues.append("ai_api_key_missing")
 
     # ── Director 4.0 subsystems ───────────────────────────────────────────────
@@ -8128,8 +8129,6 @@ async def ai_architect(body: dict, user: User = Depends(current_user)):
     _openai_key = os.environ.get("OPENAI_API_KEY", os.environ.get("EMERGENT_LLM_KEY", ""))
     memory_ctx  = await get_memory_context(db, "architect", user.id)
 
-    import anthropic as _anthropic_module
-    _client = _anthropic_module.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
     system  = get_persona("architect") + (
         f"\n\nEXECUTIVE CONTEXT:\n"
         f"- Operating for: {user.full_name} ({user.role})\n"
@@ -8138,68 +8137,21 @@ async def ai_architect(body: dict, user: User = Depends(current_user)):
         f"- OPENAI_API_KEY (DALL-E 3): {'SET — image generation live' if _openai_key else 'NOT SET — visual briefs only, no image generation'}\n"
     ) + memory_ctx
 
-    _ARCHITECT_MODELS = [
-        ("claude-sonnet-4-6", 4096),
-        ("claude-haiku-4-5",  2048),
-    ]
-    MAX_TOOL_TURNS = 8
-    reply = ""
-    _tools_called: list[str] = []
-
-    async def _run_architect_loop(model_name: str, max_tok: int) -> str:
-        _msgs  = [{"role": "user", "content": message}]
-        _reply = ""
-        for _turn in range(MAX_TOOL_TURNS + 1):
-            _kwargs = dict(
-                model=model_name, max_tokens=max_tok,
-                system=system, messages=_msgs,
-                tools=ARCHITECT_TOOLS,
-            )
-            _msg = await async_retry(_client.messages.create, max_attempts=3, base_delay=2.0, **_kwargs)
-
-            if _msg.stop_reason != "tool_use":
-                for block in _msg.content:
-                    if hasattr(block, "text"):
-                        _reply += block.text
-                break
-
-            tool_use_blocks = [b for b in _msg.content if b.type == "tool_use"]
-            if not tool_use_blocks:
-                for block in _msg.content:
-                    if hasattr(block, "text"):
-                        _reply += block.text
-                break
-
-            _tools_called.extend(b.name for b in tool_use_blocks)
-            _msgs.append({"role": "assistant", "content": _msg.content})
-            tool_results = await asyncio.gather(*[
-                dispatch_architect_tool(b.name, b.input, db=db)
-                for b in tool_use_blocks
-            ])
-            _msgs.append({"role": "user", "content": [
-                {"type": "tool_result", "tool_use_id": b.id, "content": result}
-                for b, result in zip(tool_use_blocks, tool_results)
-            ]})
-        else:
-            _reply = _reply or "[ARCHITECT tool loop reached limit — partial brief above]"
-        return _reply
-
-    for _model, _max_tok in _ARCHITECT_MODELS:
-        try:
-            reply = await _run_architect_loop(_model, _max_tok)
-            if reply:
-                break
-        except Exception as _err:
-            logger.warning("ARCHITECT model %s failed: %s — trying next tier", _model, _err)
-            reply = ""
-
-    if not reply:
-        reply = (
-            "THE ARCHITECT is temporarily offline. "
-            "Visual intelligence archives remain active. Retry in a moment."
+    try:
+        from ai.llm_gateway import call_llm
+        _llm = await call_llm(
+            system=system,
+            messages=[{"role": "user", "content": message}],
+            max_tokens=4096,
+            persona_label="architect",
+            user_id=user.id,
         )
+        reply = _llm.get("text", "")
+    except Exception as e:
+        logger.exception("Architect AI error")
+        raise HTTPException(502, f"AI error: {e}")
 
-    await log_episode(db, session_id, "architect", user.id, message, reply, _tools_called)
+    await log_episode(db, session_id, "architect", user.id, message, reply, [])
     logger.info("ai_architect: responded for user %s", user.id)
     return {"reply": reply, "persona": "architect", "mode": "visual_intelligence"}
 
@@ -8241,8 +8193,6 @@ async def ai_cipher(body: dict, user: User = Depends(current_user)):
 
     memory_ctx = await get_memory_context(db, "cipher", user.id)
 
-    import anthropic as _anthropic_module
-    _client  = _anthropic_module.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
     system   = get_persona("cipher") + (
         f"\n\nEXECUTIVE CONTEXT:\n"
         f"- Operating for: {user.full_name} ({user.role})\n"
@@ -8250,68 +8200,21 @@ async def ai_cipher(body: dict, user: User = Depends(current_user)):
         f"- GUMROAD_API_KEY: {'SET — Gumroad publishing active' if GUMROAD_API_KEY else 'NOT SET — Tier 2 fallback active'}\n"
     ) + memory_ctx
 
-    _CIPHER_MODELS = [
-        ("claude-sonnet-4-6", 4096),
-        ("claude-haiku-4-5",  2048),
-    ]
-    MAX_TOOL_TURNS = 8
-    reply = ""
-    _tools_called: list[str] = []
-
-    async def _run_cipher_loop(model_name: str, max_tok: int) -> str:
-        _msgs  = [{"role": "user", "content": message}]
-        _reply = ""
-        for _turn in range(MAX_TOOL_TURNS + 1):
-            _kwargs = dict(
-                model=model_name, max_tokens=max_tok,
-                system=system, messages=_msgs,
-                tools=CIPHER_TOOLS,
-            )
-            _msg = await async_retry(_client.messages.create, max_attempts=3, base_delay=2.0, **_kwargs)
-
-            if _msg.stop_reason != "tool_use":
-                for block in _msg.content:
-                    if hasattr(block, "text"):
-                        _reply += block.text
-                break
-
-            tool_use_blocks = [b for b in _msg.content if b.type == "tool_use"]
-            if not tool_use_blocks:
-                for block in _msg.content:
-                    if hasattr(block, "text"):
-                        _reply += block.text
-                break
-
-            _tools_called.extend(b.name for b in tool_use_blocks)
-            _msgs.append({"role": "assistant", "content": _msg.content})
-            tool_results = await asyncio.gather(*[
-                dispatch_cipher_tool(b.name, b.input, db=db)
-                for b in tool_use_blocks
-            ])
-            _msgs.append({"role": "user", "content": [
-                {"type": "tool_result", "tool_use_id": b.id, "content": result}
-                for b, result in zip(tool_use_blocks, tool_results)
-            ]})
-        else:
-            _reply = _reply or "[CIPHER tool loop reached limit — partial work above]"
-        return _reply
-
-    for _model, _max_tok in _CIPHER_MODELS:
-        try:
-            reply = await _run_cipher_loop(_model, _max_tok)
-            if reply:
-                break
-        except Exception as _err:
-            logger.warning("CIPHER model %s failed: %s — trying next tier", _model, _err)
-            reply = ""
-
-    if not reply:
-        reply = (
-            "THE CIPHER is temporarily operating without AI connectivity. "
-            "Revenue streams remain active. Retry in a moment."
+    try:
+        from ai.llm_gateway import call_llm
+        _llm = await call_llm(
+            system=system,
+            messages=[{"role": "user", "content": message}],
+            max_tokens=4096,
+            persona_label="cipher",
+            user_id=user.id,
         )
+        reply = _llm.get("text", "")
+    except Exception as e:
+        logger.exception("Cipher AI error")
+        raise HTTPException(502, f"AI error: {e}")
 
-    await log_episode(db, session_id, "cipher", user.id, message, reply, _tools_called)
+    await log_episode(db, session_id, "cipher", user.id, message, reply, [])
     logger.info("ai_cipher: responded for user %s", user.id)
     return {"reply": reply, "persona": "cipher", "mode": "creative_authority"}
 
@@ -8352,8 +8255,6 @@ async def ai_oracle(body: dict, user: User = Depends(current_user)):
 
     memory_ctx = await get_memory_context(db, "oracle", user.id)
 
-    import anthropic as _anthropic_module
-    _client  = _anthropic_module.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
     system   = get_persona("oracle") + (
         f"\n\nEXECUTIVE CONTEXT:\n"
         f"- Operating for: {user.full_name} ({user.role})\n"
@@ -8361,68 +8262,21 @@ async def ai_oracle(body: dict, user: User = Depends(current_user)):
         f"- GUMROAD_API_KEY: {'SET — publishing active' if GUMROAD_API_KEY else 'NOT SET — Tier 2 fallback active'}\n"
     ) + memory_ctx
 
-    _ORACLE_MODELS = [
-        ("claude-sonnet-4-6", 4096),
-        ("claude-haiku-4-5",  2048),
-    ]
-    MAX_TOOL_TURNS = 8
-    reply = ""
-    _tools_called: list[str] = []
-
-    async def _run_oracle_loop(model_name: str, max_tok: int) -> str:
-        _msgs  = [{"role": "user", "content": message}]
-        _reply = ""
-        for _turn in range(MAX_TOOL_TURNS + 1):
-            _kwargs = dict(
-                model=model_name, max_tokens=max_tok,
-                system=system, messages=_msgs,
-                tools=ORACLE_TOOLS,
-            )
-            _msg = await async_retry(_client.messages.create, max_attempts=3, base_delay=2.0, **_kwargs)
-
-            if _msg.stop_reason != "tool_use":
-                for block in _msg.content:
-                    if hasattr(block, "text"):
-                        _reply += block.text
-                break
-
-            tool_use_blocks = [b for b in _msg.content if b.type == "tool_use"]
-            if not tool_use_blocks:
-                for block in _msg.content:
-                    if hasattr(block, "text"):
-                        _reply += block.text
-                break
-
-            _tools_called.extend(b.name for b in tool_use_blocks)
-            _msgs.append({"role": "assistant", "content": _msg.content})
-            tool_results = await asyncio.gather(*[
-                dispatch_oracle_tool(b.name, b.input, db=db)
-                for b in tool_use_blocks
-            ])
-            _msgs.append({"role": "user", "content": [
-                {"type": "tool_result", "tool_use_id": b.id, "content": result}
-                for b, result in zip(tool_use_blocks, tool_results)
-            ]})
-        else:
-            _reply = _reply or "[ORACLE tool loop reached limit — partial intelligence above]"
-        return _reply
-
-    for _model, _max_tok in _ORACLE_MODELS:
-        try:
-            reply = await _run_oracle_loop(_model, _max_tok)
-            if reply:
-                break
-        except Exception as _err:
-            logger.warning("ORACLE model %s failed: %s — trying next tier", _model, _err)
-            reply = ""
-
-    if not reply:
-        reply = (
-            "THE ORACLE is temporarily operating without AI connectivity. "
-            "Cultural intelligence archives remain active. Retry in a moment."
+    try:
+        from ai.llm_gateway import call_llm
+        _llm = await call_llm(
+            system=system,
+            messages=[{"role": "user", "content": message}],
+            max_tokens=4096,
+            persona_label="oracle",
+            user_id=user.id,
         )
+        reply = _llm.get("text", "")
+    except Exception as e:
+        logger.exception("Oracle AI error")
+        raise HTTPException(502, f"AI error: {e}")
 
-    await log_episode(db, session_id, "oracle", user.id, message, reply, _tools_called)
+    await log_episode(db, session_id, "oracle", user.id, message, reply, [])
     logger.info("ai_oracle: responded for user %s", user.id)
     return {"reply": reply, "persona": "oracle", "mode": "cultural_intelligence"}
 
@@ -9086,12 +8940,18 @@ async def exec_dashboard(user: User = Depends(require_role("executive_admin"))):
     # ── Env / platform status ─────────────────────────────────────────────────
     elevenlabs_key   = bool(os.environ.get("ELEVENLABS_API_KEY", ""))
     openai_key       = bool(os.environ.get("OPENAI_API_KEY", ""))
-    anthropic_key    = bool(os.environ.get("ANTHROPIC_API_KEY", ""))
     ls_ready         = bool(LEMON_SQUEEZY_API_KEY and LEMON_SQUEEZY_STORE_ID)
     gumroad_ready    = bool(GUMROAD_API_KEY)
 
+    try:
+        from ai.llm_gateway import call_llm
+        llm_gateway_ready = True
+    except Exception:
+        llm_gateway_ready = False
+
     platform_status = {
-        "anthropic_api":         anthropic_key,
+        "llm_gateway":           llm_gateway_ready,
+        "anthropic_api":         False,
         "elevenlabs":            elevenlabs_key,
         "openai_tts":            openai_key,
         "lemon_squeezy":         ls_ready,
@@ -9502,12 +9362,9 @@ async def exec_staff_meeting(
 
     # Generate real persona responses via LLM in parallel
     async def _call_persona(persona_id: str, question: str) -> tuple[str, str]:
-        """Call a single persona via Anthropic and return (persona_id, response_text).
+        """Call a single persona via LLM gateway and return (persona_id, response_text).
         Returns (persona_id, "") on any failure so the meeting still completes."""
         try:
-            import anthropic as _anthropic_module
-
-            # Build system prompt — use persona_loader if available, else construct from domain role
             try:
                 from ai.persona_loader import get_persona
                 system_prompt = get_persona(persona_id)
@@ -9525,14 +9382,15 @@ async def exec_staff_meeting(
                 f"Provide your domain-specific assessment, action items, and recommendations."
             )
 
-            _client = _anthropic_module.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
-            _msg = await _client.messages.create(
-                model="claude-haiku-4-5",
-                max_tokens=1024,
+            from ai.llm_gateway import call_llm
+            _llm = await call_llm(
                 system=system_prompt,
                 messages=[{"role": "user", "content": user_message}],
+                max_tokens=1024,
+                persona_label=persona_id,
+                user_id=None,
             )
-            response = _msg.content[0].text.strip()
+            response = _llm.get("text", "").strip()
             return persona_id, response
         except Exception as exc:
             logger.warning("staff_meeting: persona %s LLM call failed: %s", persona_id, exc)
@@ -9540,7 +9398,7 @@ async def exec_staff_meeting(
 
     # Only call LLM for personas that have a role question (skip the_9 & prt — handled separately)
     _llm_personas = [pid for pid in meeting_participants if pid not in ("the_9", "poor_righteous_teacher")]
-    if _llm_personas and ANTHROPIC_API_KEY:
+    if _llm_personas:
         _results = await asyncio.gather(*[
             _call_persona(pid, domain_briefs[pid]["question"])
             for pid in _llm_personas
@@ -9571,17 +9429,14 @@ async def exec_staff_meeting(
                 )
                 synthesis = fusion.to_dict()
                 # Enrich synthesis with LLM-generated analysis
-                if synthesis.get("status") == "fused" and ANTHROPIC_API_KEY:
+                if synthesis.get("status") == "fused":
                     try:
-                        import anthropic as _anthropic_module
                         _responses_text = "\n\n".join(
                             f"=== {pid} ===\n{resp}"
                             for pid, resp in _persona_responses.items()
                         ) if _persona_responses else "(no persona responses available)"
-                        _client = _anthropic_module.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
-                        _msg = await _client.messages.create(
-                            model="claude-sonnet-4-6",
-                            max_tokens=2048,
+                        from ai.llm_gateway import call_llm
+                        _llm = await call_llm(
                             system=(
                                 "You are THE 9 — the unified intelligence of the WAI-Institute. "
                                 "You merge the capabilities of all 9 core personas into one coherent synthesis. "
@@ -9599,8 +9454,11 @@ async def exec_staff_meeting(
                                     f"Produce your unified synthesis."
                                 )
                             }],
+                            max_tokens=2048,
+                            persona_label="the_9_synthesis",
+                            user_id=None,
                         )
-                        synthesis["synthesis_brief"] = _msg.content[0].text.strip()
+                        synthesis["synthesis_brief"] = _llm.get("text", "").strip()
                     except Exception as _synth_err:
                         logger.warning("staff_meeting: The 9 LLM synthesis failed: %s", _synth_err)
             except Exception as _the9_err:
@@ -10008,18 +9866,22 @@ async def revenue_workspace_chat(ws_id: str, body: dict, user: User = Depends(cu
         {"_id": 0},
     ).sort("ts", -1).limit(10).to_list(length=10)
     memory_context = "\n".join(f"[{m.get('actor','')}]: {m.get('content','')}" for m in reversed(memory))
-    import anthropic as _anthropic_module
-    _client = _anthropic_module.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
     system_prompt = f"You are the Sovereign AI for workspace '{ws['name']}'. Respond helpfully."
     if memory_context:
         system_prompt += f"\n\nRecent workspace memory:\n{memory_context}"
-    _msg = await _client.messages.create(
-        model="claude-sonnet-4-6", max_tokens=2048,
-        system=system_prompt,
-        messages=[{"role": "user", "content": message}],
-    )
-    reply = _msg.content[0].text.strip()
-    # Store in workspace memory
+    try:
+        from ai.llm_gateway import call_llm
+        _llm = await call_llm(
+            system=system_prompt,
+            messages=[{"role": "user", "content": message}],
+            max_tokens=2048,
+            persona_label="sovereign_ai",
+            user_id=user.id,
+        )
+        reply = _llm.get("text", "").strip()
+    except Exception as e:
+        logger.exception("Sovereign AI error")
+        raise HTTPException(502, f"AI error: {e}")
     await db.sovereign_memory.insert_one({
         "workspace_id": ws_id, "actor": user.id, "content": message[:500],
         "reply": reply[:500], "ts": datetime.now(timezone.utc).isoformat(),
