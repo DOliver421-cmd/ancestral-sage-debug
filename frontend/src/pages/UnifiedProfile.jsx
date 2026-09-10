@@ -1055,6 +1055,51 @@ function AccordionToolSection({ section, onOpenTool, activeTool }) {
   );
 }
 
+// ── Workspace Drawer (Option B: overlay on profile) ──────────────────────────
+function WorkspaceDrawer({ tool, user, status, profile, onSaved, onClose }) {
+  const content = {
+    "creator-studio": <InlineCreatorStudio user={user} />,
+    "course-manager": <InlineCourseManager />,
+    "band": <InlineBand />,
+    "earnings": <InlineEarnings />,
+    "payouts": <InlinePayouts />,
+    "store": <InlineStore />,
+    "payment-history": <InlinePaymentHistory />,
+    "creator-lounge": <InlineCreatorLounge />,
+    "community": <InlineCommunity />,
+    "personas": <InlinePersonas />,
+    "music-studio": <InlineMusicStudio />,
+    "video-studio": <InlineVideoStudio />,
+    "help-center": <InlineHelpCenter />,
+    "knowledge": <InlineKnowledgeFinder />,
+    "vonns-saga": <InlineVonnSaga />,
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 bg-ink/60 backdrop-blur-sm flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[85vh] overflow-hidden flex flex-col">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-ink/10 bg-ink/3">
+          <span className="font-heading font-bold text-sm">My Workspace</span>
+          <button
+            onClick={onClose}
+            className="text-xs font-bold text-copper hover:text-copper/70 flex items-center gap-1"
+          >
+            ← Return to Profile
+          </button>
+        </div>
+        <div className="flex-1 overflow-y-auto p-6">
+          {content[tool] || (
+            <div className="text-center py-12 text-ink/40">
+              <div className="font-heading font-bold text-sm mb-1">Coming Soon</div>
+              <div className="text-xs">This tool is being prepared for inline use.</div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Workspace Content Router ──────────────────────────────────────────────────
 function WorkspaceContent({ tool, user, status, profile, onSaved }) {
   switch (tool) {
@@ -1068,20 +1113,13 @@ function WorkspaceContent({ tool, user, status, profile, onSaved }) {
       return <InlineSocialPublisher canUseAI={canAccess(user, status, "publisher_ai")} />;
     case "ghost-producer":
       return <InlineGhostProducer />;
-    case "creator-studio":
-      return <InlineCreatorStudio user={user} />;
     case "curriculum":
       return <InlineCurriculum user={user} />;
     case "academy":
     case "academy-curriculum":
       return <InlineAcademy user={user} />;
     default:
-      return (
-        <div className="text-center py-12 text-ink/40">
-          <div className="font-heading font-bold text-sm mb-1">Coming Soon</div>
-          <div className="text-xs">This tool is being prepared for inline use.</div>
-        </div>
-      );
+      return null;
   }
 }
 
@@ -1768,7 +1806,7 @@ export default function UnifiedProfile() {
                       </div>
 
                       {/* Inline workspace panel */}
-                      {activeTool && (
+                      {activeTool && !["creator-studio", "course-manager", "band", "earnings", "payouts", "store", "payment-history", "creator-lounge", "community", "personas", "music-studio", "video-studio", "help-center", "knowledge", "vonns-saga"].includes(activeTool) && (
                         <div className="mt-4 card-flat overflow-hidden">
                           <div className="flex items-center justify-between px-4 py-3 border-b border-ink/10 bg-ink/3">
                             <span className="font-heading font-bold text-sm">My Workspace</span>
@@ -1783,6 +1821,18 @@ export default function UnifiedProfile() {
                             <WorkspaceContent tool={activeTool} user={user} status={viewerStatus} profile={profile} onSaved={reloadProfile} />
                           </div>
                         </div>
+                      )}
+
+                      {/* Workspace drawer for tools not yet inline */}
+                      {activeTool && ["creator-studio", "course-manager", "band", "earnings", "payouts", "store", "payment-history", "creator-lounge", "community", "personas", "music-studio", "video-studio", "help-center", "knowledge", "vonns-saga"].includes(activeTool) && (
+                        <WorkspaceDrawer
+                          tool={activeTool}
+                          user={user}
+                          status={viewerStatus}
+                          profile={profile}
+                          onSaved={reloadProfile}
+                          onClose={() => setActiveTool(null)}
+                        />
                       )}
                     </div>
                   )}
