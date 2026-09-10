@@ -11,7 +11,8 @@
  *   Admin/Exec     → Everything unlocked + Control tab.
  */
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, lazy, Suspense } from "react";
+import React from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../lib/auth";
 import { api, BACKEND_URL } from "../lib/api";
@@ -32,6 +33,24 @@ import {
   Brain, BrainCircuit, Search, Music4, Video,
 } from "lucide-react";
 import { useMic } from "../hooks/useMic";
+
+// Lazy-loaded full-page components for drawer workspace
+const CreatorStudioPage = React.lazy(() => import("../pages/CreatorStudio.jsx"));
+const StorePage = React.lazy(() => import("../pages/Store.jsx"));
+const PaymentHistoryPage = React.lazy(() => import("../pages/PaymentHistory.jsx"));
+const CreatorPayoutsPage = React.lazy(() => import("../pages/CreatorPayoutDashboard.jsx"));
+const HelpCenterPage = React.lazy(() => import("../pages/HelpCenter.jsx"));
+const KnowledgeFinderPage = React.lazy(() => import("../pages/KnowledgeFinder.jsx"));
+const AcademyPage = React.lazy(() => import("../pages/academy/AcademyLanding.jsx"));
+const CourseManagerPage = React.lazy(() => import("../pages/CreatorCourses.jsx"));
+const BandPage = React.lazy(() => import("../pages/BandOnPage.jsx"));
+const EarningsPage = React.lazy(() => import("../pages/CreatorEarnings.jsx"));
+const CreatorLoungePage = React.lazy(() => import("../pages/CreatorLounge.jsx"));
+const CommunityPage = React.lazy(() => import("../pages/Community.jsx"));
+const PersonasPage = React.lazy(() => import("../pages/Personas.jsx"));
+const MusicStudioPage = React.lazy(() => import("../pages/Studio.jsx"));
+const VideoStudioPage = React.lazy(() => import("../pages/VideoStudioPage.jsx"));
+const VonnSagaPage = React.lazy(() => import("../pages/VonnsSaga.jsx"));
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 
@@ -1017,7 +1036,7 @@ function LearnTab({ user, status }) {
 }
 
 // ── Accordion Tool Section ─────────────────────────────────────────────────────
-function AccordionToolSection({ section }) {
+function AccordionToolSection({ section, onOpenTool, activeTool }) {
   const [open, setOpen] = useState(false);
   return (
     <div className="border border-ink/10 rounded-xl overflow-hidden">
@@ -1031,15 +1050,147 @@ function AccordionToolSection({ section }) {
       </button>
       {open && (
         <div className="p-2 space-y-1 bg-white">
-          {section.items.map(item => (
-            <Link
-              key={item.to}
-              to={item.to}
-              className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-copper/5 transition-colors group"
-            >
-              <item.icon className="w-4 h-4 text-copper/60 group-hover:text-copper shrink-0 transition-colors" />
-              <span className="text-sm text-ink/70 group-hover:text-ink transition-colors">{item.label}</span>
-            </Link>
+          {section.items.map(item => {
+            const isActive = activeTool === item.id;
+            return (
+              <button
+                key={item.id}
+                onClick={() => onOpenTool(isActive ? null : item.id)}
+                className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${
+                  isActive
+                    ? "bg-copper/10 text-copper"
+                    : "hover:bg-copper/5 text-ink/70 hover:text-ink"
+                }`}
+              >
+                <item.icon className="w-4 h-4 shrink-0 transition-colors" />
+                <span className="text-sm transition-colors">{item.label}</span>
+                {isActive && <span className="ml-auto text-xs">← Back</span>}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Workspace Drawer (Option B: overlay on profile) ──────────────────────────
+function WorkspaceDrawer({ tool, user, status, profile, onSaved, onClose }) {
+  const drawerContent = {
+    "creator-studio": <CreatorStudioPage />,
+    "course-manager": <CourseManagerPage />,
+    "band": <BandPage />,
+    "earnings": <EarningsPage />,
+    "payouts": <CreatorPayoutsPage />,
+    "store": <StorePage />,
+    "payment-history": <PaymentHistoryPage />,
+    "creator-lounge": <CreatorLoungePage />,
+    "community": <CommunityPage />,
+    "personas": <PersonasPage />,
+    "music-studio": <MusicStudioPage />,
+    "video-studio": <VideoStudioPage />,
+    "help-center": <HelpCenterPage />,
+    "knowledge": <KnowledgeFinderPage />,
+    "vonns-saga": <VonnSagaPage />,
+    "academy": <AcademyPage />,
+    "academy-curriculum": <AcademyPage />,
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 bg-ink/60 backdrop-blur-sm flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[85vh] overflow-hidden flex flex-col">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-ink/10 bg-ink/3">
+          <span className="font-heading font-bold text-sm">My Workspace</span>
+          <button
+            onClick={onClose}
+            className="text-xs font-bold text-copper hover:text-copper/70 flex items-center gap-1"
+          >
+            ← Return to Profile
+          </button>
+        </div>
+        <div className="flex-1 overflow-y-auto">
+          <Suspense fallback={<div className="p-8 text-center text-ink/30">Loading…</div>}>
+            {drawerContent[tool] || (
+              <div className="text-center py-12 text-ink/40">
+                <div className="font-heading font-bold text-sm mb-1">Coming Soon</div>
+                <div className="text-xs">This tool is being prepared for inline use.</div>
+              </div>
+            )}
+          </Suspense>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Workspace Content Router ──────────────────────────────────────────────────
+function WorkspaceContent({ tool, user, status, profile, onSaved }) {
+  switch (tool) {
+    case "ai-tutor":
+      return <AIAssistantPanel user={user} status={status} />;
+    case "byok":
+      return <ByokKeyCard />;
+    case "resource-hub":
+      return <ResourceHubPanel user={user} />;
+    case "social-blast":
+      return <InlineSocialPublisher canUseAI={canAccess(user, status, "publisher_ai")} />;
+    case "ghost-producer":
+      return <InlineGhostProducer />;
+    case "curriculum":
+      return <InlineCurriculum user={user} />;
+    case "academy":
+    case "academy-curriculum":
+      return null; // handled by drawer
+    default:
+      return null; // handled by drawer or not implemented
+  }
+}
+}
+
+// ── Inline Tool Wrappers ──────────────────────────────────────────────────────
+// (kept for tools rendered inline in WorkspaceContent)
+  const [enrolled, setEnrolled] = useState([]);
+  const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    async function load() {
+      try {
+        const { data } = await api.get("/auth/me");
+        setEnrolled(data?.enrolled_modules || data?.enrollments || []);
+      } catch (_) {}
+      finally { setLoading(false); }
+    }
+    load();
+  }, []);
+  if (loading) return <div className="flex items-center justify-center py-8"><div className="w-5 h-5 border-2 border-copper border-t-transparent rounded-full animate-spin" /></div>;
+  return (
+    <div className="space-y-4">
+      <div className="font-heading font-bold text-sm text-ink/60 uppercase tracking-widest">Your Curriculum</div>
+      {enrolled.length === 0 ? (
+        <div className="card-flat p-6 text-center text-ink/40">
+          <BookOpen className="w-8 h-8 mx-auto mb-2 text-copper/40" />
+          <p className="text-sm">No courses yet.</p>
+          <Link to="/modules" className="text-xs text-copper font-bold mt-2 inline-block">Browse courses →</Link>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {enrolled.slice(0, 5).map((m, i) => (
+            <div key={m.module_id || i} className="card-flat p-4 flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-copper/10 flex items-center justify-center shrink-0">
+                <BookOpen className="w-5 h-5 text-copper" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="font-bold text-sm truncate">{m.title || m.module_title || "Module"}</div>
+                <div className="flex items-center gap-2 mt-1.5">
+                  <div className="flex-1 h-1.5 bg-ink/10 rounded-full overflow-hidden">
+                    <div className="h-full bg-copper rounded-full transition-all" style={{ width: `${m.progress || 0}%` }} />
+                  </div>
+                  <span className="text-xs text-ink/40 shrink-0">{m.progress || 0}%</span>
+                </div>
+              </div>
+              <Link to={`/modules/${m.module_id || m.id}`} className="text-xs font-bold text-copper hover:underline shrink-0">
+                {m.progress >= 100 ? "Review" : "Continue"}
+              </Link>
+            </div>
           ))}
         </div>
       )}
@@ -1058,6 +1209,7 @@ export default function UnifiedProfile() {
   const [status, setStatus]     = useState(null);
   const [loading, setLoading]   = useState(true);
   const [activeTab, setActiveTab] = useState("home");
+  const [activeTool, setActiveTool] = useState(null);
 
   // Determine if viewer is the owner
   const isOwner = user && (profile?.is_owner === true || (!username && !!user));
@@ -1310,77 +1462,112 @@ export default function UnifiedProfile() {
                               label: "Learning",
                               desc: "Courses, Academy, Certificates, Credentials",
                               items: [
-                                { to: "/modules", label: "Curriculum", icon: BookOpen },
-                                { to: "/academy/curriculum", label: "Homeschool Academy", icon: GraduationCap },
-                                { to: "/certificates", label: "Certificates", icon: Award },
-                                { to: "/credentials", label: "Credentials", icon: CheckCircle },
-                                { to: "/adaptive", label: "Learning Path", icon: Brain },
+                                { id: "curriculum", label: "Curriculum", icon: BookOpen },
+                                { id: "academy", label: "Homeschool Academy", icon: GraduationCap },
+                                { id: "certificates", label: "Certificates", icon: Award },
+                                { id: "credentials", label: "Credentials", icon: CheckCircle },
+                                { id: "adaptive", label: "Learning Path", icon: Brain },
                               ],
                             },
                             {
                               label: "Create & Publish",
                               desc: "Studio, Courses, Ghost, Social",
                               items: [
-                                { to: "/studio", label: "Creator Studio", icon: Radio },
-                                { to: "/creator/courses", label: "Course Manager", icon: FileText },
-                                { to: "/ghost-producer", label: "Ghost Producer", icon: Music },
-                                { to: "/social/publish", label: "Social Blast", icon: Megaphone },
-                                { to: "/band", label: "Band on a Page", icon: Globe },
+                                { id: "creator-studio", label: "Creator Studio", icon: Radio },
+                                { id: "course-manager", label: "Course Manager", icon: FileText },
+                                { id: "ghost-producer", label: "Ghost Producer", icon: Music },
+                                { id: "social-blast", label: "Social Blast", icon: Megaphone },
+                                { id: "band", label: "Band on a Page", icon: Globe },
                               ],
                             },
                             {
                               label: "Business & Work",
                               desc: "Earnings, Store, Resource Hub, Payments",
                               items: [
-                                { to: "/creator/earnings", label: "My Earnings", icon: TrendingUp },
-                                { to: "/creator/payouts", label: "Payout Dashboard", icon: Receipt },
-                                { to: "/store", label: "Store", icon: ShoppingBag },
-                                { to: "/resources", label: "Resource Hub", icon: Briefcase },
-                                { to: "/payment/history", label: "Payment History", icon: DollarSign },
+                                { id: "earnings", label: "My Earnings", icon: TrendingUp },
+                                { id: "payouts", label: "Payout Dashboard", icon: Receipt },
+                                { id: "store", label: "Store", icon: ShoppingBag },
+                                { id: "resource-hub", label: "Resource Hub", icon: Briefcase },
+                                { id: "payment-history", label: "Payment History", icon: DollarSign },
                               ],
                             },
                             {
                               label: "Community",
                               desc: "Creator Lounge, Community",
                               items: [
-                                { to: "/creator-lounge", label: "Creator Lounge", icon: Mic },
-                                { to: "/community", label: "Community", icon: Radio },
+                                { id: "creator-lounge", label: "Creator Lounge", icon: Mic },
+                                { id: "community", label: "Community", icon: Radio },
                               ],
                             },
                             {
                               label: "AI & Technology",
                               desc: "AI Tutor, BYOK, Personas",
                               items: [
-                                { to: "/ai", label: "AI Tutor", icon: Zap },
-                                { to: "/byok", label: "My AI Keys", icon: KeyRound },
-                                { to: "/personas", label: "AI Team", icon: BrainCircuit },
+                                { id: "ai-tutor", label: "AI Tutor", icon: Zap },
+                                { id: "byok", label: "My AI Keys", icon: KeyRound },
+                                { id: "personas", label: "AI Team", icon: BrainCircuit },
                               ],
                             },
                             {
                               label: "Media Studio",
                               desc: "Music, Video, Band",
                               items: [
-                                { to: "/studio", label: "Creator Studio", icon: Radio },
-                                { to: "/studio/music", label: "Music Studio", icon: Music4 },
-                                { to: "/video-studio", label: "Video Studio", icon: Video },
-                                { to: "/band", label: "Band on a Page", icon: Globe },
+                                { id: "studio", label: "Creator Studio", icon: Radio },
+                                { id: "music-studio", label: "Music Studio", icon: Music4 },
+                                { id: "video-studio", label: "Video Studio", icon: Video },
+                                { id: "band-page", label: "Band on a Page", icon: Globe },
                               ],
                             },
                             {
                               label: "Resources & Library",
                               desc: "Help, Knowledge, Legacy",
                               items: [
-                                { to: "/help-center", label: "Help Center", icon: HelpCircle },
-                                { to: "/knowledge", label: "Knowledge Finder", icon: Search },
-                                { to: "/vonns-saga", label: "Vonn's Saga", icon: BookOpen },
-                                { to: "/academy/curriculum", label: "Homeschool Academy", icon: GraduationCap },
+                                { id: "help-center", label: "Help Center", icon: HelpCircle },
+                                { id: "knowledge", label: "Knowledge Finder", icon: Search },
+                                { id: "vonns-saga", label: "Vonn's Saga", icon: BookOpen },
+                                { id: "academy-curriculum", label: "Homeschool Academy", icon: GraduationCap },
                               ],
                             },
                           ].map((section, idx) => (
-                            <AccordionToolSection key={idx} section={section} />
+                            <AccordionToolSection
+                              key={idx}
+                              section={section}
+                              onOpenTool={setActiveTool}
+                              activeTool={activeTool}
+                            />
                           ))}
                         </div>
                       </div>
+
+                      {/* Inline workspace panel */}
+                      {activeTool && !["creator-studio", "course-manager", "band", "earnings", "payouts", "store", "payment-history", "creator-lounge", "community", "personas", "music-studio", "video-studio", "help-center", "knowledge", "vonns-saga", "academy", "academy-curriculum"].includes(activeTool) && (
+                        <div className="mt-4 card-flat overflow-hidden">
+                          <div className="flex items-center justify-between px-4 py-3 border-b border-ink/10 bg-ink/3">
+                            <span className="font-heading font-bold text-sm">My Workspace</span>
+                            <button
+                              onClick={() => setActiveTool(null)}
+                              className="text-xs font-bold text-copper hover:text-copper/70"
+                            >
+                              ← Back to Tools
+                            </button>
+                          </div>
+                          <div className="p-4">
+                            <WorkspaceContent tool={activeTool} user={user} status={viewerStatus} profile={profile} onSaved={reloadProfile} />
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Workspace drawer for tools rendered as full-page overlays */}
+                      {activeTool && ["creator-studio", "course-manager", "band", "earnings", "payouts", "store", "payment-history", "creator-lounge", "community", "personas", "music-studio", "video-studio", "help-center", "knowledge", "vonns-saga", "academy", "academy-curriculum"].includes(activeTool) && (
+                        <WorkspaceDrawer
+                          tool={activeTool}
+                          user={user}
+                          status={viewerStatus}
+                          profile={profile}
+                          onSaved={reloadProfile}
+                          onClose={() => setActiveTool(null)}
+                        />
+                      )}
                     </div>
                   )}
 
