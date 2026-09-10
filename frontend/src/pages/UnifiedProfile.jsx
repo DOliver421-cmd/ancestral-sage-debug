@@ -1014,20 +1014,20 @@ function LearnTab({ user, status }) {
   );
 }
 
-// ── Profile Resource Hub — Member+ (staff free), lives INSIDE /profile (not a dead page)
+// ── Profile Resource Hub — Plus+ (staff free), lives INSIDE /profile (not a dead page)
 function ProfileResourceHub({ user }) {
   const tier = user?.feature_tier || "free";
   const role = user?.role || "student";
   const staffRoles = new Set(["instructor","admin","executive_admin","support_staff","oversight"]);
   const isStaff = staffRoles.has(role);
   const tierRank = {free:0,member:1,plus:2,pro:3,patron:4,platinum:5,executive:6};
-  const canSee = isStaff || (tierRank[tier]||0) >= 1;
+  const canSee = isStaff || (tierRank[tier]||0) >= 2;
   if (!canSee) {
     return (
       <div className="card-flat p-8 text-center space-y-3">
         <Briefcase className="w-8 h-8 text-copper mx-auto" />
-        <div className="font-heading font-bold text-lg text-ink">Resource Hub — Member access</div>
-        <p className="text-sm text-ink/60">Grants, fundraising, and business resources live in your profile once you join as a Member. Staff access is included automatically.</p>
+        <div className="font-heading font-bold text-lg text-ink">Resource Hub — Plus access</div>
+        <p className="text-sm text-ink/60">Grants, fundraising, and business resources live in your profile once you join as a Plus member. Staff access is included automatically.</p>
         <Link to="/plans" className="btn-copper text-sm inline-flex">See Member plans →</Link>
         <div className="text-xs text-ink/30 pt-2"><Link to="/resources" className="text-copper hover:underline">Open full Hub at /resources →</Link></div>
       </div>
@@ -1537,7 +1537,7 @@ export default function UnifiedProfile() {
                 <SettingsTab profile={profile} onSaved={reloadProfile} />
               )}
 
-              {/* ══ RESOURCES tab — Resource Hub IN profile (Member+/staff, tiers.js:resource_hub) ══ */}
+               {/* ══ RESOURCES tab — Resource Hub IN profile (Plus+/staff, tiers.js:resource_hub) ══ */}
               {activeTab === "resources" && isOwner && <ProfileResourceHub user={user} />}
 
               {/* WORKSPACE tab (personal workspace: saved items + notes/plans) */}
