@@ -11,7 +11,8 @@
  *   Admin/Exec     → Everything unlocked + Control tab.
  */
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, lazy, Suspense } from "react";
+import React from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../lib/auth";
 import { api, BACKEND_URL } from "../lib/api";
@@ -32,6 +33,15 @@ import {
   Brain, BrainCircuit, Search, Music4, Video,
 } from "lucide-react";
 import { useMic } from "../hooks/useMic";
+
+// Lazy-loaded full-page components for drawer workspace
+const CreatorStudioPage = React.lazy(() => import("../pages/CreatorStudio.jsx"));
+const StorePage = React.lazy(() => import("../pages/Store.jsx"));
+const PaymentHistoryPage = React.lazy(() => import("../pages/PaymentHistory.jsx"));
+const CreatorPayoutsPage = React.lazy(() => import("../pages/CreatorPayoutDashboard.jsx"));
+const PartnershipPage = React.lazy(() => import("../pages/PartnershipDashboard.jsx"));
+const HelpCenterPage = React.lazy(() => import("../pages/HelpCenter.jsx"));
+const KnowledgeFinderPage = React.lazy(() => import("../pages/KnowledgeFinder.jsx"));
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 
@@ -1057,27 +1067,27 @@ function AccordionToolSection({ section, onOpenTool, activeTool }) {
 
 // ── Workspace Drawer (Option B: overlay on profile) ──────────────────────────
 function WorkspaceDrawer({ tool, user, status, profile, onSaved, onClose }) {
-  const content = {
-    "creator-studio": <InlineCreatorStudio user={user} />,
-    "course-manager": <InlineCourseManager />,
-    "band": <InlineBand />,
-    "earnings": <InlineEarnings />,
-    "payouts": <InlinePayouts />,
-    "store": <InlineStore />,
-    "payment-history": <InlinePaymentHistory />,
-    "creator-lounge": <InlineCreatorLounge />,
-    "community": <InlineCommunity />,
-    "personas": <InlinePersonas />,
-    "music-studio": <InlineMusicStudio />,
-    "video-studio": <InlineVideoStudio />,
-    "help-center": <InlineHelpCenter />,
-    "knowledge": <InlineKnowledgeFinder />,
-    "vonns-saga": <InlineVonnSaga />,
+  const drawerContent = {
+    "creator-studio": <CreatorStudioPage />,
+    "course-manager": <div className="p-8 text-center text-ink/40">Course Manager — use the full page for now.</div>,
+    "band": <div className="p-8 text-center text-ink/40">Band on a Page — use the full page for now.</div>,
+    "earnings": <CreatorPayoutsPage />,
+    "payouts": <CreatorPayoutsPage />,
+    "store": <StorePage />,
+    "payment-history": <PaymentHistoryPage />,
+    "creator-lounge": <div className="p-8 text-center text-ink/40">Creator Lounge — use the full page for now.</div>,
+    "community": <div className="p-8 text-center text-ink/40">Community — use the full page for now.</div>,
+    "personas": <div className="p-8 text-center text-ink/40">AI Team — use the full page for now.</div>,
+    "music-studio": <div className="p-8 text-center text-ink/40">Music Studio — use the full page for now.</div>,
+    "video-studio": <div className="p-8 text-center text-ink/40">Video Studio — use the full page for now.</div>,
+    "help-center": <HelpCenterPage />,
+    "knowledge": <KnowledgeFinderPage />,
+    "vonns-saga": <div className="p-8 text-center text-ink/40">Vonn's Saga — use the full page for now.</div>,
   };
 
   return (
     <div className="fixed inset-0 z-50 bg-ink/60 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[85vh] overflow-hidden flex flex-col">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[85vh] overflow-hidden flex flex-col">
         <div className="flex items-center justify-between px-6 py-4 border-b border-ink/10 bg-ink/3">
           <span className="font-heading font-bold text-sm">My Workspace</span>
           <button
@@ -1087,13 +1097,15 @@ function WorkspaceDrawer({ tool, user, status, profile, onSaved, onClose }) {
             ← Return to Profile
           </button>
         </div>
-        <div className="flex-1 overflow-y-auto p-6">
-          {content[tool] || (
-            <div className="text-center py-12 text-ink/40">
-              <div className="font-heading font-bold text-sm mb-1">Coming Soon</div>
-              <div className="text-xs">This tool is being prepared for inline use.</div>
-            </div>
-          )}
+        <div className="flex-1 overflow-y-auto">
+          <Suspense fallback={<div className="p-8 text-center text-ink/30">Loading…</div>}>
+            {drawerContent[tool] || (
+              <div className="text-center py-12 text-ink/40">
+                <div className="font-heading font-bold text-sm mb-1">Coming Soon</div>
+                <div className="text-xs">This tool is being prepared for inline use.</div>
+              </div>
+            )}
+          </Suspense>
         </div>
       </div>
     </div>
