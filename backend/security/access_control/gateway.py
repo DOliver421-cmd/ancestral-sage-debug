@@ -515,7 +515,12 @@ class AccessGateway:
             status = getattr(exc, "status_code", None)
             if status == 401:
                 await self._log_anonymous_denial(spec, path, method, "unauthenticated")
-                return (401, "Authentication required for this control.")
+                req = ACCESS_TIERS.get(spec.get("required_tier"), {})
+                tier_label = req.get("label")
+                feature = spec.get("label", "this feature")
+                if tier_label and tier_label != "Public":
+                    return (401, f"Sign in or register for a {tier_label} account to access {feature}.")
+                return (401, "Sign in or register to access this feature.")
             if status == 403:
                 await self._log_anonymous_denial(spec, path, method, "account_deactivated")
                 return (403, "Account deactivated.")

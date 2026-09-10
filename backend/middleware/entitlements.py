@@ -45,7 +45,7 @@ def require_tier(minimum_tier: str):
         async def wrapper(*args, request: Request, **kwargs):
             user = getattr(request.state, "user", None)
             if not user:
-                raise HTTPException(status_code=401, detail="Authentication required")
+                raise HTTPException(status_code=401, detail="Sign in or register to access this feature.")
             
             user_tier = user.get("membership", {}).get("tier", "free")
             user_level = TIER_LEVELS.get(user_tier, 0)
@@ -83,7 +83,7 @@ def require_capability(capability: str):
         async def wrapper(*args, request: Request, **kwargs):
             user = getattr(request.state, "user", None)
             if not user:
-                raise HTTPException(status_code=401, detail="Authentication required")
+                raise HTTPException(status_code=401, detail="Sign in or register to access this feature.")
             
             from services.entitlements import can_access
             
@@ -120,7 +120,7 @@ def check_usage(resource: str, amount: int = 1):
         async def wrapper(*args, request: Request, **kwargs):
             user = getattr(request.state, "user", None)
             if not user:
-                raise HTTPException(status_code=401, detail="Authentication required")
+                raise HTTPException(status_code=401, detail="Sign in or register to access this feature.")
             
             from services.entitlements import get_limit
             

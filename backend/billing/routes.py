@@ -30,7 +30,7 @@ async def get_current_user(
     if authorization and authorization.startswith("Bearer "):
         token = authorization.split(" ", 1)[1]
     if not token:
-        raise HTTPException(status_code=401, detail="Authentication required")
+        raise HTTPException(status_code=401, detail="Sign in or register to access this feature.")
     try:
         payload = _jwt.decode(token, _JWT_SECRET, algorithms=[_JWT_ALGO])
     except _jwt.ExpiredSignatureError:

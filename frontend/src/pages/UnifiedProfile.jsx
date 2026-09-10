@@ -1161,10 +1161,9 @@ function WorkspaceContent({ tool, user, status, profile, onSaved, workspaceState
       return null; // handled by drawer or not implemented
   }
 }
-}
 
 // ── Inline Tool Wrappers ──────────────────────────────────────────────────────
-// (kept for tools rendered inline in WorkspaceContent)
+function InlineCurriculum({ user }) {
   const [enrolled, setEnrolled] = useState([]);
   const [loading, setLoading] = useState(true);
   useEffect(() => {

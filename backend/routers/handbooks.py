@@ -44,7 +44,7 @@ async def handbooks_index(authorization: Optional[str] = Header(None)):
         raise HTTPException(503, "Service starting up")
     user = await current_user(authorization)
     if not user:
-        raise HTTPException(401, "Authentication required")
+        raise HTTPException(401, "Sign in or register to access this handbook.")
     available = []
     for name, (fname, title) in HANDBOOKS.items():
         available.append({
@@ -63,7 +63,7 @@ async def get_handbook(name: str, authorization: Optional[str] = Header(None)):
         raise HTTPException(503, "Service starting up")
     user = await current_user(authorization)
     if not user:
-        raise HTTPException(401, "Authentication required")
+        raise HTTPException(401, "Sign in or register to access this handbook.")
     entry = HANDBOOKS.get(name.lower())
     if not entry:
         raise HTTPException(
@@ -85,7 +85,7 @@ async def get_handbook_raw(name: str, authorization: Optional[str] = Header(None
         raise HTTPException(503, "Service starting up")
     user = await current_user(authorization)
     if not user:
-        raise HTTPException(401, "Authentication required")
+        raise HTTPException(401, "Sign in or register to access this handbook.")
     entry = HANDBOOKS.get(name.lower())
     if not entry:
         raise HTTPException(404, f"Unknown handbook '{name}'.")
