@@ -578,9 +578,16 @@ export default function AppShell({ children }) {
             </div>
           </Link>
           {isAuthed && (
-            <Link to="/profile" className="ml-auto p-1.5 rounded-full text-white/60 hover:text-white" data-testid="mobile-profile" aria-label="My profile">
-              <UserCircle className="w-6 h-6" />
-            </Link>
+            <>
+              {(isStaff || hasTier("plus")) && (
+                <Link to="/resources" className="p-1.5 rounded-full text-white/60 hover:text-white" data-testid="mobile-resource-hub" aria-label="Resource Hub">
+                  <Briefcase className="w-6 h-6" />
+                </Link>
+              )}
+              <Link to="/profile" className="p-1.5 rounded-full text-white/60 hover:text-white" data-testid="mobile-profile" aria-label="My profile">
+                <UserCircle className="w-6 h-6" />
+              </Link>
+            </>
           )}
         </div>
         {backendDown && (

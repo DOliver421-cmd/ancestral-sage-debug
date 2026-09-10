@@ -27,7 +27,7 @@ import {
   Upload, Image, FileText, Award, CheckCircle, Eye, EyeOff,
   Twitter, Instagram, Facebook, Linkedin, Youtube,
   DollarSign, Heart, TrendingUp, Receipt, Network, Star, Crown, Shield,
-  KeyRound, Loader2, Trash2, HelpCircle, Gamepad2, Share2,
+  KeyRound, Loader2, Trash2, HelpCircle, Gamepad2, Share2, Briefcase,
 } from "lucide-react";
 import { useMic } from "../hooks/useMic";
 
@@ -1288,6 +1288,11 @@ export default function UnifiedProfile() {
                 <button onClick={() => setActiveTab("settings")} className="flex items-center gap-1.5 text-xs font-bold border border-ink/20 px-3 py-1.5 rounded-full hover:border-copper transition-colors">
                   <Edit3 className="w-3.5 h-3.5" /> Edit
                 </button>
+              )}
+              {canAccess(user, "resource_hub") && (
+                <Link to="/resources" className="flex items-center gap-1.5 text-xs font-bold border border-ink/20 px-3 py-1.5 rounded-full hover:border-copper transition-colors" title="Resource Hub">
+                  <Briefcase className="w-3.5 h-3.5" /> Resource Hub
+                </Link>
               )}
               <SharePanel compact url={`/u/${profile.slug}`} title={`${profile.display_name} — M.O.R.E.`} embed />
             </div>
