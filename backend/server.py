@@ -310,7 +310,7 @@ async def add_security_headers(request: Request, call_next):
         "font-src 'self' data: https://fonts.gstatic.com https://cdn.fontshare.com; "
         "img-src 'self' data: https: https://apod.nasa.gov https://images-assets.nasa.gov https://images.nasa.gov; "
         "connect-src 'self' https://us-assets.i.posthog.com https://us.i.posthog.com https://www.youtube-nocookie.com https://app.lemonsqueezy.com https://api.lemonsqueezy.com https://api.nasa.gov https://images-api.nasa.gov; "
-        "frame-src 'self' https://bandcamp.com https://namoshun.gumroad.com https://gumroad.com https://wai-institute-production.up.railway.app https://www.youtube.com https://www.youtube-nocookie.com https://waiinstitutepremiumservices.bolt.host; "
+        "frame-src 'self' https://bandcamp.com https://namoshun.gumroad.com https://gumroad.com https://wai-institute-production.up.railway.app https://www.youtube.com https://www.youtube-nocookie.com https://waiinstitutepremiumservices.bolt.host https://*.lemonsqueezy.com https://checkout.stripe.com; "
         "frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
     )
     # Referrer policy (limit referrer disclosure)

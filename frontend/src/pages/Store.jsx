@@ -6,6 +6,7 @@ import { MEMBERSHIP_PLANS, TRIAL_PLAN } from "../lib/plans";
 import AppShell from "../components/AppShell";
 import { ExternalLink, ArrowRight, ShoppingBag, Loader2, Zap, Check, AlertTriangle, BookOpen, Download } from "lucide-react";
 import { STARTER_LIBRARY } from "../lib/contentLibrary";
+import CheckoutModal from "../components/CheckoutModal";
 
 const GUMROAD_PROFILE = "https://namoshun.gumroad.com/";
 
@@ -24,6 +25,7 @@ export default function Store() {
   const [buying, setBuying] = useState(null);
   const [notice, setNotice] = useState(null);
   const [noticeIsError, setNoticeIsError] = useState(false);
+  const [checkoutUrl, setCheckoutUrl] = useState(null);
 
   const load = useCallback(() => {
     setCatalogError(null);
@@ -47,7 +49,7 @@ export default function Store() {
     setNotice(null);
     try {
       const { data } = await api.post("/payments/checkout", { product_key: productKey, quantity: 1 });
-      if (data?.url) { window.location.href = data.url; return; }
+      if (data?.url) { setCheckoutUrl(data.url); return; }
       showFail("Checkout could not start. Please try again in a moment.");
     } catch (e) {
       const detail = e?.response?.data?.detail || "";
@@ -78,7 +80,7 @@ export default function Store() {
         setBuying(null);
         return;
       }
-      if (data?.url) { window.location.href = data.url; return; }
+      if (data?.url) { setCheckoutUrl(data.url); return; }
       showFail("Checkout could not start. Please try again in a moment.");
     } catch (e) {
       const detail = e?.response?.data?.detail || "";
@@ -383,17 +385,9 @@ export default function Store() {
               rel="noreferrer"
               className="inline-flex items-center gap-1.5 text-xs font-bold text-copper hover:text-copper/70 transition-colors"
             >
-              Open in new tab <ExternalLink className="w-3.5 h-3.5" />
+              Open NAM Oshun's Gumroad store <ExternalLink className="w-3.5 h-3.5" />
             </a>
           </div>
-          <iframe
-            src={GUMROAD_PROFILE}
-            title="NAM Oshun Gumroad storefront"
-            className="w-full h-[75vh] min-h-[600px] border-0"
-            loading="lazy"
-            referrerPolicy="no-referrer-when-downgrade"
-            allow="payment"
-          />
         </div>
 
         {/* ── Store view: show paid items first, then free library below them ── */}

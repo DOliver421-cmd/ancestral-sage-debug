@@ -8,6 +8,7 @@ import {
   ArrowRight, BookOpen, GraduationCap, HardHat, HeartHandshake, LogIn,
   Music, Sprout, Store, Truck, UserPlus,
 } from "lucide-react";
+import CheckoutModal from "../components/CheckoutModal";
 
 const BOOK_PRICE = 89;
 
@@ -63,23 +64,24 @@ const AUDIENCES = [
 export default function OurLegacy() {
   const { user } = useAuth();
   const [buying, setBuying] = useState(false);
+  const [checkoutUrl, setCheckoutUrl] = useState(null);
 
   async function buyBook() {
     if (!user) { toast.error("Sign in to purchase"); return; }
     setBuying(true);
     try {
       const { data } = await api.post("/payments/checkout", { product_key: "book", quantity: 1 });
-      window.location.href = data.url;
+      if (data?.url) { setCheckoutUrl(data.url); return; }
+      toast.error("Checkout could not start.");
     } catch (e) {
       const detail = e?.response?.data?.detail || "";
       if (e?.response?.status === 501 || /not configured|unknown product/i.test(String(detail))) {
-        toast.info("Checkout is being set up — taking you to the store.");
-        window.location.href = "/merch";
-        return;
+        toast.info("Checkout is being set up.");
+      } else {
+        toast.error(detail || "Could not start checkout.");
       }
-      toast.error(detail || "Could not start checkout.");
-      setBuying(false);
     }
+    setBuying(false);
   }
 
   return (
@@ -297,6 +299,7 @@ export default function OurLegacy() {
         <Link to="/refund-policy" className="hover:text-white">Refund Policy</Link> ·{" "}
         <Link to="/help-center" className="hover:text-white">Help Center</Link>
       </footer>
+      <CheckoutModal url={checkoutUrl} onClose={() => setCheckoutUrl(null)} />
     </div>
   );
 }

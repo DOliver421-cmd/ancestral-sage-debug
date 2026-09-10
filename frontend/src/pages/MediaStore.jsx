@@ -13,6 +13,7 @@ import {
 import SharePanel from "../components/SharePanel";
 import SaveButton from "../components/SaveButton";
 import QRCodeButton from "../components/QRCodeButton";
+import CheckoutModal from "../components/CheckoutModal";
 
 const TYPE_LABELS = {
   track: "Track",
@@ -106,7 +107,7 @@ function ProductCover({ product, compact = false }) {
 }
 
 // ── Browse Tab ────────────────────────────────────────────────────────────────
-function MembershipsSection({ user }) {
+function MembershipsSection({ user, onCheckoutUrl }) {
   const paidPlans = MEMBERSHIP_PLANS.filter((plan) => plan.key !== "free");
   const startCheckout = async (plan) => {
     if (!user) {
@@ -115,7 +116,7 @@ function MembershipsSection({ user }) {
     }
     try {
       const { data } = await api.post("/payments/checkout", { product_key: plan.key, quantity: 1 });
-      if (data?.url) window.location.href = data.url;
+      if (data?.url) onCheckoutUrl(data.url);
       else toast.error("Checkout could not start.");
     } catch (error) {
       toast.error(error?.response?.data?.detail || "Membership checkout is unavailable right now.");
@@ -173,7 +174,7 @@ function BrowseTab({ user }) {
     setCheckingOut(product.id);
     try {
       const r = await api.post(`/media/products/${product.id}/checkout`);
-      if (r.data.url) window.location.href = r.data.url;
+      if (r.data.url) setCheckoutUrl(r.data.url);
       else throw new Error("Checkout URL was not returned");
     } catch (e) {
       toast.error(e?.response?.data?.detail || "Checkout failed");
@@ -209,7 +210,7 @@ function BrowseTab({ user }) {
 
   return (
     <div>
-      <MembershipsSection user={user} />
+      <MembershipsSection user={user} onCheckoutUrl={setCheckoutUrl} />
       {/* Filter chips */}
       <div className="flex gap-2 flex-wrap mb-6">
         {filters.map(f => (
@@ -752,6 +753,7 @@ export default function MediaStore() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState("browse");
+  const [checkoutUrl, setCheckoutUrl] = useState(null);
   const success = searchParams.get("success") || searchParams.get("session_id");
 
   const tabs = [
@@ -855,14 +857,12 @@ function StorefrontTab() {
           </div>
           <a href={GUMROAD_PROFILE} target="_blank" rel="noreferrer"
             className="inline-flex items-center gap-1.5 text-xs font-bold text-[#b5651d] hover:text-[#b5651d]/70 transition-colors">
-            Open in new tab <ExternalLink className="w-3.5 h-3.5" />
+            Open NAM Oshun's Gumroad store <ExternalLink className="w-3.5 h-3.5" />
           </a>
         </div>
-        <iframe src={GUMROAD_PROFILE} title="The Bookstore"
-          className="w-full h-[75vh] min-h-[600px] border-0" loading="lazy"
-          referrerPolicy="no-referrer-when-downgrade" allow="payment" />
       </div>
       <p className="text-xs text-[#1a1a1a]/40">Digital products and media are available now. Physical merchandise is not yet available.</p>
+      <CheckoutModal url={checkoutUrl} onClose={() => setCheckoutUrl(null)} />
     </div>
   );
 }

@@ -7,6 +7,7 @@ import { MEMBERSHIP_PLANS, TRIAL_PLAN, planByKey } from "../lib/plans";
 import { tierRank } from "../lib/tiers";
 import { CheckCircle, ExternalLink, ArrowLeft, Zap } from "lucide-react";
 import { toast } from "sonner";
+import CheckoutModal from "../components/CheckoutModal";
 
 function priceLabel(price) {
   return typeof price === "number" ? `$${price}` : price;
@@ -17,6 +18,7 @@ export default function SubscribePage() {
   const [searchParams] = useSearchParams();
   const [loading, setLoading] = useState(null);
   const [portalLoading, setPortalLoading] = useState(false);
+  const [checkoutUrl, setCheckoutUrl] = useState(null);
 
   const planParam = searchParams.get("plan");
   const sanctuaryPlan = planParam && TRIAL_PLAN.key === planParam ? planByKey(planParam) : null;
@@ -29,34 +31,31 @@ export default function SubscribePage() {
     setLoading(key);
     try {
       const { data } = await api.post("/payments/checkout", { product_key: key, quantity: 1 });
-      window.location.href = data.url;
+      if (data?.url) { setCheckoutUrl(data.url); return; }
+      toast.error("Checkout could not start. Please try again in a moment.");
     } catch (e) {
       const detail = e?.response?.data?.detail || "";
-      // Payments not configured yet (no Lemon Squeezy / Gumroad API keys):
-      // don't leave the visitor at a dead 501 — route them to the live
-      // storefront so the purchase can actually happen.
       if (
         e?.response?.status === 501 ||
         /not configured|payments are not configured/i.test(String(detail))
       ) {
         toast.info("Payments are being configured. Membership will be available soon.");
-        setLoading(null);
-        return;
+      } else {
+        toast.error(detail || "Could not start checkout.");
       }
-      toast.error(detail || "Could not start checkout.");
-      setLoading(null);
     }
+    setLoading(null);
   }
 
   async function openPortal() {
     setPortalLoading(true);
     try {
       const { data } = await api.get("/payments/portal");
-      window.location.href = data.url;
+      if (data?.url) { setCheckoutUrl(data.url); return; }
     } catch (e) {
       toast.error(e?.response?.data?.detail || "No billing account found. Complete a purchase first.");
-      setPortalLoading(false);
     }
+    setPortalLoading(false);
   }
 
   /* ── Single-plan checkout view ── */
@@ -120,6 +119,7 @@ export default function SubscribePage() {
             </div>
           </div>
         </div>
+        <CheckoutModal url={checkoutUrl} onClose={() => setCheckoutUrl(null)} />
       </AppShell>
     );
   }
@@ -261,6 +261,7 @@ export default function SubscribePage() {
 
         </div>
       </div>
+      <CheckoutModal url={checkoutUrl} onClose={() => setCheckoutUrl(null)} />
     </AppShell>
   );
 }

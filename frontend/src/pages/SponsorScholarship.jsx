@@ -4,6 +4,7 @@ import PublicNav from "../components/PublicNav";
 import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { toast } from "sonner";
+import CheckoutModal from "../components/CheckoutModal";
 
 const TIERS = [
   {
@@ -56,6 +57,7 @@ export default function SponsorScholarship() {
   const [dedication, setDedication] = useState("");
   const [fundId, setFundId] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [checkoutUrl, setCheckoutUrl] = useState(null);
   const [result, setResult] = useState(null);
 
   useEffect(() => {
@@ -81,7 +83,7 @@ export default function SponsorScholarship() {
         tier, amount_cents: cents, dedication, fund_id: fundId,
       });
       if (res.data.url) {
-        window.location.href = res.data.url;
+        setCheckoutUrl(res.data.url);
         return;
       }
       setResult(res.data);
@@ -307,6 +309,7 @@ export default function SponsorScholarship() {
           </div>
         </div>
       )}
+      <CheckoutModal url={checkoutUrl} onClose={() => setCheckoutUrl(null)} />
     </div>
   );
 }
