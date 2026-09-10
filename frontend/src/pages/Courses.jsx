@@ -6,6 +6,7 @@ import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { toast } from "sonner";
 import { BookOpen, ShoppingBag, CheckCircle, Loader2 } from "lucide-react";
+import CheckoutModal from "../components/CheckoutModal";
 
 const CATEGORY_LABELS = {
   general: "General",
@@ -33,6 +34,7 @@ export default function Courses() {
   const [loading, setLoading] = useState(true);
   const [buying, setBuying] = useState(null);
   const [category, setCategory] = useState("");
+  const [checkoutUrl, setCheckoutUrl] = useState(null);
 
   useEffect(() => {
     async function load() {
@@ -69,11 +71,10 @@ export default function Courses() {
         setEnrolledIds(prev => new Set([...prev, course.course_id]));
         toast.success("Enrolled! Check your dashboard.");
       } else if (data.url) {
-        window.location.href = data.url;
+        setCheckoutUrl(data.url);
       }
     } catch (e) {
       const detail = e?.response?.data?.detail || "";
-      // Customer-friendly honest status — don't show backend env-var instructions.
       if (e?.response?.status === 501 || /not configured/i.test(String(detail))) {
         toast.info("Paid courses are coming soon — free courses enroll instantly, and nothing can be charged yet.");
       } else {
@@ -226,6 +227,7 @@ export default function Courses() {
             <Link to="/register" className="text-copper font-bold">Create an account →</Link>
           )}
         </div>
+        <CheckoutModal url={checkoutUrl} onClose={() => setCheckoutUrl(null)} />
       </div>
     </div>
   );

@@ -3,6 +3,7 @@ import AppShell from "../components/AppShell";
 import { api } from "../lib/api";
 import { Receipt, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
+import CheckoutModal from "../components/CheckoutModal";
 
 const LABELS = {
   payment: "One-time",
@@ -14,6 +15,7 @@ export default function PaymentHistory() {
   const [payments, setPayments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [portalLoading, setPortalLoading] = useState(false);
+  const [checkoutUrl, setCheckoutUrl] = useState(null);
 
   useEffect(() => {
     api.get("/payments/history")
@@ -26,11 +28,11 @@ export default function PaymentHistory() {
     setPortalLoading(true);
     try {
       const { data } = await api.get("/payments/portal");
-      window.location.href = data.url;
+      if (data?.url) { setCheckoutUrl(data.url); return; }
     } catch (e) {
       toast.error(e?.response?.data?.detail || "No billing account found.");
-      setPortalLoading(false);
     }
+    setPortalLoading(false);
   }
 
   return (
@@ -102,6 +104,7 @@ export default function PaymentHistory() {
           </table>
         </div>
       )}
+      <CheckoutModal url={checkoutUrl} onClose={() => setCheckoutUrl(null)} />
     </div>
     </AppShell>
   );

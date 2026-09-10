@@ -6,6 +6,7 @@ import {
   KeyRound, ShieldCheck, ExternalLink, Trash2, Plug, CheckCircle2,
   CircleDollarSign, Loader2, RefreshCw, AlertTriangle,
 } from "lucide-react";
+import CheckoutModal from "../components/CheckoutModal";
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
 const COPPER = "#b5651d";
@@ -44,6 +45,7 @@ export default function BYOK() {
   const [busyProvider, setBusyProvider] = useState(null);
   const [keyInputs, setKeyInputs] = useState({});
   const [adminStats, setAdminStats] = useState(null);
+  const [checkoutUrl, setCheckoutUrl] = useState(null);
 
   // Instructor tier and above get BYOK free; everyone below pays $3 one-time.
   const byokPrice = status?.price_usd ?? 3;
@@ -82,7 +84,7 @@ export default function BYOK() {
       // a $3 payment session (the webhook flips byok_enabled once paid).
       const { data } = await api.post("/byok/checkout");
       if (data?.url) {
-        window.location.href = data.url;
+        setCheckoutUrl(data.url);
         return;
       }
       setStatus((s) => ({ ...s, enabled: true, activated_at: data.activated_at, price_usd: data.price_usd, free_for_role: data.free_for_role }));
@@ -289,6 +291,7 @@ export default function BYOK() {
           </>
         )}
       </div>
+      <CheckoutModal url={checkoutUrl} onClose={() => setCheckoutUrl(null)} />
     </AppShell>
   );
 }

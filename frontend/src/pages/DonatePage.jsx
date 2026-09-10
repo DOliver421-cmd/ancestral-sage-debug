@@ -3,6 +3,7 @@ import AppShell from "../components/AppShell";
 import { api } from "../lib/api";
 import { Heart } from "lucide-react";
 import { toast } from "sonner";
+import CheckoutModal from "../components/CheckoutModal";
 
 const PRESET_AMOUNTS = [10, 25, 50, 100, 250];
 
@@ -10,6 +11,7 @@ export default function DonatePage() {
   const [selected, setSelected] = useState(25);
   const [custom, setCustom] = useState("");
   const [loading, setLoading] = useState(false);
+  const [checkoutUrl, setCheckoutUrl] = useState(null);
 
   const effectiveAmount = custom ? parseFloat(custom) : selected;
   const amountCents = Math.round(effectiveAmount * 100);
@@ -24,11 +26,12 @@ export default function DonatePage() {
         amount_cents: amountCents,
         quantity: 1,
       });
-      window.location.href = data.url;
+      if (data?.url) { setCheckoutUrl(data.url); return; }
+      toast.error("Checkout could not start.");
     } catch (e) {
       toast.error(e?.response?.data?.detail || "Could not start checkout.");
-      setLoading(false);
     }
+    setLoading(false);
   }
 
   return (
@@ -107,6 +110,7 @@ export default function DonatePage() {
       <p className="text-xs text-ink/40 text-center mt-4">
         M.O.R.E. Help Center is a registered organization.
       </p>
+      <CheckoutModal url={checkoutUrl} onClose={() => setCheckoutUrl(null)} />
     </div>
     </AppShell>
   );

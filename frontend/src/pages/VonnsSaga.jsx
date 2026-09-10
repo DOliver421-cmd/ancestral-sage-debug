@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { useAuth } from "../lib/auth";
 import { tierRank } from "../lib/tiers";
 import VonnsSagaAdmin from "../components/VonnsSagaAdmin";
+import CheckoutModal from "../components/CheckoutModal";
 
 const SAVE_KEY = "vonns_saga_v1";
 
@@ -415,6 +416,7 @@ export default function VonnsSaga() {
   const [concerts, setConcerts] = useState([]);
   const [purchasedIds, setPurchasedIds] = useState([]);
   const [assetErrors, setAssetErrors] = useState([]);
+  const [checkoutUrl, setCheckoutUrl] = useState(null);
 
   const loadSagaAssets = useCallback(async () => {
     const requests = [
@@ -452,7 +454,7 @@ export default function VonnsSaga() {
     try {
       const { data } = await api.post(endpoint);
       if (data?.url) {
-        window.location.href = data.url;
+        setCheckoutUrl(data.url);
       } else if (data?.already_purchased) {
         toast.success("You already own this — enjoy!");
         loadSagaAssets();
@@ -910,6 +912,7 @@ export default function VonnsSaga() {
           .vs-choice { transition: none !important; }
         }
       `}</style>
+      <CheckoutModal url={checkoutUrl} onClose={() => setCheckoutUrl(null)} />
     </div>
   );
 }

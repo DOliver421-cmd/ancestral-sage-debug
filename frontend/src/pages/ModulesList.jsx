@@ -6,6 +6,7 @@ import { Link } from "react-router-dom";
 import { Lock, Zap, BookOpen, ShoppingBag, CheckCircle, Loader2, Award, FlaskConical, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import SharePanel from "../components/SharePanel";
+import CheckoutModal from "../components/CheckoutModal";
 
 const COURSE_CATEGORIES = {
   general: "General",
@@ -30,6 +31,7 @@ export default function ModulesList() {
   const [loadingCourses, setLoadingCourses] = useState(false);
   const [catalogError, setCatalogError] = useState("");
   const [catalogLoading, setCatalogLoading] = useState(true);
+  const [checkoutUrl, setCheckoutUrl] = useState(null);
 
   const loadCatalog = useCallback(() => {
     setCatalogLoading(true);
@@ -67,9 +69,8 @@ export default function ModulesList() {
     try {
       const { data } = await api.post(`/creator/courses/${course.course_id}/checkout`);
       if (data.enrolled) { setEnrolledIds(prev => new Set([...prev, course.course_id])); }
-      else if (data.url) { window.location.href = data.url; }
+      else if (data.url) { setCheckoutUrl(data.url); }
     } catch (e) {
-      // Never fail silently — the customer clicked and deserves an answer.
       const detail = e?.response?.data?.detail || "";
       if (e?.response?.status === 501 || /not configured/i.test(String(detail))) {
         toast.info("Paid courses are coming soon — membership courses enroll instantly, and nothing can be charged yet.");
@@ -278,6 +279,7 @@ export default function ModulesList() {
           </div>
         )}
       </div>
+      <CheckoutModal url={checkoutUrl} onClose={() => setCheckoutUrl(null)} />
     </AppShell>
   );
 }
