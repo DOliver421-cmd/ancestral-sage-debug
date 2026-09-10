@@ -1437,7 +1437,7 @@ async def ai_orchestrator(body: OrchestratorReq, user: User = Depends(_dep_curre
                 {"type": "text", "text": user_message or f"[Attached image: {body.file_name}]"},
             ]})
         elif mime == "application/pdf":
-            # Document block (Anthropic PDF support)
+            # Document block
             claude_messages.append({"role": "user", "content": [
                 {"type": "document", "source": {"type": "base64", "media_type": "application/pdf", "data": body.file_b64}},
                 {"type": "text", "text": user_message or f"[Attached PDF: {body.file_name}]"},

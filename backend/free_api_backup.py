@@ -23,7 +23,7 @@ MATRIX = {
     # ── AI / LLM ───────────────────────────────────────────────────────────────
     "ai_llm": {
         "label": "AI Language Model",
-        "primary": "Anthropic Claude",
+        "primary": "Free LLM Gateway",
         "free_fallbacks": [
             {
                 "name": "OpenRouter (free tier)",

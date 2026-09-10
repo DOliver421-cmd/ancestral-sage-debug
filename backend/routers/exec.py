@@ -872,7 +872,7 @@ async def exec_staff_meeting(
 
     # Generate real persona responses via LLM in parallel
     async def _call_persona(persona_id: str, question: str) -> tuple[str, str]:
-        """Call a single persona via Anthropic and return (persona_id, response_text).
+        """Call a single persona via LLM and return (persona_id, response_text).
         Returns (persona_id, "") on any failure so the meeting still completes."""
         try:
             # Build system prompt — use persona_loader if available, else construct from domain role

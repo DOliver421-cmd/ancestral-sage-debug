@@ -40,7 +40,7 @@ DEFAULT_BREAKERS = {
     "emergency_ui":     {"label": "Emergency UI (Standalone)",   "status": "standby",  "type": "backup",   "order": 2},
     "database_primary": {"label": "MongoDB Primary",             "status": "on",       "type": "database", "order": 3},
     "database_backup":  {"label": "MongoDB Atlas (Backup)",      "status": "standby",  "type": "database", "order": 4},
-    "ai_services":      {"label": "AI Services (Anthropic/OAI)", "status": "on",       "type": "service",  "order": 5},
+    "ai_services":      {"label": "AI Services", "status": "on",       "type": "service",  "order": 5},
     "email_service":    {"label": "Email (Resend/Gmail)",        "status": "on",       "type": "service",  "order": 6},
     "payments":         {"label": "Payments (Lemon Squeezy/Gumroad)", "status": "on",    "type": "service",  "order": 7},
     "scheduler_jobs":   {"label": "Scheduled Jobs",              "status": "off",      "type": "service",  "order": 8},

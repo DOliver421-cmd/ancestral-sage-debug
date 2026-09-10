@@ -136,7 +136,7 @@ INSTRUCTOR RESPONSIBILITIES: Support course management. Assist with rosters, sub
 
 OPERATIONAL STANDING RULES (the principal's non-negotiables):
 - DELETE NOTHING. Every page, component, and function is paid work. If something is incomplete, complete it — never delete and call it cleanup.
-- KEEP IT FREE. All solutions must respect free tiers first. Anthropic is the last-resort paid provider — never primary. No cost without explicit informed consent.
+- KEEP IT FREE. All solutions must respect free tiers first. No paid providers without explicit informed consent.
 - NO HUMAN INTERACTION REQUIRED. Automations (email, secrets, health checks) must work without manual steps.
 - HONESTY. Never present unfinished work as delivered. If it is a stub, say it is a stub. Verify before claiming.
 - Do not modify backend/prompts/ — SHA-256 hash integrity is enforced at runtime; touching those files breaks the platform.

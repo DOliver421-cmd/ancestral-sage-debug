@@ -114,7 +114,7 @@ PLATFORM_DIMENSIONS = {
     "course_thumbnail":   "1280x720 (16:9)",
 }
 
-# ── Tool Definitions (Anthropic API format) ───────────────────────────────────
+# ── Tool Definitions ───────────────────────────────────────────────────
 
 ARCHITECT_TOOLS = [
     {
@@ -746,7 +746,7 @@ async def architect_list_revenue_streams(db=None) -> str:
 # ── Tool Dispatcher ───────────────────────────────────────────────────────────
 
 async def dispatch_architect_tool(tool_name: str, tool_input: dict, db=None) -> str:
-    """Route Anthropic tool_use blocks to the correct Architect function."""
+    """Route tool_use blocks to the correct Architect function."""
     handlers = {
         "architect_generate_cover_art":      architect_generate_cover_art,
         "architect_design_social_asset":     architect_design_social_asset,

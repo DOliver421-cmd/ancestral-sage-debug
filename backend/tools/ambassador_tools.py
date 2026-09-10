@@ -90,7 +90,7 @@ AMBASSADOR_REVENUE_STREAMS = [
     },
 ]
 
-# ── Tool Definitions (Anthropic API format) ───────────────────────────────────
+# ── Tool Definitions ───────────────────────────────────────────────────
 
 AMBASSADOR_TOOLS = [
     {
@@ -653,7 +653,7 @@ async def ambassador_list_revenue_streams(db=None) -> str:
 # ── Tool Dispatcher ───────────────────────────────────────────────────────────
 
 async def dispatch_ambassador_tool(tool_name: str, tool_input: dict, db=None) -> str:
-    """Route Anthropic tool_use blocks to the correct Ambassador function."""
+    """Route tool_use blocks to the correct Ambassador function."""
     handlers = {
         "ambassador_coordinate_oracle":         ambassador_coordinate_oracle,
         "ambassador_coordinate_cipher":         ambassador_coordinate_cipher,

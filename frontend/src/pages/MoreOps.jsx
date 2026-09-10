@@ -534,7 +534,7 @@ export function MoreOpsContent({ embedded = false }) {
       let message = typeof detail === "string" ? detail : "Department AI unavailable";
       if (status === 401) message = "Your session expired. Sign in again to use Department AI.";
       if (status === 403) message = "Department AI requires admin access.";
-      if (status === 502) message = "Department AI is down or missing ANTHROPIC_API_KEY in Railway.";
+      if (status === 502) message = "Department AI is down. Please try again later.";
       toast.error(message);
       // C-9: remove the specific failed message by its id, not by position.
       setMessages((prev) => prev.filter((m) => m._id !== msgId));

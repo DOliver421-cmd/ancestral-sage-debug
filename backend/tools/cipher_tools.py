@@ -80,7 +80,7 @@ CIPHER_REVENUE_STREAMS = [
     },
 ]
 
-# ── Tool Definitions (Anthropic API format) ───────────────────────────────────
+# ── Tool Definitions ───────────────────────────────────────────────────
 
 CIPHER_TOOLS = [
     {

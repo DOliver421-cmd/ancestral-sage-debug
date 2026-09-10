@@ -154,7 +154,7 @@ for category, (start, count, weight) in WEIGHTS.items():
 random.shuffle(expanded)
 
 # ── Run pipeline ─────────────────────────────────────────────────────────────
-mgr = PipelineManager(db=None, anthropic_api_key="")
+mgr = PipelineManager(db=None)
 
 async def run_simulation(posts):
     return await mgr.process_batch(posts, source="simulation")

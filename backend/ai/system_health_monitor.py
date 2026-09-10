@@ -28,7 +28,7 @@ class SystemHealthMonitor:
             "open_incidents":      0,       # incidents in incident_register
             "tts_circuit_open":    False,   # TTS circuit breaker state
             "db_connected":        True,    # MongoDB connection state
-            "ai_api_reachable":    True,    # Anthropic API reachability
+            "ai_api_reachable":    True,    # AI API reachability
         }
 
     def flag(self, message: str) -> None:

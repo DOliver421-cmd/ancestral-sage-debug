@@ -217,9 +217,9 @@ def _over_budget() -> bool:
 
 
 
-# ── Message format converter (Anthropic → OpenAI-compatible) ─────────────────
+# ── Message format converter ─────────────────────────────────────────────────
 def _to_oai_messages(system: str, messages: list[dict]) -> list[dict]:
-    """Convert Anthropic-style system + messages list to OpenAI chat format."""
+    """Convert system + messages list to OpenAI chat format."""
     out = [{"role": "system", "content": system}]
     for m in messages:
         content = m.get("content", "")
@@ -264,7 +264,7 @@ async def _oai_compat_call(
     }
     # Tool calling in OpenAI format — only pass if provided
     if tools:
-        # Convert Anthropic tool schema to OpenAI function-calling format
+        # Convert tool schema to OpenAI function-calling format
         payload["tools"] = [
             {
                 "type": "function",
@@ -559,8 +559,8 @@ async def call_llm(
             "model":         str,   model identifier used
             "input_tokens":  int,
             "output_tokens": int,
-            "degraded":      bool,  True when not using Anthropic (primary)
-            "_raw":          obj,   Anthropic response object (Tier 1 only)
+            "degraded":      bool,  True when not using primary provider
+            "_raw":          obj,   Raw provider response object (Tier 1 only)
         }
     """
     # ── $3 BYOK (Bring Your Own Key) — user's own free key first ─────────

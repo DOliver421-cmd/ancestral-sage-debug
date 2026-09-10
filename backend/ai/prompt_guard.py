@@ -336,7 +336,6 @@ _INJECTION_PATTERNS = [
     # --- AI-to-AI manipulation ---
     (r"(as\s+an?\s+)?ai\s+(assistant|model|language\s+model|system|chatbot)\s+(you\s+)(must|should|need\s+to|are\s+required\s+to)", "AI_PEER_MANIPULATION"),
     (r"(gpt|chatgpt|claude|gemini|llama|mistral|copilot)\s+(told|says?|instructed|advised)\s+(me|you|us)\s+to", "AI_PEER_AUTHORITY"),
-    (r"(this\s+is\s+)?anthropic\s+(policy|guidelines?|override|emergency)", "AI_AUTHORITY_SPOOF"),
     (r"(this\s+is\s+)?openai\s+(policy|guidelines?|override|emergency)", "AI_AUTHORITY_SPOOF"),
 
     # --- Developer/debug mode exploitation ---

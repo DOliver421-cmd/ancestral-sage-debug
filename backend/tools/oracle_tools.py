@@ -82,7 +82,7 @@ ORACLE_REVENUE_STREAMS = [
     },
 ]
 
-# ── Tool Definitions (Anthropic API format) ───────────────────────────────────
+# ── Tool Definitions ───────────────────────────────────────────────────
 
 ORACLE_TOOLS = [
     {
