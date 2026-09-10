@@ -174,7 +174,7 @@ function BrowseTab({ user }) {
     setCheckingOut(product.id);
     try {
       const r = await api.post(`/media/products/${product.id}/checkout`);
-      if (r.data.url) window.location.href = r.data.url;
+      if (r.data.url) setCheckoutUrl(r.data.url);
       else throw new Error("Checkout URL was not returned");
     } catch (e) {
       toast.error(e?.response?.data?.detail || "Checkout failed");
