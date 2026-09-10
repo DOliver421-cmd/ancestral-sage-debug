@@ -20,6 +20,7 @@ import AppShell from "../components/AppShell";
 import { FEATURE_TIER_RANK, FEATURE_TIER_LABEL, canAccess } from "../lib/tiers";
 import SharePanel from "../components/SharePanel";
 import WorkspacePanel from "../components/WorkspacePanel";
+import ResourceHubPanel from "../components/ResourceHubPanel";
 import {
   Music, BookOpen, Users, Edit3, Camera, Send, Mic, MicOff, GraduationCap,
   Volume2, VolumeX, Play, Pause, Settings, ExternalLink,
@@ -1014,44 +1015,6 @@ function LearnTab({ user, status }) {
   );
 }
 
-// ── Profile Resource Hub — Plus+ (staff free), lives INSIDE /profile (not a dead page)
-function ProfileResourceHub({ user }) {
-  const tier = user?.feature_tier || "free";
-  const role = user?.role || "student";
-  const staffRoles = new Set(["instructor","admin","executive_admin","support_staff","oversight"]);
-  const isStaff = staffRoles.has(role);
-  const tierRank = {free:0,member:1,plus:2,pro:3,patron:4,platinum:5,executive:6};
-  const canSee = isStaff || (tierRank[tier]||0) >= 2;
-  if (!canSee) {
-    return (
-      <div className="card-flat p-8 text-center space-y-3">
-        <Briefcase className="w-8 h-8 text-copper mx-auto" />
-        <div className="font-heading font-bold text-lg text-ink">Resource Hub — Plus access</div>
-        <p className="text-sm text-ink/60">Grants, fundraising, and business resources live in your profile once you join as a Plus member. Staff access is included automatically.</p>
-        <Link to="/plans" className="btn-copper text-sm inline-flex">See Member plans →</Link>
-        <div className="text-xs text-ink/30 pt-2"><Link to="/resources" className="text-copper hover:underline">Open full Hub at /resources →</Link></div>
-      </div>
-    );
-  }
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div className="font-heading font-bold text-base flex items-center gap-2"><Briefcase className="w-4 h-4 text-copper" /> Resource Hub</div>
-        <Link to="/resources" className="text-xs font-bold text-copper hover:underline">Open full page →</Link>
-      </div>
-      <p className="text-sm text-ink/60">Your unified workspace — grants, fundraising, business resources, legal workflows, and assistant. Real workflows, not link lists.</p>
-      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-        {[{to:"/resources", label:"Dashboard", desc:"Counts, next step"},{to:"/resources", label:"Grants", desc:"Opportunities + apply"},{to:"/resources", label:"Fundraising", desc:"Campaigns + scholarship funds"},{to:"/resources", label:"Business Resources", desc:"Templates, legal, finance"},{to:"/legal", label:"Legal Workflows", desc:"12 workflows + docs"},{to:"/assistant", label:"Admin Assistant", desc:"Draft, propose, plan"}].map(c=>(
-          <Link key={c.label} to={c.to} className="card-flat p-4 hover:border-copper transition-colors group">
-            <div className="font-bold text-sm text-ink group-hover:text-copper">{c.label}</div>
-            <div className="text-xs text-ink/50 mt-1">{c.desc}</div>
-          </Link>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 // ── Main component ─────────────────────────────────────────────────────────────
 export default function UnifiedProfile() {
   const { username } = useParams();
@@ -1144,21 +1107,23 @@ export default function UnifiedProfile() {
               <div>
                 <div className="font-heading font-bold mb-3">Your Tools</div>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                  {[
-                    { feature: "ai_chat",     label: "AI Tutor",        icon: Zap,       to: "/ai",                 desc: "Ask anything" },
-                    { feature: "profile",     label: "Social Blast",    icon: Megaphone, to: "/social/publish",     desc: "Post to all platforms" },
-                    { feature: "profile",     label: "Curriculum",      icon: BookOpen,  to: "/modules",            desc: "Browse all courses" },                    { feature: "profile",      label: "Certificates",    icon: Award,       to: "/certificates",        desc: "Your earned certs" },                          { feature: "profile",      label: "Homeschool Academy", icon: GraduationCap, to: "/academy/curriculum",   desc: "K-12 courses & handbooks", free: true  },
-                          { feature: "profile",      label: "Help Center",     icon: HelpCircle,  to: "/help-center",         desc: "Guides & support",        free: true  },
+                   {[
+                     { feature: "ai_chat",     label: "AI Tutor",        icon: Zap,          to: "/ai",                 desc: "Ask anything" },
+                     { feature: "profile",     label: "Social Blast",    icon: Megaphone,    to: "/social/publish",     desc: "Post to all platforms" },
+                     { feature: "profile",     label: "Curriculum",      icon: BookOpen,     to: "/modules",            desc: "Browse all courses" },
+                     { feature: "profile",     label: "Certificates",    icon: Award,        to: "/certificates",       desc: "Your earned certs" },
+                     { feature: "profile",     label: "Homeschool Academy", icon: GraduationCap, to: "/academy/curriculum", desc: "K-12 courses & handbooks", free: true },
+                     { feature: "profile",     label: "Help Center",     icon: HelpCircle,   to: "/help-center",        desc: "Guides & support", free: true },
 
-                    { feature: "posts",        label: "Creator Lounge",  icon: Mic,         to: "/creator-lounge",      desc: "Community stage" },
-                    { feature: "ghost",       label: "Ghost Producer",  icon: Music,     to: "/ghost-producer",     desc: "AI production suite" },
-                    { feature: "ghost",       label: "Creator Studio",  icon: Radio,     to: "/studio",             desc: "Build & publish" },
-                    { feature: "band",        label: "Band on a Page",  icon: Globe,     to: "/band",               desc: "Your group page" },
-                    { feature: "courses",     label: "Course Manager",  icon: FileText,  to: "/creator/courses",    desc: "Sell your knowledge" },
-                    { feature: "artist_mgmt", label: "My Earnings",     icon: BarChart2, to: "/creator/earnings",   desc: "Track income" },
-                    { feature: "artist_mgmt", label: "Payouts",         icon: Settings,  to: "/creator/payouts",    desc: "Withdraw funds" },
-                    { feature: "sovereign",   label: "Admin Control",   icon: Shield,    to: "/admin",              desc: "Platform management" },
-                  ].map(({ feature, label, icon: Icon, to, desc }) => {
+                     { feature: "posts",       label: "Creator Lounge",  icon: Mic,          to: "/creator-lounge",     desc: "Community stage" },
+                     { feature: "ghost",       label: "Ghost Producer",  icon: Music,        to: "/ghost-producer",     desc: "AI production suite" },
+                     { feature: "ghost",       label: "Creator Studio",  icon: Radio,        to: "/studio",             desc: "Build & publish" },
+                     { feature: "band",        label: "Band on a Page",  icon: Globe,        to: "/band",               desc: "Your group page" },
+                     { feature: "courses",     label: "Course Manager",  icon: FileText,     to: "/creator/courses",    desc: "Sell your knowledge" },
+                     { feature: "artist_mgmt", label: "My Earnings",     icon: BarChart2,    to: "/creator/earnings",   desc: "Track income" },
+                     { feature: "artist_mgmt", label: "Payouts",          icon: Settings,     to: "/creator/payouts",    desc: "Withdraw funds" },
+                     { feature: "sovereign",   label: "Admin Control",   icon: Shield,       to: "/admin",              desc: "Platform management" },
+                   ].map(({ feature, label, icon: Icon, to, desc }) => {
                     const accessible = canAccess(user, null, feature);
                     if (!accessible) return (
                       <Link key={label} to="/plans" className="card-flat p-4 flex flex-col gap-1 opacity-40 hover:opacity-60 transition-opacity group">
@@ -1543,7 +1508,7 @@ export default function UnifiedProfile() {
               )}
 
                {/* ══ RESOURCES tab — Resource Hub IN profile (Plus+/staff, tiers.js:resource_hub) ══ */}
-              {activeTab === "resources" && isOwner && <ProfileResourceHub user={user} />}
+              {activeTab === "resources" && isOwner && <ResourceHubPanel user={user} />}
 
               {/* WORKSPACE tab (personal workspace: saved items + notes/plans) */}
               {activeTab === "workspace" && isOwner && (
