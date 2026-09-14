@@ -24,6 +24,7 @@ logger = logging.getLogger("lcewai.transaction_node")
 
 LEMON_SQUEEZY_API_KEY  = os.environ.get("LEMON_SQUEEZY_API_KEY", "")
 LEMON_SQUEEZY_STORE_ID = os.environ.get("LEMON_SQUEEZY_STORE_ID", "")
+FRONTEND_URL = os.environ.get("FRONTEND_URL", os.environ.get("REACT_APP_BACKEND_URL", "")).rstrip("/") or "https://www.morehelp.center"
 
 
 class TransactionNode:
@@ -136,6 +137,8 @@ class TransactionNode:
                 "description": False,
             },
             "checkout_data": {},
+            "success_url": f"{FRONTEND_URL}/payment/success?source=ls",
+            "cancel_url":  f"{FRONTEND_URL}/store",
         }
 
         if custom_price is not None:

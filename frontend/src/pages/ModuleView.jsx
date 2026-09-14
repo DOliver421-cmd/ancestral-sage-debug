@@ -61,11 +61,23 @@ export default function ModuleView() {
     <AppShell>
       <div className="px-4 sm:px-10 py-20 text-center max-w-lg mx-auto">
         <BookOpen className="w-10 h-10 text-ink/20 mx-auto mb-4" />
-        <h2 className="font-heading text-2xl font-bold mb-2">Module not found</h2>
-        <p className="text-ink/60 mb-6">This module couldn't be loaded. It may have moved or there's a connection issue.</p>
-        <Link to="/modules" className="btn-copper inline-flex items-center gap-2">
-          <LayoutList className="w-4 h-4" /> Back to Curriculum
-        </Link>
+        {!user ? (
+          <>
+            <h2 className="font-heading text-2xl font-bold mb-2">Membership required</h2>
+            <p className="text-ink/60 mb-6">Sign in to view this module, track your progress, and earn certificates.</p>
+            <Link to="/login" className="btn-copper inline-flex items-center gap-2">
+              Sign In <ArrowRight className="w-4 h-4" />
+            </Link>
+          </>
+        ) : (
+          <>
+            <h2 className="font-heading text-2xl font-bold mb-2">Module not found</h2>
+            <p className="text-ink/60 mb-6">This module couldn't be loaded. It may have moved or there's a connection issue.</p>
+            <Link to="/modules" className="btn-copper inline-flex items-center gap-2">
+              <LayoutList className="w-4 h-4" /> Back to Curriculum
+            </Link>
+          </>
+        )}
       </div>
     </AppShell>
   );

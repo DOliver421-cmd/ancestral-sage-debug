@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { Link } from "react-router-dom";
 import { api } from "../lib/api";
 import { Activity, RefreshCw, Loader2, CheckCircle, AlertTriangle, Zap, Users } from "lucide-react";
 
@@ -135,6 +136,12 @@ export default function TeamOps() {
         <p className="text-xs text-ink/25 mt-10 text-center leading-relaxed">
           actor: team.supervisor · human_initiated: false · each entry is cryptographically timestamped in MongoDB
         </p>
+
+        <div className="mt-6 flex gap-4 justify-center">
+          <Link to="/privacy" className="text-xs text-copper hover:underline">Privacy Policy</Link>
+          <Link to="/refund" className="text-xs text-copper hover:underline">Refund Policy</Link>
+          <Link to="/terms" className="text-xs text-copper hover:underline">Terms of Service</Link>
+        </div>
       </div>
     </div>
   );

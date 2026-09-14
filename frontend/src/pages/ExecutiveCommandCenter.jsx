@@ -827,6 +827,11 @@ export default function ExecutiveCommandCenter() {
           </div>
         )}
       </div>
+      <div className="mt-8 flex gap-4 justify-center">
+        <Link to="/privacy" className="text-xs text-slate-500 hover:text-copper">Privacy Policy</Link>
+        <Link to="/refund" className="text-xs text-slate-500 hover:text-copper">Refund Policy</Link>
+        <Link to="/terms" className="text-xs text-slate-500 hover:text-copper">Terms of Service</Link>
+      </div>
     </AppShell>
   );
 }

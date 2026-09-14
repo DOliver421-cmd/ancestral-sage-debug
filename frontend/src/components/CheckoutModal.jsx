@@ -9,7 +9,7 @@ export default function CheckoutModal({ url, onClose }) {
   const checkSuccess = useCallback(async () => {
     try {
       const { data } = await fetch("/api/auth/me", {
-        headers: { "Authorization": `Bearer ${localStorage.getItem("token")}` },
+        headers: { "Authorization": `Bearer ${localStorage.getItem("lce_token")}` },
       }).then(r => r.json());
       const tier = data?.feature_tier || "";
       if (tier && tier !== "free") {

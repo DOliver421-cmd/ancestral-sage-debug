@@ -781,13 +781,18 @@ export default function MediaStore() {
         {/* Success banner */}
         {success && (
           <div className="bg-emerald-50 border-b border-emerald-200 px-4 py-3">
-            <div className="max-w-5xl mx-auto flex items-center gap-2 text-emerald-800 text-sm">
+            <div className="max-w-5xl mx-auto flex items-center gap-3 text-emerald-800 text-sm">
               <CheckCircle2 size={16} />
               <span>Purchase complete! Check your </span>
               <button
                 onClick={() => setActiveTab("library")}
                 className="font-semibold underline"
-              >library</button>.
+              >library</button>
+              <span> or </span>
+              <button
+                onClick={() => setActiveTab("browse")}
+                className="font-semibold underline"
+              >continue shopping</button>.
             </div>
           </div>
         )}

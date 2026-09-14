@@ -1,13 +1,22 @@
 import { Link } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { WAI_LOGO, BRAND } from "../lib/brand";
-import { Heart, BookOpen, Users, Award, Zap, ArrowRight, MessageSquare, DollarSign, Shield } from "lucide-react";
+import { Heart, BookOpen, Users, Award, Zap, ArrowRight, MessageSquare, DollarSign, Shield, Menu, X } from "lucide-react";
 import BugReportModal from "../components/BugReportModal";
 import { api } from "../lib/api";
 
 export default function Landing() {
   const [featuredCourses, setFeaturedCourses] = useState(null);
   const [siteAssets, setSiteAssets] = useState(null);
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  const LINKS = [
+    { href: "#services", label: "Services" },
+    { href: "#for-creators", label: "For Creators" },
+    { href: "#community", label: "Community" },
+    { to: "/login", label: "Sign in" },
+    { to: "/register", label: "Join Us" },
+  ];
 
   useEffect(() => {
     api.get("/creator/courses/published?limit=4")
@@ -67,14 +76,54 @@ export default function Landing() {
               <div className="font-heading font-bold text-sm leading-tight">{BRAND.name}</div>
             </div>
           </Link>
-          <nav className="flex items-center gap-4">
+
+          {/* Desktop nav */}
+          <nav className="hidden md:flex items-center gap-4">
             <a href="#services" className="text-sm font-medium hover:text-copper">Services</a>
             <a href="#for-creators" className="text-sm font-medium hover:text-copper">For Creators</a>
             <a href="#community" className="text-sm font-medium hover:text-copper">Community</a>
             <Link to="/login" className="text-sm font-bold uppercase tracking-widest hover:text-copper">Sign in</Link>
             <Link to="/register" className="btn-copper text-sm">Join Us</Link>
           </nav>
+
+          {/* Mobile hamburger */}
+          <button
+            className="md:hidden p-2 rounded-lg text-ink hover:text-copper"
+            onClick={() => setMobileOpen((o) => !o)}
+            aria-label="Toggle navigation"
+          >
+            {mobileOpen ? <X size={22} /> : <Menu size={22} />}
+          </button>
         </div>
+
+        {/* Mobile drawer */}
+        {mobileOpen && (
+          <div className="md:hidden border-t border-ink/10 bg-bone">
+            <nav className="max-w-7xl mx-auto px-6 py-4 flex flex-col gap-3">
+              {LINKS.map((l) => (
+                l.href ? (
+                  <a
+                    key={l.href}
+                    href={l.href}
+                    className="text-sm font-medium hover:text-copper py-2 border-b border-ink/5"
+                    onClick={() => setMobileOpen(false)}
+                  >
+                    {l.label}
+                  </a>
+                ) : (
+                  <Link
+                    key={l.to}
+                    to={l.to}
+                    className="text-sm font-medium hover:text-copper py-2 border-b border-ink/5"
+                    onClick={() => setMobileOpen(false)}
+                  >
+                    {l.label}
+                  </Link>
+                )
+              ))}
+            </nav>
+          </div>
+        )}
       </header>
 
       {/* HERO: Vision Section */}

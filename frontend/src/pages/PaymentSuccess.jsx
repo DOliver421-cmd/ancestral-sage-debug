@@ -29,9 +29,9 @@ export default function PaymentSuccess() {
           A confirmation notification has been sent to your account.
         </p>
         <div className="flex flex-col gap-3">
-          <Link to="/dashboard"
+          <Link to="/store"
             className="w-full py-3 bg-ink text-white font-bold rounded-lg hover:bg-ink/80 transition-colors text-center">
-            Return to Dashboard
+            Continue Shopping
           </Link>
           <Link to="/payment/history"
             className="w-full py-3 border border-ink/20 text-ink font-bold rounded-lg hover:bg-ink/5 transition-colors text-center text-sm">

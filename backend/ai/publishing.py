@@ -28,8 +28,9 @@ from datetime import datetime, timezone
 
 logger = logging.getLogger("lcewai.publishing")
 
-LEMON_SQUEEZY_API_KEY = os.environ.get("LEMON_SQUEEZY_API_KEY", "")
+LEMON_SQUEEZY_API_KEY  = os.environ.get("LEMON_SQUEEZY_API_KEY", "")
 LEMON_SQUEEZY_STORE_ID = os.environ.get("LEMON_SQUEEZY_STORE_ID", "")
+FRONTEND_URL = os.environ.get("FRONTEND_URL", os.environ.get("REACT_APP_BACKEND_URL", "")).rstrip("/") or "https://www.morehelp.center"
 GUMROAD_API_KEY = os.environ.get("GUMROAD_API_KEY", "")
 EXECUTIVE_EMAIL = os.environ.get("EXECUTIVE_EMAIL", "")
 
@@ -121,6 +122,12 @@ async def _publish_lemon_squeezy(
                             if checkout_email:
                                 from urllib.parse import quote as _q0
                                 _url += f"?checkout[email]={_q0(checkout_email)}"
+                            if "?" in _url:
+                                _url += "&success_url=" + __import__("urllib.parse").parse.quote(f"{FRONTEND_URL}/payment/success?source=ls")
+                                _url += "&cancel_url=" + __import__("urllib.parse").parse.quote(f"{FRONTEND_URL}/store")
+                            else:
+                                _url += "?success_url=" + __import__("urllib.parse").parse.quote(f"{FRONTEND_URL}/payment/success?source=ls")
+                                _url += "&cancel_url=" + __import__("urllib.parse").parse.quote(f"{FRONTEND_URL}/store")
                             logger.info(
                                 "LemonSqueezy T1 REUSE: %s → %s (product %s, variant %s)",
                                 name, _url, _prod.get("id"), _existing_variant_id,
@@ -222,10 +229,14 @@ async def _publish_lemon_squeezy(
                 return None
             url = f"https://{store_slug}.lemonsqueezy.com/checkout/buy/{variant_id}"
             if checkout_email:
-                # Prefill the buyer's account email so the order webhook can
-                # match the purchase to the user and grant the tier reliably.
                 from urllib.parse import quote as _quote
                 url += f"?checkout[email]={_quote(checkout_email)}"
+            if "?" in url:
+                url += "&success_url=" + __import__("urllib.parse").parse.quote(f"{FRONTEND_URL}/payment/success?source=ls")
+                url += "&cancel_url=" + __import__("urllib.parse").parse.quote(f"{FRONTEND_URL}/store")
+            else:
+                url += "?success_url=" + __import__("urllib.parse").parse.quote(f"{FRONTEND_URL}/payment/success?source=ls")
+                url += "&cancel_url=" + __import__("urllib.parse").parse.quote(f"{FRONTEND_URL}/store")
 
             logger.info("LemonSqueezy T1 OK: %s → %s (product %s)", name, url, product_id)
             return {"url": url, "product_id": product_id, "variant_id": variant_id}

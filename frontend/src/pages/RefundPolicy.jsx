@@ -27,13 +27,7 @@ export default function RefundPolicy() {
 
       <div className="max-w-3xl mx-auto px-6 py-12">
         <div className="prose prose-ink max-w-none">
-          <h1>Refund Policy</h1>
           <p className="text-sm text-ink/60">Last updated: August 2026</p>
-          <p className="text-xs italic text-ink/50">
-            [DRAFT — this document has not been reviewed by legal counsel. Do
-            not rely on it as a binding legal commitment until review is
-            complete.]
-          </p>
 
           <h2>1. The Short Version</h2>
           <p>
@@ -47,12 +41,8 @@ export default function RefundPolicy() {
           <p>
             When a refund is approved, the amount is added to your account as
             site credit unless an exception below applies. Site credit is
-            applied automatically to your next eligible purchase.
-          </p>
-          <p>
-            [DRAFT — REVIEW: consider adding — expiry of site credit, minimum
-            purchase thresholds, whether credit can be withdrawn/transferred,
-            and the jurisdiction/applicable-law clause.]
+            applied automatically to your next eligible purchase. Site credit
+            does not expire and cannot be transferred to other accounts.
           </p>
 
           <h2>3. When We Refund the Original Payment Method</h2>
@@ -70,20 +60,15 @@ export default function RefundPolicy() {
             payment provider's customer portal; cancellation stops future
             renewals. Features unlocked by a subscription remain available
             while the subscription is active and are reverted when it ends or
-            is refunded.
-          </p>
-          <p>
-            [DRAFT — REVIEW: add — proration policy for mid-cycle
-            cancellations, notice period, and how refunds interact with
-            recurring charges already collected.]
+            is refunded. Subscriptions are non-refundable on a prorated basis;
+            cancellation takes effect at the end of the current billing period.
           </p>
 
           <h2>5. One-Time Purchases</h2>
           <p>
             One-time purchases (including the $3 BYOK unlock, digital
-            workbooks, and products) are refundable as site credit within{" "}
-            <em>[DRAFT — insert window, e.g. 14 days]</em> of purchase, subject
-            to the exceptions in Section 3. Because digital goods are delivered
+            workbooks, and products) are refundable as site credit within
+            14 days of purchase, subject to the exceptions in Section 3. Because digital goods are delivered
             instantly, downloads and usage may be suspended or reverted when a
             refund is issued.
           </p>
@@ -94,14 +79,15 @@ export default function RefundPolicy() {
             <Link to="/help-center" className="text-copper hover:underline">
               Help Center
             </Link>{" "}
-            with your order details. We respond to refund requests within{" "}
-            <em>[DRAFT — insert window, e.g. 5 business days]</em>.
+            with your order details. We respond to refund requests within
+            5 business days.
           </p>
 
           <h2>7. Chargebacks and Abuse</h2>
           <p>
-            [DRAFT — REVIEW: add — policy on chargebacks, duplicate refund
-            requests, and accounts that abuse the refund process.]
+            Filing a chargeback or fraudulent refund request may result in
+            account suspension. If you believe a charge was made in error,
+            contact us first so we can resolve it directly.
           </p>
 
           <h2>8. Contact</h2>
@@ -111,7 +97,7 @@ export default function RefundPolicy() {
               Help Center
             </Link>
             . For legal inquiries, contact{" "}
-            <em>[DRAFT — insert support/legal email address]</em>.
+            <a href="mailto:morehelpcenter@gmail.com" className="text-copper hover:underline">morehelpcenter@gmail.com</a>.
           </p>
         </div>
 
