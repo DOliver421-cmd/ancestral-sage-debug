@@ -73,8 +73,8 @@ export default function UnifiedGateway() {
           </h1>
 
           <p style={{ fontSize: "clamp(1rem, 2.2vw, 1.25rem)", color: "#3f3a34", maxWidth: 560, lineHeight: 1.7, marginBottom: "2.5rem" }}>
-            A platform built for invisible communities — artists, poets, builders, and
-            workers who deserve real tools, real ownership, and real support.
+            Browse free courses, publish your work, earn revenue, and connect with a
+            community of builders and artists who own their future.
           </p>
 
           <div className="flex flex-wrap gap-4">

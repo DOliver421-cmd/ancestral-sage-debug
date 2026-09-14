@@ -60,7 +60,7 @@ async def _media_stripe_checkout(title: str, desc: str, amount_cents: int, produ
     try:
         import stripe
         stripe.api_key = sk
-        front = (os.environ.get("FRONTEND_URL", "https://wai-institute.org") or "https://wai-institute.org").rstrip("/")
+        front = (os.environ.get("FRONTEND_URL", "https://www.morehelp.center") or "https://www.morehelp.center").rstrip("/")
         metadata = {"product_key": "media", "product_id": product_id, "product_title": title[:500]}
         params: dict = {
             "client_reference_id": str(getattr(user, "id", "") or getattr(user, "email", "") or "guest"),

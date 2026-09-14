@@ -46,9 +46,9 @@ export default function Register() {
       } else {
         toast.success(`Welcome, ${u.full_name}!`);
       }
-      // Straight to BYOK onboarding: every new account is immediately told about
-      // the $3 one-time AI unlock and can attach a free provider key — no hunting.
-      nav("/byok");
+      // Straight to profile: new users should land on their dashboard, not on
+      // an AI-key configuration page. BYOK is offered inline from profile later.
+      nav("/profile");
     } catch (err) {
       const status = err?.response?.status;
       if (status >= 500) {
@@ -266,8 +266,7 @@ export default function Register() {
 
           {/* Support — help lives on the M.O.R.E. Help Center */}
           <div className="mt-8 text-center text-xs text-ink/50">
-            Questions? <Link to="/more-help-center" className="text-copper hover:text-copper/80 font-medium">MORE Help Center</Link>
-            Questions?{" "}
+            <Link to="/more-help-center" className="text-copper hover:text-copper/80 font-medium">MORE Help Center</Link>
             {waiDoor ? (
               <a href={`${MORE_HOME}/help-center`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-copper hover:text-copper/80 font-medium">
                 Help Center <ExternalLink className="w-3 h-3" />

@@ -10322,17 +10322,18 @@ setup_frontend_serving()
 # turn off allow_credentials in that case (auth uses Bearer token in Authorization
 # header anyway). If a specific origin list is supplied, credentials are allowed.
 #
-# BACKUP_ORIGIN (e.g. https://your-tunnel.trycloudflare.com) is auto-appended
-# so the home/backup server is always allowed without touching CORS_ORIGINS.
-_cors_origins = [o.strip() for o in os.environ.get('CORS_ORIGINS', '*').split(',') if o.strip()]
-if BACKUP_ORIGIN and BACKUP_ORIGIN not in _cors_origins and '*' not in _cors_origins:
+# CORS origins from env var. Default to empty list (no cross-origin access) so
+# production cannot accidentally run with wildcard CORS. Set CORS_ORIGINS to a
+# comma-separated list of allowed origins (e.g. "https://morehelp.center,https://wai-institute.org").
+_cors_origins = [o.strip() for o in os.environ.get('CORS_ORIGINS', '').split(',') if o.strip()]
+if BACKUP_ORIGIN and BACKUP_ORIGIN not in _cors_origins:
     _cors_origins.append(BACKUP_ORIGIN)
     logger.info("CORS: Backup origin added: %s", BACKUP_ORIGIN)
-_allow_creds = _cors_origins != ['*']
+_allow_creds = len(_cors_origins) > 0
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=_allow_creds,
-    allow_origins=_cors_origins,
+    allow_origins=_cors_origins if _cors_origins else [],
     allow_methods=["*"],
     allow_headers=["*"],
 )

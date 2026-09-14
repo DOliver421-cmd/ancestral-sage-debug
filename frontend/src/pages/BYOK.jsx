@@ -7,6 +7,7 @@ import {
   CircleDollarSign, Loader2, RefreshCw, AlertTriangle,
 } from "lucide-react";
 import CheckoutModal from "../components/CheckoutModal";
+import { useNavigate } from "react-router-dom";
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
 const COPPER = "#b5651d";
@@ -39,6 +40,7 @@ function Card({ title, icon: Icon, children, right }) {
 }
 
 export default function BYOK() {
+  const nav = useNavigate();
   const [status, setStatus] = useState(null);
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState(null);
@@ -288,6 +290,20 @@ export default function BYOK() {
                 </div>
               </Card>
             )}
+
+            {/* Skip for now — BYOK is optional and can be configured later from profile settings */}
+            <div style={{ textAlign: "center", marginTop: 24 }}>
+              <button
+                onClick={() => nav("/profile")}
+                style={{
+                  background: "transparent", color: "#888", border: "none", borderRadius: 8,
+                  padding: "8px 16px", fontWeight: 600, fontSize: 13, cursor: "pointer",
+                  textDecoration: "underline",
+                }}
+              >
+                Skip for now — continue to my profile
+              </button>
+            </div>
           </>
         )}
       </div>
