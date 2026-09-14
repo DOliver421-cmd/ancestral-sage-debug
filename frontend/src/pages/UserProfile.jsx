@@ -4,6 +4,7 @@ import { Edit2, Lock, ChevronDown, ChevronRight, ExternalLink, Tag, Search, Spar
 import PartnershipCard from "../components/PartnershipCard";
 import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
+import AppShell from "../components/AppShell";
 
 // ── Ascension Protocols Phase Data ────────────────────────────────────────────
 const ASCENSION_PHASES = [
@@ -391,7 +392,8 @@ export default function UserProfile() {
   if (isOwnProfile) baseTabs.push({ id: "settings", label: "Settings" });
 
   return (
-    <div className="min-h-screen bg-bone text-ink">
+    <AppShell>
+      <div className="min-h-screen bg-bone text-ink">
       {/* Header */}
       <div className="bg-white border-b border-ink/10">
         <div className="max-w-7xl mx-auto px-6 py-12">
@@ -728,6 +730,7 @@ export default function UserProfile() {
           </div>
         )}
       </div>
-    </div>
+      </div>
+    </AppShell>
   );
 }

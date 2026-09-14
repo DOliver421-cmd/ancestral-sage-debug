@@ -41,6 +41,9 @@ function isNavItemVisible(key, user, policy) {
   if (key === "home" || key === "login" || key === "register" || key === "forgot-password") {
     return true;
   }
+  // Profile is a core user-owned feature — never gate it for authenticated users.
+  // This prevents accidental lockout from the user's own profile via exec panels.
+  if (key === "profile" && user) return true;
   if (policy === false) return false;
   if (!policy || typeof policy !== "object") return true;
   if (policy.enabled === false) return false;
