@@ -113,7 +113,7 @@ export default function UnifiedGateway() {
                   style={{ background: "#b8860b", color: "#111111", fontSize: 15 }}>
                   My Profile →
                 </Link>
-                <Link to="/dashboard"
+                <Link to="/profile"
                   className="font-bold text-sm px-8 py-4 rounded-xl border"
                   style={{ borderColor: "#c9c0b2", color: "#2b2722", fontSize: 15 }}>
                   Dashboard

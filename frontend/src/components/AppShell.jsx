@@ -297,6 +297,8 @@ export default function AppShell({ children }) {
 
   const nl = (to, label, icon, testid) => {
     if (!gatesLoaded) return null;
+    // Always show profile link for authenticated users — never hide it via gates.
+    if (to === "/profile" && isAuthed) return <NavLink loc={loc} to={to} label={label} icon={icon} testid={testid} collapsed={collapsed} />;
     if (!isPageEnabled(to, user)) return null;
     return <NavLink loc={loc} to={to} label={label} icon={icon} testid={testid} collapsed={collapsed} />;
   };
