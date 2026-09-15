@@ -11,7 +11,7 @@ export default function Register() {
   const waiDoor = isWaiDoor();
   const { register } = useAuth();
   const nav = useNavigate();
-  const [form, setForm] = useState({ full_name: "", email: "", password: "", associate: "Associate-Alpha", agreed_terms: false, over_13: false, promo_code: "" });
+  const [form, setForm] = useState({ full_name: "", email: "", password: "", associate: "Associate-Alpha", agreed_terms: false, over_13: false, birth_date: "", guardian_created: false, guardian_name: "", guardian_email: "", promo_code: "" });
   const [loading, setLoading] = useState(false);
   const [promoStatus, setPromoStatus] = useState(null);
 
@@ -37,6 +37,9 @@ export default function Register() {
     if (form.password.length < 8) { toast.error("Password must be at least 8 characters."); return; }
     if (!form.agreed_terms) { toast.error("You must agree to the Terms of Service and Privacy Policy."); return; }
     if (!form.over_13) { toast.error("You must be at least 13 years old to create an account."); return; }
+    if (!form.birth_date.trim()) { toast.error("Please provide your date of birth for age verification."); return; }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(form.birth_date.trim())) { toast.error("Birth date must be in YYYY-MM-DD format."); return; }
+    if (form.guardian_created && !form.guardian_name.trim()) { toast.error("Please provide the parent/guardian's full name."); return; }
     setLoading(true);
     try {
       const u = await register(form);
@@ -194,15 +197,73 @@ export default function Register() {
               )}
             </div>
 
-            {/* Hidden: Associate field (keep for compatibility) */}
-            <input
-              type="hidden"
-              value={form.associate}
-              onChange={(e) => setForm({ ...form, associate: e.target.value })}
-              data-testid="input-associate"
-            />
+             {/* Hidden: Associate field (keep for compatibility) */}
+             <input
+               type="hidden"
+               value={form.associate}
+               onChange={(e) => setForm({ ...form, associate: e.target.value })}
+               data-testid="input-associate"
+             />
 
-            {/* Legal Checkboxes */}
+             {/* Birth Date (required for age verification) */}
+             <div>
+               <label className="block overline text-ink/60 mb-3">Date of Birth <span className="normal-case font-normal text-ink/40">(required for age verification)</span></label>
+               <input
+                 type="date"
+                 required
+                 value={form.birth_date}
+                 onChange={(e) => setForm({ ...form, birth_date: e.target.value })}
+                 className="w-full px-4 py-3 bg-white border border-ink/20 rounded focus:border-copper focus:outline-none focus:ring-2 focus:ring-copper/30 transition-all"
+                 data-testid="input-birth-date"
+               />
+               <p className="text-xs text-ink/50 mt-2">This site is not open to minors under 17. Accounts flagged for age review may be asked to complete a $1 payment verification.</p>
+             </div>
+
+             {/* Guardian-created account (optional) */}
+             <div className="space-y-3">
+               <label className="flex items-start gap-3 cursor-pointer group">
+                 <input
+                   type="checkbox"
+                   checked={form.guardian_created}
+                   onChange={(e) => setForm({ ...form, guardian_created: e.target.checked })}
+                   className="mt-0.5 w-4 h-4 rounded border-ink/30 text-copper focus:ring-copper/30"
+                   data-testid="checkbox-guardian"
+                 />
+                 <span className="text-sm text-ink/70 group-hover:text-ink transition-colors">
+                   A parent or guardian is creating this account for someone under 17
+                 </span>
+               </label>
+               {form.guardian_created && (
+                 <>
+                   <div>
+                     <label className="block overline text-ink/60 mb-2">Parent/Guardian Full Name</label>
+                     <input
+                       type="text"
+                       required={form.guardian_created}
+                       value={form.guardian_name}
+                       onChange={(e) => setForm({ ...form, guardian_name: e.target.value })}
+                       placeholder="Guardian's legal name"
+                       className="w-full px-4 py-3 bg-white border border-ink/20 rounded focus:border-copper focus:outline-none focus:ring-2 focus:ring-copper/30 transition-all"
+                       data-testid="input-guardian-name"
+                     />
+                   </div>
+                   <div>
+                     <label className="block overline text-ink/60 mb-2">Parent/Guardian Email</label>
+                     <input
+                       type="email"
+                       required={form.guardian_created}
+                       value={form.guardian_email}
+                       onChange={(e) => setForm({ ...form, guardian_email: e.target.value })}
+                       placeholder="guardian@example.com"
+                       className="w-full px-4 py-3 bg-white border border-ink/20 rounded focus:border-copper focus:outline-none focus:ring-2 focus:ring-copper/30 transition-all"
+                       data-testid="input-guardian-email"
+                     />
+                   </div>
+                 </>
+               )}
+             </div>
+
+             {/* Legal Checkboxes */}
             <div className="space-y-3">
               <label className="flex items-start gap-3 cursor-pointer group">
                 <input

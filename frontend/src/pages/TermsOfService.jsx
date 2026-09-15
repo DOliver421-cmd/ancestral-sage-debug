@@ -52,6 +52,9 @@ export default function TermsOfService() {
 
           <h2>2. Account</h2>
           <p>You are responsible for keeping your password secure. You must be at least 13 years old. One account per person.</p>
+          <h2>2a. Minors and Parent/Guardian Responsibility</h2>
+          <p>This platform is not open to minors under 17. Users who are 17 or older may create their own accounts. Users under 17 must have a parent or guardian create and supervise their account. The parent or guardian — not the platform — is solely responsible for the minor's use of the platform, including all content accessed, interactions, and purchases. The platform does not monitor or supervise minor accounts.</p>
+          <p>If an account is flagged as possibly belonging to a minor, the account holder will be asked to complete a $1 payment verification to confirm the account is held by an adult matching the registered name. Accounts that cannot or will not complete verification within 72 hours may be deleted at the platform's discretion. If a parent or guardian believes a minor created an account without their knowledge, contact us to request review and removal.</p>
 
           <h2>3. Acceptable Use</h2>
           <p>You agree not to: (a) use the platform for any illegal purpose; (b) attempt to bypass security or rate limits; (c) harass other users; (d) submit false or misleading information.</p>

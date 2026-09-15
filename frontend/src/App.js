@@ -63,6 +63,8 @@ import SubscribePage from "./pages/SubscribePage";
 import DonatePage from "./pages/DonatePage";
 import PaymentSuccess from "./pages/PaymentSuccess";
 import PaymentCancel from "./pages/PaymentCancel";
+import VerificationSuccess from "./pages/VerificationSuccess";
+import VerificationCancel from "./pages/VerificationCancel";
 import PaymentHistory from "./pages/PaymentHistory";
 import AdminPayments from "./pages/AdminPayments";
 import AvatarSetup from "./pages/AvatarSetup";
@@ -481,9 +483,12 @@ function App() {
           <Route path="/merch" element={<Navigate to="/store" replace />} />
           <Route path="/subscribe" element={<SubscribePage />} />
           <Route path="/donate" element={<DonatePage />} />
-          <Route path="/payment/success" element={<PaymentSuccess />} />
-          <Route path="/payment/cancel" element={<PaymentCancel />} />
-          <Route path="/payment/history" element={<Protected><PaymentHistory /></Protected>} />
+           <Route path="/payment/success" element={<PaymentSuccess />} />
+           <Route path="/payment/cancel" element={<PaymentCancel />} />
+           {/* Age verification flow */}
+           <Route path="/verification/success" element={<VerificationSuccess />} />
+           <Route path="/verification/cancel" element={<VerificationCancel />} />
+           <Route path="/payment/history" element={<Protected><PaymentHistory /></Protected>} />
           <Route path="/payment/manage" element={<Protected><PaymentHistory /></Protected>} />
           <Route path="/admin/payments" element={<BoundedAdmin roles={["admin"]} label="Admin Payments"><AdminPayments /></BoundedAdmin>} />
           <Route path="/admin/promo-codes" element={<BoundedAdmin roles={["admin"]} label="Promo Codes" backTo="/admin"><AdminPromoCodes /></BoundedAdmin>} />

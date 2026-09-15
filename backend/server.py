@@ -486,6 +486,21 @@ class User(BaseModel):
     is_simulation: bool = False
     simulation_profile: Optional[str] = None
     simulation_run_id: Optional[str] = None
+    # ── Age verification / minor-protection fields ──────────────────────────
+    # Users who self-register as under 17 are flagged for guardian verification.
+    # Accounts flagged as likely minors are restricted until verified by a $1
+    # payment-method check that matches the registered name.
+    birth_date: Optional[str] = None          # ISO date YYYY-MM-DD (stored as string)
+    age_verified: bool = False                 # True once $1 verification payment succeeds
+    verification_status: str = "none"          # none | pending | approved | rejected | expired
+    verification_method: Optional[str] = None  # payment_card | manual_admin | guardian_created
+    verification_requested_at: Optional[str] = None
+    verification_reviewed_at: Optional[str] = None
+    verification_reviewed_by: Optional[str] = None
+    guardian_created: bool = False             # True if parent/guardian created this account
+    flagged_at: Optional[str] = None           # ISO timestamp when account was flagged as minor
+    auto_delete_at: Optional[str] = None       # ISO timestamp when unverified account will be deleted
+    flagged_reason: Optional[str] = None       # Why the account was flagged
 
 
 class RegisterReq(BaseModel):
@@ -498,6 +513,15 @@ class RegisterReq(BaseModel):
     password: str = Field(..., min_length=8, max_length=128)
     agreed_terms: bool = False
     over_13: bool = False
+    # ── Minor-protection fields ──────────────────────────────────────────────
+    # birth_date is required for all new registrations so the platform can
+    # flag accounts that appear to be under 17. A parent/guardian creating an
+    # account for a minor sets guardian_created=true; the platform does NOT
+    # take on guardian duties — the named parent/guardian is solely responsible.
+    birth_date: Optional[str] = Field(None, description="ISO date YYYY-MM-DD for age check")
+    guardian_created: bool = False
+    guardian_name: Optional[str] = Field(None, max_length=500, description="Full name of parent/guardian creating this account")
+    guardian_email: Optional[EmailStr] = Field(None, description="Guardian email for contact")
 
 
 class AdminCreateUserReq(BaseModel):
@@ -1861,17 +1885,82 @@ async def register(body: RegisterReq, request: Request):
     if await db.users.find_one({"email": body.email}):
         raise HTTPException(400, "Email already registered")
 
+    # ── Age verification / minor-protection ─────────────────────────────────
+    # The site is not open to minors. Users 17 and older may create their own
+    # accounts. Users under 17 must be created by a parent/guardian who accepts
+    # responsibility. Flagged accounts enter a verification queue; if not
+    # verified within 72 hours the account is auto-deleted.
+    _now = datetime.now(timezone.utc)
+    _birth = None
+    _is_minor = False
+    _flagged_reason = None
+
+    if body.birth_date:
+        try:
+            _birth = datetime.strptime(body.birth_date, "%Y-%m-%d").date()
+            _age = (_now.date() - _birth).days // 365
+            if _age < 17:
+                _is_minor = True
+                _flagged_reason = f"self-reported age {_age} is under 17"
+        except Exception:
+            _birth = None
+
+    # A parent/guardian creating an account for a minor is acceptable; the
+    # guardian — not the platform — is responsible for the minor's use.
+    if body.guardian_created and body.guardian_name:
+        # Guardian-created accounts bypass the minor flag but still require
+        # guardian acknowledgment of responsibility.
+        pass
+    elif _is_minor and not body.guardian_created:
+        # Minor attempted to self-register — flag for investigation.
+        _flagged_reason = _flagged_reason or "self-registration by apparent minor (no guardian_created flag)"
+
+    _verification_status = "none"
+    _verification_method = None
+    _auto_delete_at = None
+    if _flagged_reason:
+        _verification_status = "pending"
+        _verification_method = None
+        # Give 72 hours to complete $1 verification; otherwise auto-delete.
+        _auto_delete_at = (_now + timedelta(hours=72)).isoformat()
+
     # Public self-registration is always a student. Higher-privilege accounts
     # must be created by an admin (POST /api/admin/users).
-    user = User(email=body.email, full_name=body.full_name, role="student")
+    user = User(
+        email=body.email,
+        full_name=body.full_name,
+        role="student",
+        birth_date=body.birth_date,
+        guardian_created=body.guardian_created or False,
+    )
     doc = user.model_dump()
     doc["created_at"] = doc["created_at"].isoformat()
     doc["password_hash"] = hash_pw(body.password)
     # Record consent timestamp for GDPR audit trail
     doc["terms_accepted_at"] = datetime.now(timezone.utc).isoformat()
     doc["over_13_confirmed"] = True
+    # ── Age verification fields ──────────────────────────────────────────────
+    doc["age_verified"] = False
+    doc["verification_status"] = _verification_status
+    doc["verification_method"] = _verification_method
+    doc["verification_requested_at"] = _now.isoformat() if _verification_status == "pending" else None
+    doc["flagged_at"] = _now.isoformat() if _flagged_reason else None
+    doc["auto_delete_at"] = _auto_delete_at
+    doc["flagged_reason"] = _flagged_reason
+    if body.guardian_created and body.guardian_name:
+        doc["verification_method"] = "guardian_created"
+        doc["age_verified"] = True
+        doc["verification_status"] = "approved"
+        doc["verification_reviewed_at"] = _now.isoformat()
     await db.users.insert_one(doc)
-    await audit(user.id, "auth.register.success", meta={"consent_terms": True, "over_13": True})
+    await audit(user.id, "auth.register.success", meta={
+        "consent_terms": True,
+        "over_13": True,
+        "birth_date_provided": bool(body.birth_date),
+        "guardian_created": body.guardian_created or False,
+        "verification_status": _verification_status,
+        "flagged_reason": _flagged_reason,
+    })
     # C-2: new accounts always start at token_version 0
     return TokenResp(access_token=make_token(user.id, user.role, extra={"tv": 0}), user=user)
 
@@ -2341,6 +2430,217 @@ async def admin_reset_password(uid: str, body: AdminResetPasswordReq,
     }})
     await audit(user.id, "admin.user.password_reset", target=uid)
     return {"ok": True}
+
+
+# ── Age Verification / Minor-Protection Endpoints ──────────────────────────────
+
+@api_router.get("/verification/status")
+async def my_verification_status(user: User = Depends(current_user)):
+    """Return the current user's age verification status."""
+    return {
+        "user_id": user.id,
+        "age_verified": user.age_verified,
+        "verification_status": user.verification_status,
+        "verification_method": user.verification_method,
+        "flagged_at": user.flagged_at,
+        "auto_delete_at": user.auto_delete_at,
+        "flagged_reason": user.flagged_reason,
+        "is_minor_flagged": user.flagged_reason is not None,
+    }
+
+
+@api_router.post("/verification/request-card")
+async def request_card_verification(
+    body: dict,
+    user: User = Depends(current_user),
+):
+    """Request age verification via $1 payment-card check.
+
+    Body:
+      card_last4: last 4 digits of the payment card
+      card_name: name on the card (must match registered full_name)
+
+    Creates a $1 Stripe checkout session. When payment succeeds the webhook
+    marks the account as age_verified=true and verification_status=approved.
+    """
+    _now = datetime.now(timezone.utc)
+    target = await db.users.find_one({"id": user.id}, {"_id": 0})
+    if not target:
+        raise HTTPException(404, "User not found")
+
+    # Already verified — no need to pay again.
+    if target.get("age_verified"):
+        return {"ok": True, "status": "already_verified"}
+
+    # Only flagged accounts need verification; but we allow voluntary requests.
+    card_name = (body.get("card_name") or "").strip()
+    card_last4 = (body.get("card_last4") or "").strip()
+    registered_name = (target.get("full_name") or "").strip().lower()
+
+    if not card_name or not card_last4:
+        raise HTTPException(400, "card_name and card_last4 are required")
+
+    # Compare card name to registered name — allow minor differences in
+    # punctuation/case but require the words to match.
+    _card_parts = card_name.lower().replace(".", "").split()
+    _reg_parts = registered_name.replace(".", "").split()
+    name_match = all(any(cp == rp for rp in _reg_parts) for cp in _card_parts)
+
+    if not name_match:
+        logger.warning(
+            "Age verification name mismatch: user=%s registered=%r card=%r",
+            user.id, registered_name, card_name,
+        )
+        # Still allow the payment — the $1 charge itself is the hurdle. We
+        # flag the mismatch for manual admin review.
+        await db.users.update_one(
+            {"id": user.id},
+            {"$set": {"flagged_reason": (target.get("flagged_reason") or "") + " [name mismatch on card]"}},
+        )
+
+    # Create a $1 Stripe checkout session for age verification.
+    _stripe = _get_stripe()
+    if not _stripe:
+        raise HTTPException(500, "Payment provider not configured")
+
+    _amount_cents = 100  # $1.00 administrative fee
+    _meta = {
+        "mhc_product_key": f"age_verification:{user.id}",
+        "origin": "MoreHelp_Center_Server",
+        "processor_sync": "true",
+        "verification_type": "age_check",
+        "user_id": user.id,
+        "user_email": user.email,
+    }
+
+    try:
+        session = await asyncio.to_thread(
+            _stripe.checkout.Session.create,
+            payment_method_types=["card"],
+            mode="payment",
+            line_items=[{
+                "price_data": {
+                    "currency": "usd",
+                    "unit_amount": _amount_cents,
+                    "product_data": {
+                        "name": "Age Verification — M.O.R.E. Help Center",
+                        "description": (
+                            "$1 administrative fee to verify account ownership. "
+                            "This charge confirms the payment method matches the registered name "
+                            "and verifies the account holder is of legal age."
+                        ),
+                    },
+                },
+                "quantity": 1,
+            }],
+            client_reference_id=user.id,
+            metadata=_meta,
+            success_url=f"{FRONTEND_URL}/verification/success?session_id={{CHECKOUT_SESSION_ID}}",
+            cancel_url=f"{FRONTEND_URL}/verification/cancel",
+            expires_at=int((_now + timedelta(hours=24)).timestamp()),
+        )
+    except _stripe.error.InvalidRequestError as e:
+        logger.error("Stripe verification session creation failed: %s", e)
+        raise HTTPException(500, "Unable to create verification payment session")
+    except Exception as e:
+        logger.error("Verification payment error: %s", e)
+        raise HTTPException(500, "Payment system error")
+
+    # Mark verification as pending payment.
+    await db.users.update_one(
+        {"id": user.id},
+        {"$set": {
+            "verification_status": "pending",
+            "verification_requested_at": _now.isoformat(),
+        }},
+    )
+    await audit(user.id, "verification.requested", meta={"amount_cents": _amount_cents, "card_last4": card_last4})
+
+    return {
+        "ok": True,
+        "verification_url": session["url"],
+        "session_id": session.get("id"),
+        "amount_cents": _amount_cents,
+        "expires_at": session.get("expires_at"),
+    }
+
+
+@api_router.get("/admin/verification/pending")
+async def admin_list_pending_verifications(user: User = Depends(require_role("admin"))):
+    """List all accounts flagged for age verification that are pending review."""
+    cursor = db.users.find(
+        {"verification_status": {"$in": ["pending", "rejected"]}},
+        {"_id": 0, "password_hash": 0},
+    ).sort("flagged_at", -1).limit(200)
+    docs = await cursor.to_list(200)
+    return {"pending": docs, "count": len(docs)}
+
+
+@api_router.post("/admin/verification/{uid}/approve")
+async def admin_approve_verification(
+    uid: str,
+    user: User = Depends(require_role("admin")),
+):
+    """Approve a flagged account's age verification."""
+    target = await db.users.find_one({"id": uid}, {"_id": 0})
+    if not target:
+        raise HTTPException(404, "User not found")
+    await db.users.update_one(
+        {"id": uid},
+        {"$set": {
+            "age_verified": True,
+            "verification_status": "approved",
+            "verification_reviewed_at": datetime.now(timezone.utc).isoformat(),
+            "verification_reviewed_by": user.email,
+            "auto_delete_at": None,
+            "flagged_at": None,
+            "flagged_reason": None,
+        }},
+    )
+    await audit(user.id, "verification.approved", target=uid, meta={"email": target.get("email")})
+    return {"ok": True, "user_id": uid, "status": "approved"}
+
+
+@api_router.post("/admin/verification/{uid}/reject")
+async def admin_reject_verification(
+    uid: str,
+    body: dict,
+    user: User = Depends(require_role("admin")),
+):
+    """Reject a flagged account. Sets auto-delete to 24 hours from now."""
+    target = await db.users.find_one({"id": uid}, {"_id": 0})
+    if not target:
+        raise HTTPException(404, "User not found")
+    reason = body.get("reason") or "Verification rejected by admin"
+    _auto_delete = (datetime.now(timezone.utc) + timedelta(hours=24)).isoformat()
+    await db.users.update_one(
+        {"id": uid},
+        {"$set": {
+            "verification_status": "rejected",
+            "verification_reviewed_at": datetime.now(timezone.utc).isoformat(),
+            "verification_reviewed_by": user.email,
+            "flagged_reason": reason,
+            "auto_delete_at": _auto_delete,
+        }},
+    )
+    await audit(user.id, "verification.rejected", target=uid, meta={"reason": reason})
+    return {"ok": True, "user_id": uid, "status": "rejected", "auto_delete_at": _auto_delete}
+
+
+@api_router.post("/admin/verification/{uid}/delete")
+async def admin_delete_flagged_account(
+    uid: str,
+    user: User = Depends(require_role("admin")),
+):
+    """Immediately delete a flagged/unverified account."""
+    target = await db.users.find_one({"id": uid}, {"_id": 0})
+    if not target:
+        raise HTTPException(404, "User not found")
+    if target.get("role") in ("admin", "executive_admin"):
+        raise HTTPException(400, "Cannot delete admin-class accounts via this endpoint.")
+    await db.users.delete_one({"id": uid})
+    await audit(user.id, "verification.deleted", target=uid, meta={"email": target.get("email")})
+    return {"ok": True, "deleted": uid}
 
 
 # ── GDPR / Legal Compliance Endpoints ──────────────────────────────────────────

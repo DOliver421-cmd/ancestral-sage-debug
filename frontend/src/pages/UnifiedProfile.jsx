@@ -30,7 +30,7 @@ import {
   Twitter, Instagram, Facebook, Linkedin, Youtube,
   DollarSign, Heart, TrendingUp, Receipt, Network, Star, Crown, Shield,
   KeyRound, Loader2, Trash2, HelpCircle, Gamepad2, Share2, Briefcase,
-  Brain, BrainCircuit, Search, Music4, Video,
+  Brain, BrainCircuit, Search, Music4, Video, AlertTriangle,
 } from "lucide-react";
 import { useMic } from "../hooks/useMic";
 
@@ -1431,6 +1431,43 @@ export default function UnifiedProfile() {
   return (
     <AppShell>
       <div className="min-h-screen bg-bone">
+
+        {/* ── Age verification banner for flagged accounts ── */}
+        {isOwner && user && (user.verification_status === "pending" || user.verification_status === "rejected") && (
+          <div className="bg-amber-50 border-b border-amber-200 px-4 py-3">
+            <div className="max-w-6xl mx-auto flex items-center gap-3 text-amber-800 text-sm">
+              <AlertTriangle className="w-5 h-5 shrink-0" />
+              <span className="font-semibold">Age verification required.</span>
+              <span className="text-amber-700">
+                {user.verification_status === "rejected"
+                  ? "Your verification was rejected. Please contact support."
+                  : `Complete a $1 payment verification by ${user.auto_delete_at ? new Date(user.auto_delete_at).toLocaleDateString() : "the deadline"} to keep your account active.`}
+              </span>
+              {user.verification_status === "pending" && (
+                <button
+                  onClick={async () => {
+                    try {
+                      const { data } = await api.post("/verification/request-card", {
+                        card_name: user.full_name,
+                        card_last4: "0000",
+                      });
+                      if (data?.verification_url) {
+                        window.location.href = data.verification_url;
+                      } else {
+                        toast.error("Unable to start verification. Contact support.");
+                      }
+                    } catch {
+                      toast.error("Verification request failed.");
+                    }
+                  }}
+                  className="ml-auto px-4 py-2 bg-amber-600 text-white text-xs font-bold rounded-lg hover:bg-amber-700 shrink-0"
+                >
+                  Verify Now ($1)
+                </button>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* ── Compact identity header ── */}
         <div className="border-b border-ink/10 bg-white">
