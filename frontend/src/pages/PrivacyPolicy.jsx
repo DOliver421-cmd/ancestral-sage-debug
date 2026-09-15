@@ -43,7 +43,9 @@ export default function PrivacyPolicy() {
         </ul>
 
         <h2>6. Children's Privacy (COPPA)</h2>
-        <p>You must be at least 13 years old to create an account. If we learn that a user under 13 has registered, we will delete their account promptly.</p>
+        <p>You must be at least 13 years old to create an account. This platform is not open to minors under 17. Users 17 and older may create their own accounts. Users under 17 must have a parent or guardian create and supervise their account. The parent or guardian — not the platform — is solely responsible for the minor's use of the platform.</p>
+        <p>If an account is flagged as possibly belonging to a minor, the account holder may be asked to complete a $1 payment verification. Accounts that cannot or will not complete verification within 72 hours may be deleted. If a parent or guardian believes a minor created an account without their knowledge, contact us to request review and removal.</p>
+        <p>We do not knowingly collect personal information from children under 13. If we learn that a user under 13 has registered, we will delete their account promptly.</p>
 
         <h2>7. Contact</h2>
         <p>Questions? Visit our <Link to="/more-help-center" className="text-copper hover:underline">MORE Help Center</Link> or contact the data protection team.</p>

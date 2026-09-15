@@ -667,15 +667,37 @@ async def stripe_webhook(request: Request):
         session = data_obj
         session_meta = session.get("metadata") or {}
         product_key = session_meta.get("product_key", "")
+        verification_type = session_meta.get("verification_type", "")
         session_id = str(session.get("id", ""))
         amount_cents = int(session.get("amount_total") or 0)
         buyer_email = (session.get("customer_details") or {}).get("email") or ""
         paid = session.get("payment_status") == "paid"
-        # raw = "subscription" if session['mode'] == 'subscription' else "payment"
 
         client_ref = str(session.get("client_reference_id") or "")
-        # Prefer the deterministic buyer id in client_reference_id, else match email.
         buyer_id = client_ref if (client_ref and client_ref not in ("guest", "")) else ""
+
+        # ── Age verification payment ──────────────────────────────────────────
+        if verification_type == "age_check":
+            if paid and buyer_id:
+                _now = datetime.now(timezone.utc).isoformat()
+                await db.users.update_one(
+                    {"id": buyer_id},
+                    {"$set": {
+                        "age_verified": True,
+                        "verification_status": "approved",
+                        "verification_method": "payment_card",
+                        "verification_reviewed_at": _now,
+                        "auto_delete_at": None,
+                        "flagged_at": None,
+                        "flagged_reason": None,
+                    }},
+                )
+                logger.info("Age verification approved via payment: user=%s session=%s", buyer_id, session_id)
+                try:
+                    await audit(buyer_id, "verification.approved_payment", meta={"session_id": session_id, "amount_cents": amount_cents})
+                except Exception:
+                    pass
+            return {"received": True}
 
         # Media Store digital product — match the pending-sale row (buyer + title)
         if product_key == "media":
