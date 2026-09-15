@@ -160,27 +160,27 @@ def get_revenue_routers():
         routers.append(billing_router)
         logger.info("✅ Billing router loaded")
     except Exception as e:
-        logger.warning(f"Could not load billing router: {e}")
+        logger.warning("Could not load billing router: %s", e, exc_info=e)
 
     try:
         from crm.routes import router as crm_router
         routers.append(crm_router)
         logger.info("✅ CRM router loaded")
     except Exception as e:
-        logger.warning(f"Could not load CRM router: {e}")
+        logger.warning("Could not load CRM router: %s", e, exc_info=e)
 
     try:
         from billing.course_routes import router as course_router
         routers.append(course_router)
         logger.info("✅ Course licensing router loaded")
     except Exception as e:
-        logger.warning(f"Could not load course licensing router: {e}")
+        logger.warning("Could not load course licensing router: %s", e, exc_info=e)
 
     try:
         from billing.creator_course_routes import router as creator_course_router
         routers.append(creator_course_router)
         logger.info("✅ Creator course router loaded")
     except Exception as e:
-        logger.warning(f"Could not load creator course router: {e}")
+        logger.warning("Could not load creator course router: %s", e, exc_info=e)
 
     return routers

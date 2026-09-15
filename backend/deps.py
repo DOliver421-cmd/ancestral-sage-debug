@@ -96,17 +96,23 @@ def require_rank(*min_roles: str):
 
 
 def require_tier(min_tier: str):
-    """Authorize the current user's feature tier.
+    """Authorize the current user's feature tier or role.
 
-    Checks the user's role rank against the minimum required for
-    the given feature tier (see roles.TIER_MIN_RANK).
+    Accepts either:
+    - A role name: student, trial_pass, instructor, support_staff, oversight, admin, executive_admin
+    - A feature tier: free, basic, premium, staff, oversight, admin, exec
 
     Usage:
         @router.get("/premium-feature")
         async def premium(user: User = Depends(require_tier("premium"))):
             ...
     """
-    needed = role_rank(min_tier) if min_tier in ("student", "trial_pass", "instructor", "support_staff", "oversight", "admin", "executive_admin") else 0
+    from roles import role_rank, tier_min_rank, ROLE_RANK
+
+    if min_tier in ROLE_RANK:
+        needed = role_rank(min_tier)
+    else:
+        needed = tier_min_rank(min_tier)
 
     async def dep(user=Depends(dep_current_user)):
         if role_rank(user.role) < needed:
