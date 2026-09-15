@@ -30,7 +30,7 @@ import {
   Twitter, Instagram, Facebook, Linkedin, Youtube,
   DollarSign, Heart, TrendingUp, Receipt, Network, Star, Crown, Shield,
   KeyRound, Loader2, Trash2, HelpCircle, Gamepad2, Share2, Briefcase,
-  Brain, BrainCircuit, Search, Music4, Video, AlertTriangle,
+  Brain, BrainCircuit, Search, Music4, Video, AlertTriangle, FolderOpen,
 } from "lucide-react";
 import { useMic } from "../hooks/useMic";
 
