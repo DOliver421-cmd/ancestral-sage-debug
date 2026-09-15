@@ -5,7 +5,14 @@
  * A Commissioner scores each round. 2 of 4 personas can be swapped.
  * The highest-scoring output is handed to Hybrid NAM for mission alignment.
  *
- * Phases: SETUP → SELECT_PERSONAS → ROUNDS → SCORING → RESULTS → HANDOFF
+ * Phases: SETUP → SELECT_PERSONAS → ROUNDS → RESULTS → HANDOFF
+ *
+ * Human controls:
+ *  - Run one round at a time or all remaining rounds
+ *  - Score each round immediately after it completes
+ *  - Edit persona outputs directly
+ *  - Swap personas between rounds
+ *  - Add notes/feedback to any round
  */
 
 import { useState, useEffect, useCallback, useRef } from "react";
@@ -17,14 +24,14 @@ import BackButton from "../components/BackButton";
 import {
   Loader2, Swords, Gavel, Send, RefreshCw, Shuffle, Save, FolderPlus,
   Trash2, Users, FileText, ChevronDown, Award, Target, ArrowRight,
-  CheckCircle2, AlertTriangle, Zap, Crown,
+  CheckCircle2, AlertTriangle, Zap, Crown, PenLine, MessageSquare,
+  BarChart3, Play,
 } from "lucide-react";
 
 const PHASES = {
   SETUP: "SETUP",
   SELECT: "SELECT_PERSONAS",
   ROUNDS: "ROUNDS",
-  SCORING: "SCORING",
   RESULTS: "RESULTS",
   HANDOFF: "HANDOFF",
 };
@@ -32,6 +39,7 @@ const PHASES = {
 const MAX_ROUNDS = 5;
 const MAX_PERSONAS = 4;
 const SWAPPABLE = 2;
+const MIN_OUTPUT_LENGTH = 1000;
 
 function explain(err) {
   const d = err?.response?.data?.detail;
@@ -112,6 +120,9 @@ function ArenaWorkspace({ user }) {
   const [showSwap, setShowSwap] = useState(false);
   const [swapSlot, setSwapSlot] = useState(null);
   const [scoreInput, setScoreInput] = useState({});
+  const [scoreNotes, setScoreNotes] = useState({});
+  const [editingRound, setEditingRound] = useState(null);
+  const [editText, setEditText] = useState("");
   const bottomRef = useRef(null);
 
   // Load available personas
@@ -182,7 +193,7 @@ function ArenaWorkspace({ user }) {
   };
 
   // ── Phase: ROUNDS ────────────────────────────────────────────────────────
-  const runRound = async () => {
+  const runNextRound = async () => {
     setBusy(true);
     setError("");
     try {
@@ -206,10 +217,42 @@ function ArenaWorkspace({ user }) {
     }
   };
 
-  // ── Phase: SCORING ───────────────────────────────────────────────────────
-  const submitScore = async (roundId, score, note, scorer) => {
+  const advanceRound = async () => {
     setBusy(true);
     setError("");
+    try {
+      const r = await api.post(`/arena/sessions/${session.id}/advance`);
+      setSession(s => ({ ...s, current_round: r.data.next_round, status: r.data.status }));
+    } catch (e) {
+      setError(explain(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const runSinglePersona = async (personaId) => {
+    setBusy(true);
+    setError("");
+    try {
+      const r = await api.post(`/arena/sessions/${session.id}/rounds/single`, {
+        persona_id: personaId,
+      });
+      setRounds(prev => [...prev, r.data.round]);
+      setSession(s => ({
+        ...s,
+        best_score: r.data.best_score || s.best_score,
+        best_persona_id: r.data.best_persona_id || s.best_persona_id,
+      }));
+    } catch (e) {
+      setError(explain(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // ── Human scoring ───────────────────────────────────────────────────────
+  const submitScore = async (roundId, score, note, scorer) => {
+    setBusy(true);
     try {
       const r = await api.post("/arena/scores", {
         round_id: roundId,
@@ -229,7 +272,32 @@ function ArenaWorkspace({ user }) {
     }
   };
 
-  // ── Phase: RESULTS ───────────────────────────────────────────────────────
+  // ── Human edit of round output ──────────────────────────────────────────
+  const startEdit = (round) => {
+    setEditingRound(round.id);
+    setEditText(round.output || "");
+  };
+
+  const saveEdit = async (roundId) => {
+    setBusy(true);
+    try {
+      const r = await api.patch(`/arena/rounds/${roundId}`, {
+        output: editText,
+        human_edited: true,
+      });
+      setRounds(prev => prev.map(rd =>
+        rd.id === roundId ? { ...rd, output: r.data.round.output, human_edited: true } : rd
+      ));
+      setEditingRound(null);
+      setEditText("");
+    } catch (e) {
+      setError(explain(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // ── Phase: RESULTS ──────────────────────────────────────────────────────
   const loadResults = async () => {
     try {
       const r = await api.get(`/arena/sessions/${session.id}/results`);
@@ -239,7 +307,6 @@ function ArenaWorkspace({ user }) {
     }
   };
 
-  // ── Phase: HANDOFF ───────────────────────────────────────────────────────
   const handoffToNAM = async (notes) => {
     setBusy(true);
     setError("");
@@ -287,7 +354,7 @@ function ArenaWorkspace({ user }) {
         <Swords className="w-8 h-8 text-copper" /> The Arena
       </h1>
       <p className="text-ink/60 mb-8">
-        4 personas · 5 rounds of self-competition · Commissioner scoring · Hybrid NAM synthesis
+        4 personas · 5 rounds of self-competition · Commissioner scoring · Human scoring & editing · Hybrid NAM synthesis
       </p>
 
       {error && (
@@ -331,7 +398,9 @@ function ArenaWorkspace({ user }) {
         <RoundsPhase
           session={session}
           rounds={rounds}
-          onRunRound={runRound}
+          onRunNextRound={runNextRound}
+          onAdvanceRound={advanceRound}
+          onRunSinglePersona={runSinglePersona}
           onSwap={swapPersona}
           showSwap={showSwap}
           setShowSwap={setShowSwap}
@@ -339,6 +408,16 @@ function ArenaWorkspace({ user }) {
           setSwapSlot={setSwapSlot}
           personas={personas}
           busy={busy}
+          onScore={submitScore}
+          scoreInput={scoreInput}
+          setScoreInput={setScoreInput}
+          scoreNotes={scoreNotes}
+          setScoreNotes={setScoreNotes}
+          editingRound={editingRound}
+          setEditingRound={setEditingRound}
+          editText={editText}
+          setEditText={setEditText}
+          onSaveEdit={saveEdit}
         />
       )}
 
@@ -492,39 +571,54 @@ function PersonaSelect({ personas, onSubmit, busy }) {
   );
 }
 
-function RoundsPhase({ session, rounds, onRunRound, onSwap, showSwap, setShowSwap, swapSlot, setSwapSlot, personas, busy }) {
+function RoundsPhase({
+  session, rounds, onRunNextRound, onAdvanceRound, onRunSinglePersona,
+  onSwap, showSwap, setShowSwap, swapSlot, setSwapSlot, personas, busy,
+  onScore, scoreInput, setScoreInput, scoreNotes, setScoreNotes,
+  editingRound, setEditingRound, editText, setEditText, onSaveEdit
+}) {
   const currentRound = session?.current_round || 0;
   const isComplete = session?.status === "COMPLETED";
+  const roundsForCurrentRound = rounds.filter(r => r.round_num === currentRound);
 
   return (
     <div className="space-y-6">
       {/* Status bar */}
-      <div className="card-flat p-4 flex items-center justify-between">
+      <div className="card-flat p-4 flex flex-wrap items-center justify-between gap-3">
         <div>
           <div className="font-bold text-ink">{session?.project_title}</div>
           <div className="text-sm text-ink/60">
-            Round {currentRound}/{MAX_ROUNDS} · {session?.personas?.length || 0} personas
+            Round {currentRound}/{MAX_ROUNDS} · {session?.personas?.length || 0} personas · {rounds.length} outputs generated
           </div>
         </div>
-        <div className="flex gap-2">
-          {!isComplete && (
+        <div className="flex gap-2 flex-wrap">
+          {!isComplete && roundsForCurrentRound.length === 0 && (
             <button
-              onClick={() => setShowSwap(!showSwap)}
-              className="btn-outline text-sm flex items-center gap-1"
-            >
-              <Shuffle className="w-4 h-4" /> Swap Persona
-            </button>
-          )}
-          {!isComplete && (
-            <button
-              onClick={onRunRound}
+              onClick={onRunNextRound}
               disabled={busy}
               className="btn-primary text-sm flex items-center gap-1"
+              title="Run all personas for this round"
             >
-              {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
+              {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
               Run Round {currentRound + 1}
             </button>
           )}
+          {!isComplete && roundsForCurrentRound.length > 0 && roundsForCurrentRound.length < session?.personas?.length && (
+            <button
+              onClick={onAdvanceRound}
+              disabled={busy}
+              className="btn-outline text-sm flex items-center gap-1"
+              title="Mark remaining personas as skipped and advance"
+            >
+              <ArrowRight className="w-4 h-4" /> Skip to Next Round
+            </button>
+          )}
+          <button
+            onClick={() => setShowSwap(!showSwap)}
+            className="btn-outline text-sm flex items-center gap-1"
+          >
+            <Shuffle className="w-4 h-4" /> Swap Persona
+          </button>
         </div>
       </div>
 
@@ -541,9 +635,24 @@ function RoundsPhase({ session, rounds, onRunRound, onSwap, showSwap, setShowSwa
         />
       )}
 
-      {/* Round cards */}
+      {/* Round outputs with inline scoring and editing */}
       {rounds.map((r, i) => (
-        <RoundCard key={r.id} round={r} index={i} />
+        <RoundCard
+          key={r.id}
+          round={r}
+          index={i}
+          onScore={onScore}
+          scoreInput={scoreInput}
+          setScoreInput={setScoreInput}
+          scoreNotes={scoreNotes}
+          setScoreNotes={setScoreNotes}
+          editingRound={editingRound}
+          setEditingRound={setEditingRound}
+          editText={editText}
+          setEditText={setEditText}
+          onSaveEdit={onSaveEdit}
+          canEdit={!isComplete}
+        />
       ))}
 
       {isComplete && (
@@ -555,15 +664,22 @@ function RoundsPhase({ session, rounds, onRunRound, onSwap, showSwap, setShowSwa
   );
 }
 
-function RoundCard({ round, index }) {
+function RoundCard({
+  round, index, onScore, scoreInput, setScoreInput, scoreNotes, setScoreNotes,
+  editingRound, setEditingRound, editText, setEditText, onSaveEdit, canEdit
+}) {
   const [expanded, setExpanded] = useState(false);
   const score = round.final_score || round.commissioner_score?.total || 0;
+  const wordCount = round.word_count || (round.output?.split(" ").length || 0);
+  const isEditing = editingRound === round.id;
+  const humanScore = round.human_score?.score;
+  const namScore = round.hybrid_nam_score?.score;
 
   return (
     <div className="card-flat p-4">
       <div
         className="flex items-center justify-between cursor-pointer"
-        onClick={() => setExpanded(!expanded)}
+        onClick={() => !isEditing && setExpanded(!expanded)}
       >
         <div className="flex items-center gap-3">
           <span className="bg-copper text-white text-xs font-bold px-2 py-1 rounded">
@@ -571,24 +687,126 @@ function RoundCard({ round, index }) {
           </span>
           <span className="font-bold text-ink text-sm">{round.persona_label}</span>
           <span className="text-xs text-ink/50">
-            {round.output?.split(" ").length || 0} words
+            {wordCount} words · {Math.max(1, Math.round(wordCount / 200))} min read
           </span>
+          {wordCount < MIN_OUTPUT_LENGTH && (
+            <span className="text-xs text-amber-600 font-medium">Below target length</span>
+          )}
+          {round.human_edited && (
+            <span className="text-xs text-green-600 font-medium">✎ Human edited</span>
+          )}
         </div>
         <div className="flex items-center gap-3">
-          <span className={`text-sm font-bold ${score >= 70 ? "text-green-600" : score >= 40 ? "text-amber-600" : "text-red-600"}`}>
-            {score}
-          </span>
+          <div className="flex items-center gap-1">
+            {humanScore !== undefined && (
+              <span className="text-xs font-bold text-copper" title="Human score">H:{humanScore}</span>
+            )}
+            {namScore !== undefined && (
+              <span className="text-xs font-bold text-purple-600" title="Hybrid NAM score">N:{namScore}</span>
+            )}
+            <span className={`text-sm font-bold ${score >= 70 ? "text-green-600" : score >= 40 ? "text-amber-600" : "text-red-600"}`}>
+              {score}
+            </span>
+          </div>
           {expanded ? <ChevronDown className="w-4 h-4 text-ink/40" /> : <ChevronDown className="w-4 h-4 text-ink/40 rotate-[-90deg]" />}
         </div>
       </div>
+
       {expanded && (
-        <div className="mt-4 border-t border-ink/5 pt-4">
-          <div className="bg-ink/[0.02] rounded-lg p-4 text-sm text-ink/80 whitespace-pre-wrap max-h-64 overflow-y-auto">
-            {round.output}
-          </div>
+        <div className="mt-4 border-t border-ink/5 pt-4 space-y-4">
+          {/* Commissioner breakdown */}
           {round.commissioner_score && (
-            <div className="mt-3 text-xs text-ink/50">
-              Commissioner: {round.commissioner_score.total} · Clarity: {round.commissioner_score.clarity} · Criteria: {round.commissioner_score.criteria_alignment} · Improvement: {round.commissioner_score.improvement}
+            <div className="flex flex-wrap gap-3 text-xs text-ink/50 bg-ink/[0.02] rounded p-3">
+              <span>Clarity: <strong className="text-ink">{round.commissioner_score.clarity}</strong></span>
+              <span>Criteria: <strong className="text-ink">{round.commissioner_score.criteria_alignment}</strong></span>
+              <span>Improvement: <strong className="text-ink">{round.commissioner_score.improvement}</strong></span>
+              <span>Round bonus: <strong className="text-ink">+{round.commissioner_score.round_bonus}</strong></span>
+            </div>
+          )}
+
+          {/* Output text */}
+          {isEditing ? (
+            <div>
+              <textarea
+                value={editText}
+                onChange={e => setEditText(e.target.value)}
+                className="w-full border border-ink/10 rounded-lg px-3 py-2 text-sm h-64 font-mono"
+              />
+              <div className="flex gap-2 mt-2">
+                <button
+                  onClick={() => onSaveEdit(round.id)}
+                  disabled={busy}
+                  className="btn-primary text-sm flex items-center gap-1"
+                >
+                  <Save className="w-4 h-4" /> Save Edit
+                </button>
+                <button
+                  onClick={() => { setEditingRound(null); setEditText(""); }}
+                  className="btn-outline text-sm"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="bg-ink/[0.02] rounded-lg p-4 text-sm text-ink/80 whitespace-pre-wrap max-h-96 overflow-y-auto">
+              {round.output}
+            </div>
+          )}
+
+          {/* Human controls */}
+          {canEdit && !isEditing && (
+            <div className="flex gap-2 flex-wrap">
+              <button
+                onClick={() => startEdit(round)}
+                className="btn-outline text-sm flex items-center gap-1"
+              >
+                <PenLine className="w-4 h-4" /> Edit Output
+              </button>
+            </div>
+          )}
+
+          {/* Human scoring */}
+          {canEdit && (
+            <div className="border-t border-ink/10 pt-4 space-y-3">
+              <h4 className="text-sm font-bold text-ink flex items-center gap-2">
+                <Gavel className="w-4 h-4 text-copper" /> Your Score
+              </h4>
+              <div className="flex items-center gap-3">
+                <input
+                  type="range"
+                  min="0"
+                  max="100"
+                  value={scoreInput[round.id] ?? humanScore ?? 50}
+                  onChange={e => setScoreInput(prev => ({ ...prev, [round.id]: e.target.value }))}
+                  className="flex-1"
+                />
+                <span className="text-sm font-bold text-ink w-8 text-right">
+                  {scoreInput[round.id] ?? humanScore ?? 50}
+                </span>
+              </div>
+              <textarea
+                value={scoreNotes[round.id] || ""}
+                onChange={e => setScoreNotes(prev => ({ ...prev, [round.id]: e.target.value }))}
+                className="w-full border border-ink/10 rounded-lg px-3 py-2 text-sm h-16"
+                placeholder="Add your notes/feedback for this round..."
+              />
+              <button
+                onClick={() => onScore(round.id, parseInt(scoreInput[round.id]) || 50, scoreNotes[round.id] || "", "human")}
+                disabled={busy}
+                className="btn-primary text-sm flex items-center gap-1"
+              >
+                {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                Submit Score
+              </button>
+            </div>
+          )}
+
+          {/* Existing scores display */}
+          {(humanScore !== undefined || namScore !== undefined) && (
+            <div className="flex gap-3 text-xs text-ink/50">
+              {humanScore !== undefined && <span>Human: <strong className="text-ink">{humanScore}</strong></span>}
+              {namScore !== undefined && <span>Hybrid NAM: <strong className="text-ink">{namScore}</strong></span>}
             </div>
           )}
         </div>
@@ -610,7 +828,7 @@ function SwapPanel({ session, personas, onSwap, busy, onClose, swapSlot, setSwap
         </h3>
         <button onClick={onClose} className="text-ink/40 hover:text-ink text-sm">✕</button>
       </div>
-      <p className="text-xs text-ink/50 mb-3">Pick which slot to replace, then choose a new persona.</p>
+      <p className="text-xs text-ink/50 mb-3">Pick which swappable slot to replace, then choose a new persona.</p>
       <div className="grid grid-cols-2 gap-3 mb-3">
         {swappablePersonas.map(p => (
           <button
@@ -708,7 +926,6 @@ function ScoringPhase({ rounds, scoreInput, setScoreInput, onSubmitScore, onComp
   const [notes, setNotes] = useState("");
 
   const handleSubmit = async () => {
-    // Submit human scores for all rounds
     for (const r of rounds) {
       const val = parseInt(scoreInput[r.id]) || 50;
       await onSubmitScore(r.id, val, notes, "human");

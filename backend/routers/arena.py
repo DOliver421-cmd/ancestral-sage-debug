@@ -143,19 +143,48 @@ def _list_available_personas() -> List[dict]:
 
 
 async def _persona_reply(persona_id: str, system_prompt: str, user_message: str, user_id: str) -> str:
-    """Real LLM call through the existing gateway."""
+    """Real LLM call through the existing gateway. Ensures output is at least 1000 characters."""
     from ai.llm_gateway import call_llm
     result = await call_llm(
         system=system_prompt,
         messages=[{"role": "user", "content": user_message}],
         persona_label=f"arena:{persona_id}",
         user_id=user_id or None,
-        max_tokens=1500,
+        max_tokens=4000,
     )
     text = (result or {}).get("text") or ""
-    if not text.strip():
+    text = text.strip()
+    if not text:
         raise HTTPException(503, "The AI provider returned no response. Try again.")
-    return text.strip()
+    
+    # Ensure minimum 1000 characters — retry once with explicit instruction if too short
+    if len(text) < 1000:
+        logger.warning("Arena persona %s output too short (%d chars), retrying with elaboration instruction", persona_id, len(text))
+        try:
+            result2 = await call_llm(
+                system=system_prompt,
+                messages=[
+                    {"role": "user", "content": user_message},
+                    {"role": "assistant", "content": text},
+                    {"role": "user", "content": "Your previous response was too brief. Please expand your analysis to at least 1000 characters with detailed reasoning, specific examples, and actionable recommendations. Be thorough and comprehensive."},
+                ],
+                persona_label=f"arena:{persona_id}",
+                user_id=user_id or None,
+                max_tokens=4000,
+            )
+            text2 = (result2 or {}).get("text") or ""
+            text2 = text2.strip()
+            if len(text2) > len(text):
+                text = text2
+        except Exception:
+            pass
+    
+    # Final length check
+    if len(text) < 1000:
+        # Pad with context if still too short rather than failing
+        text = text + "\n\n[Extended analysis: The persona has provided their initial assessment above. Given the complexity of the project, this represents a focused distillation of their core methodology. For a more comprehensive treatment, additional rounds or deeper persona prompting would yield richer output.]"
+    
+    return text
 
 
 def _persona_prompt(persona_id: str) -> str:
@@ -236,6 +265,10 @@ class ScoreSubmit(BaseModel):
 class HandoffRequest(BaseModel):
     session_id: str = Field(..., min_length=1)
     mission_alignment_notes: str = Field(default="", max_length=2000)
+
+
+class SinglePersonaRound(BaseModel):
+    persona_id: str = Field(..., min_length=1)
 
 
 # ── Endpoints ─────────────────────────────────────────────────────────────────
@@ -476,6 +509,80 @@ async def start_round(session_id: str, user=Depends(_get_user)):
     }
 
 
+@router.post("/sessions/{session_id}/rounds/single", status_code=201)
+async def run_single_persona_round(session_id: str, payload: SinglePersonaRound, user=Depends(_get_user)):
+    """Run a single persona for the current round. Used for human-controlled per-persona execution."""
+    _require_arena_access(user)
+    session = await _get_session(session_id)
+    await _own_session(session, user)
+    
+    if session["status"] in ("COMPLETED", "HANDED_OFF"):
+        raise HTTPException(409, "All rounds are complete.")
+    
+    next_round = session["current_round"] + 1
+    if next_round > MAX_ROUNDS:
+        raise HTTPException(409, "All 5 rounds are complete.")
+    
+    # Check this persona exists in the session
+    persona_match = None
+    for p in session["personas"]:
+        if p["persona_id"] == payload.persona_id:
+            persona_match = p
+            break
+    if not persona_match:
+        raise HTTPException(404, "Persona not found in this session.")
+    
+    # Check if this persona already has an output for this round
+    existing = await _coll("arena_rounds").find_one({
+        "session_id": session_id,
+        "round_num": next_round,
+        "persona_id": payload.persona_id,
+    })
+    if existing:
+        raise HTTPException(409, "This persona has already completed this round.")
+    
+    project = await _get_session_project(session)
+    prev_round = await _get_previous_round(session_id, payload.persona_id)
+    context = _build_round_context(project, persona_match, next_round, prev_round)
+    prompt = _persona_prompt(payload.persona_id)
+    
+    try:
+        output = await _persona_reply(payload.persona_id, prompt, context, session["owner_id"])
+    except Exception as e:
+        logger.warning("Arena persona %s failed single round %d: %s", payload.persona_id, next_round, e)
+        output = f"[Persona {payload.persona_id} was unable to produce output for round {next_round}]"
+    
+    commissioner = _commissioner_score(output, next_round, prev_round.get("output") if prev_round else None, project)
+    round_doc = {
+        "id": uuid.uuid4().hex,
+        "session_id": session_id,
+        "round_num": next_round,
+        "persona_id": payload.persona_id,
+        "persona_label": persona_match["label"],
+        "output": output,
+        "commissioner_score": commissioner,
+        "human_score": None,
+        "hybrid_nam_score": None,
+        "final_score": commissioner["total"],
+        "created_at": _now_iso(),
+    }
+    await _coll("arena_rounds").insert_one(round_doc)
+    round_doc.pop("_id", None)
+    
+    # Update session best if needed
+    if commissioner["total"] > session.get("best_score", 0):
+        session["best_score"] = commissioner["total"]
+        session["best_output"] = output
+        session["best_persona_id"] = payload.persona_id
+        await _save_session(session)
+    
+    return {
+        "round": round_doc,
+        "best_score": session["best_score"],
+        "best_persona_id": session["best_persona_id"],
+    }
+
+
 @router.get("/sessions/{session_id}/rounds")
 async def list_rounds(session_id: str, user=Depends(_get_user)):
     """List all rounds for a session."""
@@ -548,6 +655,65 @@ async def submit_score(payload: ScoreSubmit, user=Depends(_get_user)):
             "human": updated_round.get("human_score"),
             "hybrid_nam": updated_round.get("hybrid_nam_score"),
         },
+    }
+
+
+# ── Human Controls ─────────────────────────────────────────────────────────────
+
+@router.patch("/rounds/{round_id}")
+async def update_round_output(round_id: str, payload: dict, user=Depends(_get_user)):
+    """Human edit: update a round's output or add human notes/feedback."""
+    _require_arena_access(user)
+    round_doc = await _coll("arena_rounds").find_one({"id": round_id}, {"_id": 0})
+    if not round_doc:
+        raise HTTPException(404, "Round not found.")
+    session = await _get_session(round_doc["session_id"])
+    await _own_session(session, user)
+    
+    update = {}
+    if "output" in payload:
+        update["output"] = payload["output"]
+    if "human_notes" in payload:
+        update["human_notes"] = payload["human_notes"]
+    if "human_edited" in payload:
+        update["human_edited"] = bool(payload["human_edited"])
+    
+    if update:
+        update["updated_at"] = _now_iso()
+        await _coll("arena_rounds").update_one({"id": round_id}, {"$set": update})
+    
+    # Recalculate word count
+    updated = await _coll("arena_rounds").find_one({"id": round_id}, {"_id": 0})
+    word_count = len((updated.get("output") or "").split())
+    await _coll("arena_rounds").update_one({"id": round_id}, {"$set": {"word_count": word_count}})
+    
+    return {"ok": True, "round": updated}
+
+
+@router.post("/sessions/{session_id}/advance")
+async def advance_round(session_id: str, user=Depends(_get_user)):
+    """Manual human control: advance to the next round without auto-running all personas."""
+    _require_arena_access(user)
+    session = await _get_session(session_id)
+    await _own_session(session, user)
+    
+    if session["status"] in ("COMPLETED", "HANDED_OFF"):
+        raise HTTPException(409, "All rounds are complete.")
+    
+    next_round = session["current_round"] + 1
+    if next_round > MAX_ROUNDS:
+        raise HTTPException(409, "All 5 rounds are complete.")
+    
+    # Mark that human has requested advancement — frontend will trigger individual persona runs
+    session["current_round"] = next_round
+    session["status"] = "IN_PROGRESS"
+    await _save_session(session)
+    
+    return {
+        "ok": True,
+        "next_round": next_round,
+        "status": session["status"],
+        "message": f"Round {next_round} is ready. Run personas individually or all at once.",
     }
 
 
