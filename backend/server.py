@@ -10321,6 +10321,11 @@ else:
 async def ready():
     db_ok = False
     db_detail = ""
+    # No MONGO_URL means the server is running in a degraded/no-DB mode.
+    # That is an intentional configuration (see startup warning), not a
+    # runtime failure, so /ready should still report the process is up.
+    if client is None:
+        return {"ready": True, "startup_complete": _startup_impl_done, "db": "disabled"}
     try:
         await client.admin.command("ping")
         db_ok = True
