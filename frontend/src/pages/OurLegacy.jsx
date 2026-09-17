@@ -65,6 +65,17 @@ export default function OurLegacy() {
   const { user } = useAuth();
   const [buying, setBuying] = useState(false);
   const [checkoutUrl, setCheckoutUrl] = useState(null);
+  const [hasPurchased, setHasPurchased] = useState(false);
+  const [checkingPurchase, setCheckingPurchase] = useState(false);
+
+  useEffect(() => {
+    if (!user) return;
+    setCheckingPurchase(true);
+    api.get("/digital/purchases")
+      .then(({ data }) => setHasPurchased((data.purchases || []).some(p => p.product_key === "book")))
+      .catch(() => {})
+      .finally(() => setCheckingPurchase(false));
+  }, [user]);
 
   async function buyBook() {
     if (!user) { toast.error("Sign in to purchase"); return; }
@@ -82,6 +93,27 @@ export default function OurLegacy() {
       }
     }
     setBuying(false);
+  }
+
+  async function downloadBook() {
+    if (!user) return;
+    try {
+      const res = await fetch("/api/digital/book/download", {
+        headers: { "Authorization": `Bearer ${localStorage.getItem("lce_token")}` },
+      });
+      if (!res.ok) throw new Error("Download failed");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "Our_Legacy_Our_Future_More_Help_Edition.pdf";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch {
+      toast.error("Could not download the book. Please try again.");
+    }
   }
 
   return (
@@ -120,14 +152,26 @@ export default function OurLegacy() {
             partner, teammate, and co-creator. Not a tool. Not a threat. Not a replacement.
           </p>
           <div className="flex flex-wrap items-center justify-center gap-4 mt-10">
-            <button
-              onClick={buyBook}
-              disabled={buying}
-              className="inline-flex items-center gap-2 px-7 py-3.5 bg-signal text-ink font-bold hover:bg-signal/80 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-            >
-              <BookOpen className="w-4 h-4" />
-              {buying ? "Opening checkout…" : `Get the Book — $${BOOK_PRICE}`}
-            </button>
+            {checkingPurchase ? (
+              <div className="text-white/60 text-sm">Checking your library…</div>
+            ) : hasPurchased ? (
+              <button
+                onClick={downloadBook}
+                className="inline-flex items-center gap-2 px-7 py-3.5 bg-signal text-ink font-bold hover:bg-signal/80 transition-colors"
+              >
+                <BookOpen className="w-4 h-4" />
+                Read the Book
+              </button>
+            ) : (
+              <button
+                onClick={buyBook}
+                disabled={buying}
+                className="inline-flex items-center gap-2 px-7 py-3.5 bg-signal text-ink font-bold hover:bg-signal/80 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                <BookOpen className="w-4 h-4" />
+                {buying ? "Opening checkout…" : `Buy the Book — $${BOOK_PRICE}`}
+              </button>
+            )}
             <a
               href="#pillars"
               className="inline-flex items-center gap-2 px-7 py-3.5 border border-white/30 text-white font-bold hover:bg-white/10 transition-colors"
@@ -136,8 +180,10 @@ export default function OurLegacy() {
             </a>
           </div>
           <p className="text-white/40 text-xs mt-6">
-            One-time digital purchase · delivered through our payment provider · refunds as site credit per the{" "}
-            <Link to="/refund-policy" className="underline hover:text-white/70">Refund Policy</Link>
+            {hasPurchased
+              ? "You own this book — download it anytime from this page."
+              : "One-time digital purchase · delivered through our payment provider · refunds as site credit per the "}
+            {hasPurchased ? "" : <Link to="/refund-policy" className="underline hover:text-white/70">Refund Policy</Link>}
           </p>
         </div>
       </section>

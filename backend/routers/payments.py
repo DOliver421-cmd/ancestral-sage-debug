@@ -281,7 +281,7 @@ async def _fulfill_media_order(buyer_email: str, product_name: str, order_id: st
     name_rx = "^" + _re.escape(product_name.strip()) + "$"
     pending = await db.media_checkout_pending.find_one_and_update(
         {"buyer_email": {"$regex": email_rx, "$options": "i"},
-         "provider_product_name": {"$regex": name_rx},
+         "provider_product_name": {"$regex": name_rx, "$options": "i"},
          "status": "pending"},
         {"$set": {"status": "fulfilled",
                   "fulfilled_at": datetime.now(timezone.utc).isoformat(),
@@ -325,20 +325,25 @@ async def _fulfill_media_order(buyer_email: str, product_name: str, order_id: st
     if owner_id and owner_id != buyer_id and price_cents > 0:
         now = datetime.now(timezone.utc)
         creator_share = round(price_cents * MEDIA_CREATOR_SHARE)
-        await db.creator_earnings.insert_one({
-            "creator_id": owner_id,
-            "period": now.strftime("%Y-%m"),
-            "source": "media_store",
-            "product_id": product_id,
-            "product_title": product.get("title", ""),
-            "buyer_id": buyer_id,
-            "order_id": order_id,
-            "gross_cents": price_cents,
-            "creator_share_cents": creator_share,
-            "platform_fee_cents": price_cents - creator_share,
-            "payout_status": "pending",
-            "created_at": now.isoformat(),
-        })
+        _existing_earning = await db.creator_earnings.find_one(
+            {"order_id": order_id, "creator_id": owner_id, "product_id": product_id},
+            {"_id": 1},
+        )
+        if not _existing_earning:
+            await db.creator_earnings.insert_one({
+                "creator_id": owner_id,
+                "period": now.strftime("%Y-%m"),
+                "source": "media_store",
+                "product_id": product_id,
+                "product_title": product.get("title", ""),
+                "buyer_id": buyer_id,
+                "order_id": order_id,
+                "gross_cents": price_cents,
+                "creator_share_cents": creator_share,
+                "platform_fee_cents": price_cents - creator_share,
+                "payout_status": "pending",
+                "created_at": now.isoformat(),
+            })
         try:
             await notify(owner_id, "Store Sale",
                          f"'{product.get('title', 'Your product')}' just sold — ${creator_share / 100:.2f} added to your pending earnings (70% creator share).",
@@ -725,6 +730,8 @@ async def stripe_webhook(request: Request):
             "product_key": product_key, "amount_cents": amount_cents,
             "buyer_email": buyer_email, "buyer_id": buyer_id,
             "paid": paid, "mode": session.get("mode", "payment"),
+            "subscription_id": session.get("subscription", ""),
+            "customer_id": session.get("customer", ""),
         })
         return {"received": True}
 
@@ -806,10 +813,13 @@ async def _record_stripe_order(info: dict) -> None:
             "user_id": user_id or None,
             "provider": "stripe",
             "provider_order_id": info.get("session_id", ""),
+            "provider_subscription_id": info.get("subscription_id", ""),
+            "provider_customer_id": info.get("customer_id", ""),
             "product_key": product_key,
             "amount_cents": info.get("amount_cents", 0),
             "currency": "usd",
             "mode": info.get("mode", "payment"),
+            "type": "subscription" if info.get("mode") == "subscription" else "payment",
             "status": "paid" if info.get("paid") else info.get("mode", "payment"),
             "buyer_email": buyer_email,
             "created_at": datetime.now(timezone.utc).isoformat(),
@@ -934,12 +944,13 @@ async def payments_webhook(request: Request):
 
 
         try:
+            _ls_user = await _find_user_by_email(user_email, {"_id": 0, "id": 1}) if user_email else None
             await db.payments.insert_one({
                 "id": str(uuid.uuid4()),
-                "user_id": None,
+                "user_id": (_ls_user or {}).get("id") if _ls_user else None,
                 "provider": "lemon_squeezy",
                 "provider_order_id": order_id,
-                "product_key": "lemon_squeezy_order",
+                "product_key": product_key or "lemon_squeezy_order",
                 # Lemon Squeezy sends `total` already in integer cents (e.g. 999
                 # = $9.99). Multiplying by 100 here inflated every recorded
                 # order and scholarship fund total 100× in revenue reporting.
@@ -1029,6 +1040,20 @@ async def payments_webhook(request: Request):
 
         # Shared upgrade-only grant (order_created, subscriptions, resumes).
         await _grant_tier_by_email(user_email, product_key, reason="payment")
+
+        # Digital product delivery: record ownership so the user can download.
+        if product_key == "book" and _ls_user:
+            await db.digital_purchases.update_one(
+                {"user_id": _ls_user["id"], "product_key": "book"},
+                {"$set": {
+                    "user_id": _ls_user["id"],
+                    "product_key": "book",
+                    "provider": "lemon_squeezy",
+                    "provider_order_id": order_id,
+                    "purchased_at": datetime.now(timezone.utc).isoformat(),
+                }},
+                upsert=True,
+            )
 
     # ── Subscription lifecycle — revoke the tier a cancelled/expired/paused
     # subscription granted. Revocation is scoped: it only fires when THIS
@@ -1398,9 +1423,10 @@ async def gumroad_webhook(request: Request):
 
     # ── Record the payment ───────────────────────────────────────────────────
     try:
+        _gr_user = await _find_user_by_email(email, {"_id": 0, "id": 1}) if email else None
         await db.payments.insert_one({
             "id": str(uuid.uuid4()),
-            "user_id": None,
+            "user_id": (_gr_user or {}).get("id") if _gr_user else None,
             "provider": "gumroad",
             "provider_order_id": sale_id,
             "product_key": product_key or "unknown",
@@ -1466,14 +1492,29 @@ async def gumroad_webhook(request: Request):
 
     # ── Media Store digital products (prompt packs, templates, files) ────────
     if email and product_key and product_key not in ("byok", "scholarship", "donation"):
-        try:
-            await _fulfill_media_order(
-                buyer_email=email,
-                product_name=product_name,
-                order_id=sale_id,
-            )
-        except Exception:
-            logger.exception("Gumroad webhook: media fulfillment failed (sale %s)", sale_id)
+        if product_key == "book":
+            _gr_user = await _find_user_by_email(email, {"_id": 0, "id": 1}) if email else None
+            if _gr_user:
+                await db.digital_purchases.update_one(
+                    {"user_id": _gr_user["id"], "product_key": "book"},
+                    {"$set": {
+                        "user_id": _gr_user["id"],
+                        "product_key": "book",
+                        "provider": "gumroad",
+                        "provider_order_id": sale_id,
+                        "purchased_at": datetime.now(timezone.utc).isoformat(),
+                    }},
+                    upsert=True,
+                )
+        else:
+            try:
+                await _fulfill_media_order(
+                    buyer_email=email,
+                    product_name=product_name,
+                    order_id=sale_id,
+                )
+            except Exception:
+                logger.exception("Gumroad webhook: media fulfillment failed (sale %s)", sale_id)
 
     # ── Shared upgrade-only grant (one-time purchases + subscription starts) ─
     await _grant_tier_by_email(email, product_key, reason="gumroad_payment")
@@ -1483,31 +1524,119 @@ async def gumroad_webhook(request: Request):
 
 @router.get("/portal")
 async def customer_portal(user=Depends(_dep_current_user)):
-    """Redirect to Lemon Squeezy customer portal for subscription management."""
+    """Redirect to the active subscription's customer portal.
+
+    Supports Lemon Squeezy (primary), Stripe, and Gumroad. Returns a provider-
+    specific portal URL or 404 when no active subscription is found.
+    """
     if not PAYMENTS_ENABLED:
         raise HTTPException(501, "Payments are not configured.")
-    sub = await db.payments.find_one({"user_id": user.id, "type": "subscription", "status": {"$in": ["active", "trialing"]}}, {"_id": 0})
+    sub = await db.payments.find_one({
+        "user_id": user.id,
+        "$or": [
+            {"type": "subscription", "lemon_squeezy_subscription_id": {"$exists": True, "$ne": ""}},
+            {"mode": "subscription", "provider_subscription_id": {"$exists": True, "$ne": ""}},
+        ],
+        "status": {"$in": ["active", "trialing"]},
+    }, {"_id": 0})
     if not sub:
         raise HTTPException(404, "No active subscription found.")
-    ls_id = sub.get("lemon_squeezy_subscription_id") or sub.get("session_id")
-    if not ls_id:
-        raise HTTPException(404, "Subscription ID not found.")
-    import httpx
-    async with httpx.AsyncClient() as client:
-        resp = await client.get(
-            f"https://api.lemonsqueezy.com/v1/subscriptions/{ls_id}",
-            headers={"Authorization": f"Bearer {LEMON_SQUEEZY_API_KEY}"},
-            timeout=10,
-        )
-        if resp.status_code == 200:
-            data = resp.json().get("data", {}).get("attributes", {})
-            portal_url = data.get("urls", {}).get("customer_portal")
-            if portal_url:
-                return {"url": portal_url}
-    raise HTTPException(500, "Could not retrieve customer portal URL. Try again later.")
+    provider = sub.get("provider", "")
+    if provider == "lemon_squeezy":
+        ls_id = sub.get("lemon_squeezy_subscription_id") or sub.get("session_id")
+        if not ls_id:
+            raise HTTPException(404, "Subscription ID not found.")
+        import httpx
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(
+                f"https://api.lemonsqueezy.com/v1/subscriptions/{ls_id}",
+                headers={"Authorization": f"Bearer {LEMON_SQUEEZY_API_KEY}"},
+                timeout=10,
+            )
+            if resp.status_code == 200:
+                data = resp.json().get("data", {}).get("attributes", {})
+                portal_url = data.get("urls", {}).get("customer_portal")
+                if portal_url:
+                    return {"url": portal_url}
+        raise HTTPException(500, "Could not retrieve Lemon Squeezy customer portal URL. Try again later.")
+    if provider == "stripe":
+        sub_id = sub.get("provider_subscription_id") or sub.get("provider_order_id")
+        cust_id = sub.get("provider_customer_id", "")
+        if not cust_id:
+            raise HTTPException(404, "Stripe customer ID not found.")
+        import httpx
+        async with httpx.AsyncClient() as client:
+            resp = await client.post(
+                "https://api.stripe.com/v1/billing_portal/sessions",
+                headers={
+                    "Authorization": f"Bearer {STRIPE_SECRET_KEY}",
+                    "Content-Type": "application/x-www-form-urlencoded",
+                },
+                data={
+                    "customer": cust_id,
+                    "return_url": FRONTEND_URL + "/payment/history",
+                },
+                timeout=10,
+            )
+            if resp.status_code == 200:
+                portal_url = resp.json().get("url")
+                if portal_url:
+                    return {"url": portal_url}
+        raise HTTPException(500, "Could not retrieve Stripe customer portal URL. Try again later.")
+    if provider == "gumroad":
+        raise HTTPException(501, "Gumroad subscriptions are managed through your Gumroad account. Contact support if you need help updating your subscription.")
+    raise HTTPException(400, f"Unknown subscription provider: {provider}")
 
 
 @router.get("/history")
 async def payment_history(user=Depends(_dep_current_user)):
     cursor = db.payments.find({"user_id": user.id}, {"_id": 0}).sort("created_at", -1).limit(50)
     return {"payments": await cursor.to_list(50)}
+
+
+# ── Digital product delivery ─────────────────────────────────────────────────
+# Primary location: docs/ at the repo root. Fallback: backend/digital_products/.
+_DOCS_DIR = Path(__file__).resolve().parent.parent.parent / "docs"
+_DIGITAL_DIR = Path(__file__).resolve().parent.parent / "digital_products"
+_DIGITAL_DIR.mkdir(exist_ok=True)
+
+
+@router.get("/digital/purchases")
+async def list_digital_purchases(user=Depends(_dep_current_user)):
+    """Return every digital product the user has purchased or that is free."""
+    docs = await db.digital_purchases.find({"user_id": user.id}, {"_id": 0}).to_list(200)
+    return {"purchases": docs}
+
+
+@router.get("/digital/{product_key}/download")
+async def download_digital_product(product_key: str, user=Depends(_dep_current_user)):
+    """Serve the digital file if the user owns it."""
+    purchase = await db.digital_purchases.find_one({"user_id": user.id, "product_key": product_key})
+    if not purchase:
+        raise HTTPException(403, "You have not purchased this digital product.")
+    product_name = PAYMENT_PRODUCTS.get(product_key, {}).get("name", product_key)
+    safe_name = re.sub(r"[^a-zA-Z0-9_\-\.]", "_", product_name)
+    known = {
+        "book": "Our Legacy Our Future More Help Edition.pdf",
+    }
+    filename = known.get(product_key) or f"{safe_name}.pdf"
+    candidates = [
+        _DOCS_DIR / filename,
+        _DIGITAL_DIR / filename,
+        _DOCS_DIR / f"{product_key}.pdf",
+        _DIGITAL_DIR / f"{product_key}.pdf",
+        _DOCS_DIR / f"{safe_name}.pdf",
+        _DIGITAL_DIR / f"{safe_name}.pdf",
+        _DOCS_DIR / f"{product_key}.txt",
+        _DIGITAL_DIR / f"{product_key}.txt",
+    ]
+    target = next((p for p in candidates if p.exists()), None)
+    if not target:
+        raise HTTPException(404, "Digital file not found. Contact support.")
+    media = "application/pdf" if target.suffix.lower() == ".pdf" else "application/octet-stream"
+    return FileResponse(
+        target,
+        media_type=media,
+        filename=target.name,
+        headers={"Content-Disposition": f'attachment; filename="{target.name}"'},
+    )
