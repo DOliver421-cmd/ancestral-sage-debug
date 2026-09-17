@@ -184,9 +184,8 @@ PAYMENT_PRODUCTS = {
     # Sponsor a Scholarship — milestone-based giving. Amount is set by the
     # sponsor (like donation); a paid order matches the sponsor's pledge.
     "scholarship":    {"name": "Sponsor a Scholarship — M.O.R.E. Help Center",      "amount": None, "mode": "payment", "description": "Sponsor a scholar — Full, Partial, or Collective. Milestone-based release, fully transparent."},
-    # Our Legacy book — removed: no deliverable file exists, so selling it
-    # would be a dead-end purchase. The campaign page remains as marketing.
-    # "book":           {"name": "Our Legacy · Our Future — The Book",                "amount": 8900, "mode": "payment", "description": "One-time digital purchase of the Our Legacy book"},
+    # Our Legacy book — one-time digital purchase
+    "book":           {"name": "Our Legacy · Our Future — The Book",                "amount": 8900, "mode": "payment", "description": "One-time digital purchase of the Our Legacy book"},
     # Creator's Sanctuary tiers (creator lane — see _PRODUCT_TIER_MAP)
     "sanctuary_trial":   {"name": "M.O.R.E. Creator's Sanctuary – 3-Day Trial",     "amount":  300, "mode": "payment",      "description": "All-access 3 days & 33 minutes trial — everything through Pro"},
     "sanctuary_paid":    {"name": "M.O.R.E. Creator's Sanctuary – Paid Creator",    "amount":  700, "mode": "subscription", "interval": "month", "description": "Member-level creator lane — $7/mo", "deprecated": True},
@@ -1042,6 +1041,20 @@ async def payments_webhook(request: Request):
         # Shared upgrade-only grant (order_created, subscriptions, resumes).
         await _grant_tier_by_email(user_email, product_key, reason="payment")
 
+        # Digital product delivery: record ownership so the user can download.
+        if product_key == "book" and _ls_user:
+            await db.digital_purchases.update_one(
+                {"user_id": _ls_user["id"], "product_key": "book"},
+                {"$set": {
+                    "user_id": _ls_user["id"],
+                    "product_key": "book",
+                    "provider": "lemon_squeezy",
+                    "provider_order_id": order_id,
+                    "purchased_at": datetime.now(timezone.utc).isoformat(),
+                }},
+                upsert=True,
+            )
+
     # ── Subscription lifecycle — revoke the tier a cancelled/expired/paused
     # subscription granted. Revocation is scoped: it only fires when THIS
     # product is the one that granted the user's current tier, so an upgrade
@@ -1479,14 +1492,29 @@ async def gumroad_webhook(request: Request):
 
     # ── Media Store digital products (prompt packs, templates, files) ────────
     if email and product_key and product_key not in ("byok", "scholarship", "donation"):
-        try:
-            await _fulfill_media_order(
-                buyer_email=email,
-                product_name=product_name,
-                order_id=sale_id,
-            )
-        except Exception:
-            logger.exception("Gumroad webhook: media fulfillment failed (sale %s)", sale_id)
+        if product_key == "book":
+            _gr_user = await _find_user_by_email(email, {"_id": 0, "id": 1}) if email else None
+            if _gr_user:
+                await db.digital_purchases.update_one(
+                    {"user_id": _gr_user["id"], "product_key": "book"},
+                    {"$set": {
+                        "user_id": _gr_user["id"],
+                        "product_key": "book",
+                        "provider": "gumroad",
+                        "provider_order_id": sale_id,
+                        "purchased_at": datetime.now(timezone.utc).isoformat(),
+                    }},
+                    upsert=True,
+                )
+        else:
+            try:
+                await _fulfill_media_order(
+                    buyer_email=email,
+                    product_name=product_name,
+                    order_id=sale_id,
+                )
+            except Exception:
+                logger.exception("Gumroad webhook: media fulfillment failed (sale %s)", sale_id)
 
     # ── Shared upgrade-only grant (one-time purchases + subscription starts) ─
     await _grant_tier_by_email(email, product_key, reason="gumroad_payment")
@@ -1564,3 +1592,37 @@ async def customer_portal(user=Depends(_dep_current_user)):
 async def payment_history(user=Depends(_dep_current_user)):
     cursor = db.payments.find({"user_id": user.id}, {"_id": 0}).sort("created_at", -1).limit(50)
     return {"payments": await cursor.to_list(50)}
+
+
+# ── Digital product delivery ─────────────────────────────────────────────────
+_DIGITAL_DIR = Path(__file__).resolve().parent.parent / "digital_products"
+_DIGITAL_DIR.mkdir(exist_ok=True)
+
+
+@router.get("/digital/purchases")
+async def list_digital_purchases(user=Depends(_dep_current_user)):
+    """Return every digital product the user has purchased or that is free."""
+    docs = await db.digital_purchases.find({"user_id": user.id}, {"_id": 0}).to_list(200)
+    return {"purchases": docs}
+
+
+@router.get("/digital/{product_key}/download")
+async def download_digital_product(product_key: str, user=Depends(_dep_current_user)):
+    """Serve the digital file if the user owns it."""
+    purchase = await db.digital_purchases.find_one({"user_id": user.id, "product_key": product_key})
+    if not purchase:
+        raise HTTPException(403, "You have not purchased this digital product.")
+    product_name = PAYMENT_PRODUCTS.get(product_key, {}).get("name", product_key)
+    safe_name = re.sub(r"[^a-zA-Z0-9_\-\.]", "_", product_name)
+    candidates = [
+        _DIGITAL_DIR / f"{product_key}{ext}" for ext in (".txt", ".pdf", ".epub", ".md")
+    ] + [_DIGITAL_DIR / f"{safe_name}{ext}" for ext in (".txt", ".pdf", ".epub", ".md")]
+    target = next((p for p in candidates if p.exists()), None)
+    if not target:
+        raise HTTPException(404, "Digital file not found. Contact support.")
+    return FileResponse(
+        target,
+        media_type="application/octet-stream",
+        filename=target.name,
+        headers={"Content-Disposition": f'attachment; filename="{target.name}"'},
+    )
