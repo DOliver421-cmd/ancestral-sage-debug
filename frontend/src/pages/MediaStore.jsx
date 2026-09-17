@@ -148,7 +148,7 @@ function MembershipsSection({ user, onCheckoutUrl }) {
   );
 }
 
-function BrowseTab({ user }) {
+function BrowseTab({ user, onCheckoutUrl }) {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("all");
@@ -174,6 +174,12 @@ function BrowseTab({ user }) {
     setCheckingOut(product.id);
     try {
       const r = await api.post(`/media/products/${product.id}/checkout`);
+      if (r.data.already_purchased) {
+        setActiveTab("library");
+        toast.success("You already own this — opened your library.");
+        setCheckingOut(null);
+        return;
+      }
       if (r.data.url) setCheckoutUrl(r.data.url);
       else throw new Error("Checkout URL was not returned");
     } catch (e) {
@@ -821,7 +827,7 @@ export default function MediaStore() {
 
         {/* Content */}
         <div className="max-w-5xl mx-auto px-4 py-8">
-          {activeTab === "browse" && <BrowseTab user={user} />}
+          {activeTab === "browse" && <BrowseTab user={user} onCheckoutUrl={setCheckoutUrl} />}
           {activeTab === "library" && <LibraryTab user={user} />}
           {activeTab === "sell" && <SellTab user={user} />}
           {activeTab === "storefront" && <StorefrontTab />}

@@ -121,12 +121,11 @@ export default function OurLegacy() {
           </p>
           <div className="flex flex-wrap items-center justify-center gap-4 mt-10">
             <button
-              onClick={buyBook}
-              disabled={buying}
-              className="inline-flex items-center gap-2 px-7 py-3.5 bg-signal text-ink font-bold hover:bg-signal/80 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+              disabled
+              className="inline-flex items-center gap-2 px-7 py-3.5 bg-ink/20 text-ink/50 font-bold cursor-not-allowed"
             >
               <BookOpen className="w-4 h-4" />
-              {buying ? "Opening checkout…" : `Get the Book — $${BOOK_PRICE}`}
+              Digital edition coming soon
             </button>
             <a
               href="#pillars"
@@ -136,7 +135,7 @@ export default function OurLegacy() {
             </a>
           </div>
           <p className="text-white/40 text-xs mt-6">
-            One-time digital purchase · delivered through our payment provider · refunds as site credit per the{" "}
+            The digital edition is being prepared. Refunds are issued as site credit per the{" "}
             <Link to="/refund-policy" className="underline hover:text-white/70">Refund Policy</Link>
           </p>
         </div>

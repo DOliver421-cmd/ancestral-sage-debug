@@ -13,26 +13,26 @@ const MODE_LABELS = {
 
 export default function AdminPayments() {
   const [data, setData] = useState(null);
-  const [health, setHealth] = useState(null);
+  const [paymentsEnabled, setPaymentsEnabled] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
     setError("");
-    const [p, h] = await Promise.allSettled([
+    const [p, pr] = await Promise.allSettled([
       api.get("/admin/payments"),
-      api.get("/health"),
+      api.get("/payments/products"),
     ]);
     if (p.status === "fulfilled") setData(p.value.data);
     else setError(p.reason?.response?.data?.detail || p.reason?.message || "Could not load payment data.");
-    if (h.status === "fulfilled") setHealth(h.value.data);
+    if (pr.status === "fulfilled") setPaymentsEnabled(pr.value.data.payments_enabled);
     setLoading(false);
   }, []);
 
   useEffect(() => { load(); }, [load]);
 
-  const payConfigured = health?.checks?.payments?.status === "configured";
+  const payConfigured = paymentsEnabled === true;
   const records = data?.payments || [];
   const paidCount = records.filter((r) => r.status === "paid").length;
   const totalDollars = data ? (data.total_revenue_cents / 100).toFixed(2) : "—";

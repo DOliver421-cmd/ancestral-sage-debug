@@ -14,7 +14,7 @@ export default function CheckoutModal({ url, onClose }) {
       const tier = data?.feature_tier || "";
       if (tier && tier !== "free") {
         setStatus("success");
-        setMsg(`Payment successful — ${tier} tier activated.`);
+        setMsg("Payment confirmed — your features are being unlocked.");
         setTimeout(onClose, 2000);
       }
     } catch {}
@@ -26,6 +26,23 @@ export default function CheckoutModal({ url, onClose }) {
     const interval = setInterval(checkSuccess, 2000);
     return () => clearInterval(interval);
   }, [url, checkSuccess]);
+
+  const handleIframeLoad = useCallback((e) => {
+    try {
+      const href = e.target.contentWindow?.location?.href || "";
+      if (href.includes("/payment/success")) {
+        setStatus("success");
+        setMsg("Payment complete — your access is being prepared.");
+        setTimeout(onClose, 2500);
+      } else if (href.includes("/payment/cancel")) {
+        setStatus("cancel");
+      } else {
+        setStatus("loading");
+      }
+    } catch {
+      setStatus("loading");
+    }
+  }, [onClose]);
 
   if (!url) return null;
 
@@ -73,7 +90,7 @@ export default function CheckoutModal({ url, onClose }) {
             title="Secure Checkout"
             className="w-full h-full border-0"
             allow="payment"
-            onLoad={() => setStatus("loading")}
+            onLoad={handleIframeLoad}
           />
         </div>
       </DialogContent>

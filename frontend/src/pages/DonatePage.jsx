@@ -18,6 +18,7 @@ export default function DonatePage() {
   const valid = effectiveAmount >= 1 && effectiveAmount <= 10000;
 
   async function donate() {
+    if (!user) { toast.error("Sign in to donate"); return; }
     if (!valid) return toast.error("Please enter an amount between $1 and $10,000.");
     setLoading(true);
     try {

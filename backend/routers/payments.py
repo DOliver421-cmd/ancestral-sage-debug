@@ -184,8 +184,9 @@ PAYMENT_PRODUCTS = {
     # Sponsor a Scholarship — milestone-based giving. Amount is set by the
     # sponsor (like donation); a paid order matches the sponsor's pledge.
     "scholarship":    {"name": "Sponsor a Scholarship — M.O.R.E. Help Center",      "amount": None, "mode": "payment", "description": "Sponsor a scholar — Full, Partial, or Collective. Milestone-based release, fully transparent."},
-    # Our Legacy book — one-time digital purchase
-    "book":           {"name": "Our Legacy · Our Future — The Book",                "amount": 8900, "mode": "payment", "description": "One-time digital purchase of the Our Legacy book"},
+    # Our Legacy book — removed: no deliverable file exists, so selling it
+    # would be a dead-end purchase. The campaign page remains as marketing.
+    # "book":           {"name": "Our Legacy · Our Future — The Book",                "amount": 8900, "mode": "payment", "description": "One-time digital purchase of the Our Legacy book"},
     # Creator's Sanctuary tiers (creator lane — see _PRODUCT_TIER_MAP)
     "sanctuary_trial":   {"name": "M.O.R.E. Creator's Sanctuary – 3-Day Trial",     "amount":  300, "mode": "payment",      "description": "All-access 3 days & 33 minutes trial — everything through Pro"},
     "sanctuary_paid":    {"name": "M.O.R.E. Creator's Sanctuary – Paid Creator",    "amount":  700, "mode": "subscription", "interval": "month", "description": "Member-level creator lane — $7/mo", "deprecated": True},
@@ -281,7 +282,7 @@ async def _fulfill_media_order(buyer_email: str, product_name: str, order_id: st
     name_rx = "^" + _re.escape(product_name.strip()) + "$"
     pending = await db.media_checkout_pending.find_one_and_update(
         {"buyer_email": {"$regex": email_rx, "$options": "i"},
-         "provider_product_name": {"$regex": name_rx},
+         "provider_product_name": {"$regex": name_rx, "$options": "i"},
          "status": "pending"},
         {"$set": {"status": "fulfilled",
                   "fulfilled_at": datetime.now(timezone.utc).isoformat(),
@@ -325,20 +326,25 @@ async def _fulfill_media_order(buyer_email: str, product_name: str, order_id: st
     if owner_id and owner_id != buyer_id and price_cents > 0:
         now = datetime.now(timezone.utc)
         creator_share = round(price_cents * MEDIA_CREATOR_SHARE)
-        await db.creator_earnings.insert_one({
-            "creator_id": owner_id,
-            "period": now.strftime("%Y-%m"),
-            "source": "media_store",
-            "product_id": product_id,
-            "product_title": product.get("title", ""),
-            "buyer_id": buyer_id,
-            "order_id": order_id,
-            "gross_cents": price_cents,
-            "creator_share_cents": creator_share,
-            "platform_fee_cents": price_cents - creator_share,
-            "payout_status": "pending",
-            "created_at": now.isoformat(),
-        })
+        _existing_earning = await db.creator_earnings.find_one(
+            {"order_id": order_id, "creator_id": owner_id, "product_id": product_id},
+            {"_id": 1},
+        )
+        if not _existing_earning:
+            await db.creator_earnings.insert_one({
+                "creator_id": owner_id,
+                "period": now.strftime("%Y-%m"),
+                "source": "media_store",
+                "product_id": product_id,
+                "product_title": product.get("title", ""),
+                "buyer_id": buyer_id,
+                "order_id": order_id,
+                "gross_cents": price_cents,
+                "creator_share_cents": creator_share,
+                "platform_fee_cents": price_cents - creator_share,
+                "payout_status": "pending",
+                "created_at": now.isoformat(),
+            })
         try:
             await notify(owner_id, "Store Sale",
                          f"'{product.get('title', 'Your product')}' just sold — ${creator_share / 100:.2f} added to your pending earnings (70% creator share).",
@@ -725,6 +731,8 @@ async def stripe_webhook(request: Request):
             "product_key": product_key, "amount_cents": amount_cents,
             "buyer_email": buyer_email, "buyer_id": buyer_id,
             "paid": paid, "mode": session.get("mode", "payment"),
+            "subscription_id": session.get("subscription", ""),
+            "customer_id": session.get("customer", ""),
         })
         return {"received": True}
 
@@ -806,10 +814,13 @@ async def _record_stripe_order(info: dict) -> None:
             "user_id": user_id or None,
             "provider": "stripe",
             "provider_order_id": info.get("session_id", ""),
+            "provider_subscription_id": info.get("subscription_id", ""),
+            "provider_customer_id": info.get("customer_id", ""),
             "product_key": product_key,
             "amount_cents": info.get("amount_cents", 0),
             "currency": "usd",
             "mode": info.get("mode", "payment"),
+            "type": "subscription" if info.get("mode") == "subscription" else "payment",
             "status": "paid" if info.get("paid") else info.get("mode", "payment"),
             "buyer_email": buyer_email,
             "created_at": datetime.now(timezone.utc).isoformat(),
@@ -934,12 +945,13 @@ async def payments_webhook(request: Request):
 
 
         try:
+            _ls_user = await _find_user_by_email(user_email, {"_id": 0, "id": 1}) if user_email else None
             await db.payments.insert_one({
                 "id": str(uuid.uuid4()),
-                "user_id": None,
+                "user_id": (_ls_user or {}).get("id") if _ls_user else None,
                 "provider": "lemon_squeezy",
                 "provider_order_id": order_id,
-                "product_key": "lemon_squeezy_order",
+                "product_key": product_key or "lemon_squeezy_order",
                 # Lemon Squeezy sends `total` already in integer cents (e.g. 999
                 # = $9.99). Multiplying by 100 here inflated every recorded
                 # order and scholarship fund total 100× in revenue reporting.
@@ -1398,9 +1410,10 @@ async def gumroad_webhook(request: Request):
 
     # ── Record the payment ───────────────────────────────────────────────────
     try:
+        _gr_user = await _find_user_by_email(email, {"_id": 0, "id": 1}) if email else None
         await db.payments.insert_one({
             "id": str(uuid.uuid4()),
-            "user_id": None,
+            "user_id": (_gr_user or {}).get("id") if _gr_user else None,
             "provider": "gumroad",
             "provider_order_id": sale_id,
             "product_key": product_key or "unknown",
@@ -1483,28 +1496,68 @@ async def gumroad_webhook(request: Request):
 
 @router.get("/portal")
 async def customer_portal(user=Depends(_dep_current_user)):
-    """Redirect to Lemon Squeezy customer portal for subscription management."""
+    """Redirect to the active subscription's customer portal.
+
+    Supports Lemon Squeezy (primary), Stripe, and Gumroad. Returns a provider-
+    specific portal URL or 404 when no active subscription is found.
+    """
     if not PAYMENTS_ENABLED:
         raise HTTPException(501, "Payments are not configured.")
-    sub = await db.payments.find_one({"user_id": user.id, "type": "subscription", "status": {"$in": ["active", "trialing"]}}, {"_id": 0})
+    sub = await db.payments.find_one({
+        "user_id": user.id,
+        "$or": [
+            {"type": "subscription", "lemon_squeezy_subscription_id": {"$exists": True, "$ne": ""}},
+            {"mode": "subscription", "provider_subscription_id": {"$exists": True, "$ne": ""}},
+        ],
+        "status": {"$in": ["active", "trialing"]},
+    }, {"_id": 0})
     if not sub:
         raise HTTPException(404, "No active subscription found.")
-    ls_id = sub.get("lemon_squeezy_subscription_id") or sub.get("session_id")
-    if not ls_id:
-        raise HTTPException(404, "Subscription ID not found.")
-    import httpx
-    async with httpx.AsyncClient() as client:
-        resp = await client.get(
-            f"https://api.lemonsqueezy.com/v1/subscriptions/{ls_id}",
-            headers={"Authorization": f"Bearer {LEMON_SQUEEZY_API_KEY}"},
-            timeout=10,
-        )
-        if resp.status_code == 200:
-            data = resp.json().get("data", {}).get("attributes", {})
-            portal_url = data.get("urls", {}).get("customer_portal")
-            if portal_url:
-                return {"url": portal_url}
-    raise HTTPException(500, "Could not retrieve customer portal URL. Try again later.")
+    provider = sub.get("provider", "")
+    if provider == "lemon_squeezy":
+        ls_id = sub.get("lemon_squeezy_subscription_id") or sub.get("session_id")
+        if not ls_id:
+            raise HTTPException(404, "Subscription ID not found.")
+        import httpx
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(
+                f"https://api.lemonsqueezy.com/v1/subscriptions/{ls_id}",
+                headers={"Authorization": f"Bearer {LEMON_SQUEEZY_API_KEY}"},
+                timeout=10,
+            )
+            if resp.status_code == 200:
+                data = resp.json().get("data", {}).get("attributes", {})
+                portal_url = data.get("urls", {}).get("customer_portal")
+                if portal_url:
+                    return {"url": portal_url}
+        raise HTTPException(500, "Could not retrieve Lemon Squeezy customer portal URL. Try again later.")
+    if provider == "stripe":
+        sub_id = sub.get("provider_subscription_id") or sub.get("provider_order_id")
+        cust_id = sub.get("provider_customer_id", "")
+        if not cust_id:
+            raise HTTPException(404, "Stripe customer ID not found.")
+        import httpx
+        async with httpx.AsyncClient() as client:
+            resp = await client.post(
+                "https://api.stripe.com/v1/billing_portal/sessions",
+                headers={
+                    "Authorization": f"Bearer {STRIPE_SECRET_KEY}",
+                    "Content-Type": "application/x-www-form-urlencoded",
+                },
+                data={
+                    "customer": cust_id,
+                    "return_url": FRONTEND_URL + "/payment/history",
+                },
+                timeout=10,
+            )
+            if resp.status_code == 200:
+                portal_url = resp.json().get("url")
+                if portal_url:
+                    return {"url": portal_url}
+        raise HTTPException(500, "Could not retrieve Stripe customer portal URL. Try again later.")
+    if provider == "gumroad":
+        raise HTTPException(501, "Gumroad subscriptions are managed through your Gumroad account. Contact support if you need help updating your subscription.")
+    raise HTTPException(400, f"Unknown subscription provider: {provider}")
 
 
 @router.get("/history")
