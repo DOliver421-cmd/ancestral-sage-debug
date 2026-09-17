@@ -185,7 +185,9 @@ PAYMENT_PRODUCTS = {
     # sponsor (like donation); a paid order matches the sponsor's pledge.
     "scholarship":    {"name": "Sponsor a Scholarship — M.O.R.E. Help Center",      "amount": None, "mode": "payment", "description": "Sponsor a scholar — Full, Partial, or Collective. Milestone-based release, fully transparent."},
     # Our Legacy book — one-time digital purchase
-    "book":           {"name": "Our Legacy · Our Future — The Book",                "amount": 8900, "mode": "payment", "description": "One-time digital purchase of the Our Legacy book"},
+    "book":           {"name": "Our Legacy · Our Future — The Book",                "amount": 5900, "mode": "payment", "description": "One-time digital purchase of the Our Legacy book"},
+    # Grassroots Guide — one-time digital purchase
+    "grassroots_guide": {"name": "The Grassroots Guide to Building your Platform",   "amount": 5900, "mode": "payment", "description": "One-time digital purchase of The Grassroots Guide"},
     # Creator's Sanctuary tiers (creator lane — see _PRODUCT_TIER_MAP)
     "sanctuary_trial":   {"name": "M.O.R.E. Creator's Sanctuary – 3-Day Trial",     "amount":  300, "mode": "payment",      "description": "All-access 3 days & 33 minutes trial — everything through Pro"},
     "sanctuary_paid":    {"name": "M.O.R.E. Creator's Sanctuary – Paid Creator",    "amount":  700, "mode": "subscription", "interval": "month", "description": "Member-level creator lane — $7/mo", "deprecated": True},
@@ -1054,6 +1056,18 @@ async def payments_webhook(request: Request):
                 }},
                 upsert=True,
             )
+        if product_key == "grassroots_guide" and _ls_user:
+            await db.digital_purchases.update_one(
+                {"user_id": _ls_user["id"], "product_key": "grassroots_guide"},
+                {"$set": {
+                    "user_id": _ls_user["id"],
+                    "product_key": "grassroots_guide",
+                    "provider": "lemon_squeezy",
+                    "provider_order_id": order_id,
+                    "purchased_at": datetime.now(timezone.utc).isoformat(),
+                }},
+                upsert=True,
+            )
 
     # ── Subscription lifecycle — revoke the tier a cancelled/expired/paused
     # subscription granted. Revocation is scoped: it only fires when THIS
@@ -1506,6 +1520,20 @@ async def gumroad_webhook(request: Request):
                     }},
                     upsert=True,
                 )
+        elif product_key == "grassroots_guide":
+            _gr_user = await _find_user_by_email(email, {"_id": 0, "id": 1}) if email else None
+            if _gr_user:
+                await db.digital_purchases.update_one(
+                    {"user_id": _gr_user["id"], "product_key": "grassroots_guide"},
+                    {"$set": {
+                        "user_id": _gr_user["id"],
+                        "product_key": "grassroots_guide",
+                        "provider": "gumroad",
+                        "provider_order_id": sale_id,
+                        "purchased_at": datetime.now(timezone.utc).isoformat(),
+                    }},
+                    upsert=True,
+                )
         else:
             try:
                 await _fulfill_media_order(
@@ -1618,6 +1646,7 @@ async def download_digital_product(product_key: str, user=Depends(_dep_current_u
     safe_name = re.sub(r"[^a-zA-Z0-9_\-\.]", "_", product_name)
     known = {
         "book": "Our Legacy Our Future More Help Edition.pdf",
+        "grassroots_guide": "The Grassroots Guide to Building your Platform.pdf",
     }
     filename = known.get(product_key) or f"{safe_name}.pdf"
     candidates = [

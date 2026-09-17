@@ -10,7 +10,26 @@ import {
 } from "lucide-react";
 import CheckoutModal from "../components/CheckoutModal";
 
-const BOOK_PRICE = 89;
+const BOOK_PRICE = 59;
+
+const BOOKS = [
+  {
+    key: "book",
+    title: "Our Legacy · Our Future",
+    subtitle: "Building Thriving Black Communities with AI",
+    filename: "Our_Legacy_Our_Future_More_Help_Edition.pdf",
+    description:
+      "A practical manual from the future — with just enough humor to keep you awake. A field guide for communities ready to build, grow, and thrive with AI as a partner, teammate, and co-creator.",
+  },
+  {
+    key: "grassroots_guide",
+    title: "The Grassroots Guide",
+    subtitle: "Building your Platform",
+    filename: "The_Grassroots_Guide_to_Building_your_Platform.pdf",
+    description:
+      "A step-by-step playbook for building a community platform from the ground up — rooted in culture, powered by purpose, and built to last.",
+  },
+];
 
 // The eight capability areas promoted to the community (source: the book).
 const PILLARS = [
@@ -65,23 +84,27 @@ export default function OurLegacy() {
   const { user } = useAuth();
   const [buying, setBuying] = useState(false);
   const [checkoutUrl, setCheckoutUrl] = useState(null);
-  const [hasPurchased, setHasPurchased] = useState(false);
+  const [purchases, setPurchases] = useState({});
   const [checkingPurchase, setCheckingPurchase] = useState(false);
 
   useEffect(() => {
     if (!user) return;
     setCheckingPurchase(true);
     api.get("/digital/purchases")
-      .then(({ data }) => setHasPurchased((data.purchases || []).some(p => p.product_key === "book")))
+      .then(({ data }) => {
+        const map = {};
+        (data.purchases || []).forEach(p => { map[p.product_key] = true; });
+        setPurchases(map);
+      })
       .catch(() => {})
       .finally(() => setCheckingPurchase(false));
   }, [user]);
 
-  async function buyBook() {
+  async function buyBook(productKey) {
     if (!user) { toast.error("Sign in to purchase"); return; }
-    setBuying(true);
+    setBuying(productKey);
     try {
-      const { data } = await api.post("/payments/checkout", { product_key: "book", quantity: 1 });
+      const { data } = await api.post("/payments/checkout", { product_key: productKey, quantity: 1 });
       if (data?.url) { setCheckoutUrl(data.url); return; }
       toast.error("Checkout could not start.");
     } catch (e) {
@@ -92,13 +115,13 @@ export default function OurLegacy() {
         toast.error(detail || "Could not start checkout.");
       }
     }
-    setBuying(false);
+    setBuying(null);
   }
 
-  async function downloadBook() {
+  async function downloadBook(productKey, filename) {
     if (!user) return;
     try {
-      const res = await fetch("/api/digital/book/download", {
+      const res = await fetch(`/api/digital/${productKey}/download`, {
         headers: { "Authorization": `Bearer ${localStorage.getItem("lce_token")}` },
       });
       if (!res.ok) throw new Error("Download failed");
@@ -106,13 +129,13 @@ export default function OurLegacy() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = "Our_Legacy_Our_Future_More_Help_Edition.pdf";
+      a.download = filename;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
     } catch {
-      toast.error("Could not download the book. Please try again.");
+      toast.error("Could not download. Please try again.");
     }
   }
 
@@ -235,71 +258,64 @@ export default function OurLegacy() {
         </div>
       </section>
 
-      {/* The book */}
-      <section className="bg-white border-y border-ink/10 py-20">
-        <div className="max-w-6xl mx-auto px-6 grid lg:grid-cols-2 gap-12 items-start">
-          <div>
-            <div className="overline text-copper mb-2">The Manual</div>
-            <h2 className="font-heading text-3xl font-bold text-ink mb-6">
-              Our Legacy, Our Future
-            </h2>
-            <div className="prose prose-ink max-w-none text-ink/80 leading-relaxed space-y-4 text-[15px]">
-              <p>
-                This book is a field guide for communities ready to build, grow, and thrive with
-                AI as a partner, teammate, and co-creator. Not a tool. Not a threat. Not a
-                replacement. A collaborator with responsibilities, boundaries, and a seat at the
-                table — preferably not at the head of it.
-              </p>
-              <p>
-                Inside these pages you'll find clear frameworks, practical steps, and
-                future-ready strategies designed for real people solving real problems in real
-                communities — food systems, housing, education, business, creativity, worship,
-                and culture. All upgraded, amplified, and supported by AI partnerships that
-                respect our values and strengthen our legacy.
-              </p>
-              <p>
-                Written for {AUDIENCES.slice(0, 4).join(", ")}, {AUDIENCES[4]}, the{" "}
-                {AUDIENCES[5]}, and {AUDIENCES[6]}. It's for anyone who believes the future
-                should be shaped by the people living in it — not by fear, not by hype, and
-                definitely not by whatever the internet is arguing about today.
-              </p>
-            </div>
-          </div>
+      {/* Books */}
+      {BOOKS.map((b) => {
+        const owned = !!purchases[b.key];
+        return (
+          <section key={b.key} className="bg-white border-y border-ink/10 py-20">
+            <div className="max-w-6xl mx-auto px-6 grid lg:grid-cols-2 gap-12 items-start">
+              <div>
+                <div className="overline text-copper mb-2">The Manual</div>
+                <h2 className="font-heading text-3xl font-bold text-ink mb-6">
+                  {b.title}
+                </h2>
+                <div className="prose prose-ink max-w-none text-ink/80 leading-relaxed space-y-4 text-[15px]">
+                  <p>{b.description}</p>
+                </div>
+              </div>
 
-          {/* Purchase card */}
-          <div className="lg:sticky lg:top-8">
-            <div className="card-flat border border-ink/10 p-8 bg-bone">
-              <div className="text-xs font-black uppercase tracking-widest text-copper mb-2">
-                Digital Edition
+              {/* Purchase card */}
+              <div className="lg:sticky lg:top-8">
+                <div className="card-flat border border-ink/10 p-8 bg-bone">
+                  <div className="text-xs font-black uppercase tracking-widest text-copper mb-2">
+                    Digital Edition
+                  </div>
+                  <div className="flex items-end gap-2 mb-4">
+                    <span className="font-heading text-5xl font-bold text-ink">${BOOK_PRICE}</span>
+                    <span className="text-sm text-ink/50 mb-2">one-time · yours to keep</span>
+                  </div>
+                  {owned ? (
+                    <button
+                      onClick={() => downloadBook(b.key, b.filename)}
+                      className="w-full btn-copper inline-flex items-center justify-center gap-2 font-bold"
+                    >
+                      <BookOpen className="w-4 h-4" />
+                      Read the Book
+                    </button>
+                  ) : (
+                    <>
+                      <button
+                        onClick={() => buyBook(b.key)}
+                        disabled={buying === b.key}
+                        className="w-full btn-copper inline-flex items-center justify-center gap-2 font-bold disabled:opacity-60 disabled:cursor-not-allowed"
+                      >
+                        <BookOpen className="w-4 h-4" />
+                        {buying === b.key ? "Opening checkout…" : `Buy — $${BOOK_PRICE}`}
+                      </button>
+                      <p className="text-xs text-ink/50 mt-4 text-center leading-relaxed">
+                        {user
+                          ? "Secure checkout through Lemon Squeezy. The book lands in your library after purchase."
+                          : "Sign in to purchase — checkout is protected by your account."}{" "}
+                        Refunds are issued as site credit unless the failure was the platform's fault.
+                      </p>
+                    </>
+                  )}
+                </div>
               </div>
-              <div className="flex items-end gap-2 mb-4">
-                <span className="font-heading text-5xl font-bold text-ink">${BOOK_PRICE}</span>
-                <span className="text-sm text-ink/50 mb-2">one-time · yours to keep</span>
-              </div>
-              <ul className="space-y-2.5 text-sm text-ink/70 mb-8">
-                <li className="flex gap-2"><ArrowRight className="w-4 h-4 text-copper flex-shrink-0 mt-0.5" /> 16 chapters of practical frameworks</li>
-                <li className="flex gap-2"><ArrowRight className="w-4 h-4 text-copper flex-shrink-0 mt-0.5" /> AI addendum + speculation section</li>
-                <li className="flex gap-2"><ArrowRight className="w-4 h-4 text-copper flex-shrink-0 mt-0.5" /> Appendices with community-ready tools</li>
-                <li className="flex gap-2"><ArrowRight className="w-4 h-4 text-copper flex-shrink-0 mt-0.5" /> Written with AI as partner — never replacement</li>
-              </ul>
-              <button
-                onClick={buyBook}
-                disabled={buying}
-                className="w-full btn-copper inline-flex items-center justify-center gap-2 font-bold disabled:opacity-60 disabled:cursor-not-allowed"
-              >
-                <BookOpen className="w-4 h-4" />
-                {buying ? "Opening checkout…" : `Buy the Book — $${BOOK_PRICE}`}
-              </button>
-              <p className="text-xs text-ink/50 mt-4 text-center leading-relaxed">
-                {user
-                  ? "Secure checkout through Lemon Squeezy. The book lands in your library after purchase."
-                  : "Sign in to purchase — checkout is protected by your account."}{" "}
-                Refunds are issued as site credit unless the failure was the platform's fault.
-              </p>
             </div>
-          </div>
-        </div>
-      </section>
+          </section>
+        );
+      })}
 
       {/* Acknowledgments */}
       <section className="max-w-6xl mx-auto px-6 py-20">
