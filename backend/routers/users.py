@@ -382,36 +382,6 @@ async def admin_unban_user(uid: str, user: User = Depends(_require_rank("executi
     return {"ok": True, "id": uid, "banned": False}
 
 
-@router.delete("/admin/users/{uid}")
-async def admin_delete_user(uid: str, user: User = Depends(_require_rank("executive_admin"))):
-    """Admin-only: delete a user. Refuses self-delete and last-admin/exec delete.
-
-    NOTE: This route is SHADOWED by admin_delete_user at line ~856 (requires
-    executive_admin + cascading purge). The higher gate on the shadowed handler
-    ensures that even if route ordering changes, the weaker auth level never
-    becomes active. See REMEDIATION_PLAN.md Part 4 (duplicate routes).
-    """
-    if uid == user.id:
-        raise HTTPException(400, "Refusing to delete yourself.")
-    target = await db.users.find_one({"id": uid}, {"_id": 0, "password_hash": 0})
-    if not target:
-        raise HTTPException(404, "User not found")
-    if not can_modify(user, target.get("role", "")):
-        raise HTTPException(403, "You don't have permission to modify this user.")
-    # Last-admin-class guard
-    if target.get("role") in ("admin", "executive_admin"):
-        admin_class = await db.users.count_documents({"role": {"$in": ["admin", "executive_admin"]}})
-        if admin_class <= 1:
-            raise HTTPException(400, "Cannot delete the last admin-class user.")
-    if target.get("role") == "executive_admin":
-        execs = await db.users.count_documents({"role": "executive_admin"})
-        if execs <= 1:
-            raise HTTPException(400, "Cannot delete the last executive_admin.")
-    await db.users.delete_one({"id": uid})
-    await db.auth_sessions.delete_many({"user_id": uid})
-    await audit(user.id, "admin.user.deleted", target=uid,
-                meta={"email": target.get("email"), "role": target.get("role")})
-    return {"ok": True}
 
 
 # Collections that store a user identifier and must be purged on erasure.
@@ -502,25 +472,6 @@ async def admin_reset_password(uid: str, body: AdminResetPasswordReq,
 
 
 @router.get("/admin/users/{uid}/sessions")
-async def exec_list_user_sessions(uid: str, user: User = Depends(_require_rank("executive_admin"))):
-    """List active login sessions for any user (exec-only)."""
-    sessions = await db.auth_sessions.find(
-        {"user_id": uid},
-        {"_id": 0, "session_id": 1, "user_agent": 1, "ip": 1, "created_at": 1, "last_seen": 1},
-    ).sort("last_seen", -1).to_list(length=50)
-    return {"sessions": sessions}
-
-@router.delete("/admin/users/{uid}/sessions")
-async def exec_force_logout(uid: str, user: User = Depends(_require_rank("executive_admin"))):
-    """Force-logout all sessions for a user (exec-only)."""
-    target = await db.users.find_one({"id": uid}, {"_id": 0, "full_name": 1})
-    if not target:
-        raise HTTPException(404, "User not found")
-    await db.users.update_one({"id": uid}, {"$inc": {"token_version": 1}})
-    result = await db.auth_sessions.delete_many({"user_id": uid})
-    await audit(user.id, "exec.user.force_logout", target=uid,
-                meta={"sessions_revoked": result.deleted_count})
-    return {"ok": True, "sessions_revoked": result.deleted_count}
 
 @router.post("/admin/users/bulk")
 async def exec_bulk_action(body: dict, user: User = Depends(_require_rank("executive_admin"))):
