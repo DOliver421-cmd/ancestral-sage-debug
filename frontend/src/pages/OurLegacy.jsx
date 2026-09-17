@@ -106,7 +106,7 @@ export default function OurLegacy() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = "Our_Legacy_Our_Future.txt";
+      a.download = "Our_Legacy_Our_Future_More_Help_Edition.pdf";
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);

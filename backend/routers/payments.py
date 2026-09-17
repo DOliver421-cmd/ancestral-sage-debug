@@ -1595,6 +1595,8 @@ async def payment_history(user=Depends(_dep_current_user)):
 
 
 # ── Digital product delivery ─────────────────────────────────────────────────
+# Primary location: docs/ at the repo root. Fallback: backend/digital_products/.
+_DOCS_DIR = Path(__file__).resolve().parent.parent.parent / "docs"
 _DIGITAL_DIR = Path(__file__).resolve().parent.parent / "digital_products"
 _DIGITAL_DIR.mkdir(exist_ok=True)
 
@@ -1614,15 +1616,27 @@ async def download_digital_product(product_key: str, user=Depends(_dep_current_u
         raise HTTPException(403, "You have not purchased this digital product.")
     product_name = PAYMENT_PRODUCTS.get(product_key, {}).get("name", product_key)
     safe_name = re.sub(r"[^a-zA-Z0-9_\-\.]", "_", product_name)
+    known = {
+        "book": "Our Legacy Our Future More Help Edition.pdf",
+    }
+    filename = known.get(product_key) or f"{safe_name}.pdf"
     candidates = [
-        _DIGITAL_DIR / f"{product_key}{ext}" for ext in (".txt", ".pdf", ".epub", ".md")
-    ] + [_DIGITAL_DIR / f"{safe_name}{ext}" for ext in (".txt", ".pdf", ".epub", ".md")]
+        _DOCS_DIR / filename,
+        _DIGITAL_DIR / filename,
+        _DOCS_DIR / f"{product_key}.pdf",
+        _DIGITAL_DIR / f"{product_key}.pdf",
+        _DOCS_DIR / f"{safe_name}.pdf",
+        _DIGITAL_DIR / f"{safe_name}.pdf",
+        _DOCS_DIR / f"{product_key}.txt",
+        _DIGITAL_DIR / f"{product_key}.txt",
+    ]
     target = next((p for p in candidates if p.exists()), None)
     if not target:
         raise HTTPException(404, "Digital file not found. Contact support.")
+    media = "application/pdf" if target.suffix.lower() == ".pdf" else "application/octet-stream"
     return FileResponse(
         target,
-        media_type="application/octet-stream",
+        media_type=media,
         filename=target.name,
         headers={"Content-Disposition": f'attachment; filename="{target.name}"'},
     )
