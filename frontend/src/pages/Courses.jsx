@@ -227,7 +227,15 @@ export default function Courses() {
             <Link to="/register" className="text-copper font-bold">Create an account →</Link>
           )}
         </div>
-        <CheckoutModal url={checkoutUrl} onClose={() => setCheckoutUrl(null)} />
+        <CheckoutModal url={checkoutUrl} onClose={async () => {
+          setCheckoutUrl(null);
+          if (user) {
+            try {
+              const { data } = await api.get("/creator/enrollments/me");
+              setEnrolledIds(new Set(data.enrolled_course_ids || []));
+            } catch {}
+          }
+        }} />
       </div>
     </div>
   );
