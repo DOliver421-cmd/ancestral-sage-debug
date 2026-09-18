@@ -1324,8 +1324,10 @@ async def on_startup():
                 "STARTUP TASK FAILED — initialization did not complete: %s",
                 exc, exc_info=exc,
             )
-        # Readiness is gated on this regardless of success/failure: once the
-        # background init settles we stop returning 503-on-startup from /api/ready.
+            # Leave _startup_impl_done as False so /api/ready returns 503
+            # until an operator fixes the underlying issue and restarts.
+            return
+        # Readiness is gated on this: only mark ready after successful init.
         _startup_impl_done = True
     task.add_done_callback(_startup_done)
 
@@ -2386,29 +2388,6 @@ async def admin_set_active(uid: str, body: AdminActiveReq, user: User = Depends(
     return {"ok": True, "id": uid, "is_active": body.is_active}
 
 
-@api_router.delete("/admin/users/{uid}")
-async def admin_delete_user(uid: str, user: User = Depends(require_role("admin"))):
-    """Admin-only: delete a user. Refuses self-delete and last-admin/exec delete."""
-    if uid == user.id:
-        raise HTTPException(400, "Refusing to delete yourself.")
-    target = await db.users.find_one({"id": uid}, {"_id": 0, "password_hash": 0})
-    if not target:
-        raise HTTPException(404, "User not found")
-    if not can_modify(user, target.get("role", "")):
-        raise HTTPException(403, "You don't have permission to modify this user.")
-    # Last-admin-class guard
-    if target.get("role") in ("admin", "executive_admin"):
-        admin_class = await db.users.count_documents({"role": {"$in": ["admin", "executive_admin"]}})
-        if admin_class <= 1:
-            raise HTTPException(400, "Cannot delete the last admin-class user.")
-    if target.get("role") == "executive_admin":
-        execs = await db.users.count_documents({"role": "executive_admin"})
-        if execs <= 1:
-            raise HTTPException(400, "Cannot delete the last executive_admin.")
-    await db.users.delete_one({"id": uid})
-    await audit(user.id, "admin.user.deleted", target=uid,
-                meta={"email": target.get("email"), "role": target.get("role")})
-    return {"ok": True}
 
 
 @api_router.post("/admin/users/{uid}/password")
