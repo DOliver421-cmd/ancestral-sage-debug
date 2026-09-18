@@ -906,8 +906,8 @@ def get_help_for(role: str, path: str, query: Optional[str] = None) -> dict:
     if not entry:
         return {
             "title": path.strip("/").replace("-", " ").title() or "Home",
-            "summary": "Help content coming soon for this page.",
-            "details": ["Explore the page to discover its features."],
+            "summary": "Help content for this page is not yet available.",
+            "details": ["Explore the page to discover its features.", "Contact support at morehelpcenter@gmail.com if you need assistance."],
             "tips": {},
             "related": [],
             "common_tasks": [],
