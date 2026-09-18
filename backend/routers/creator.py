@@ -254,6 +254,9 @@ async def creator_course_checkout(course_id: str, user: User = Depends(_dep_curr
 
     from ai.publishing import _publish_lemon_squeezy, _publish_gumroad
 
+    provider = None
+    url = None
+
     ls_result = await _publish_lemon_squeezy(
         name=course["title"],
         description=course.get("description", "")[:500],
@@ -261,19 +264,43 @@ async def creator_course_checkout(course_id: str, user: User = Depends(_dep_curr
         persona="creator_course",
     )
     if ls_result:
-        await audit(user.id, "creator.course.checkout", meta={"course_id": course_id, "amount": amount, "provider": "lemon_squeezy"})
-        return {"url": ls_result["url"]}
+        provider = "lemon_squeezy"
+        url = ls_result["url"]
 
-    gr_result = await _publish_gumroad(course["title"], course.get("description", "")[:500], amount)
-    if gr_result:
-        await audit(user.id, "creator.course.checkout", meta={"course_id": course_id, "amount": amount, "provider": "gumroad"})
-        return {"url": gr_result["url"]}
+    if not provider:
+        gr_result = await _publish_gumroad(course["title"], course.get("description", "")[:500], amount)
+        if gr_result:
+            provider = "gumroad"
+            url = gr_result["url"]
 
-    raise HTTPException(
-        500,
-        "Payment processing failed for this course. The payment providers are configured but the request could not be completed. "
-        "Check your API keys and try again.",
-    )
+    if not provider:
+        raise HTTPException(
+            500,
+            "Payment processing failed for this course. The payment providers are configured but the request could not be completed. "
+            "Check your API keys and try again.",
+        )
+
+    # Record the pending sale so the payment webhook can grant access when
+    # the order event arrives. Without this row the customer pays but their
+    # enrollment stays locked.
+    try:
+        await db.creator_checkout_pending.insert_one({
+            "id": str(uuid.uuid4())[:8],
+            "course_id": course_id,
+            "provider": provider,
+            "provider_product_name": course["title"],
+            "price_cents": amount,
+            "buyer_id": user.id,
+            "buyer_email": (user.email or "").lower(),
+            "creator_id": course.get("creator_id", ""),
+            "status": "pending",
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        })
+    except Exception:
+        logger.exception("creator checkout: failed to record pending sale for %s", course_id)
+
+    await audit(user.id, "creator.course.checkout", meta={"course_id": course_id, "amount": amount, "provider": provider})
+    return {"url": url}
 
 
 @router.get("/creator/enrollments/me")

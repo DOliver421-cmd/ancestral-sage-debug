@@ -369,6 +369,66 @@ async def _fulfill_media_order(buyer_email: str, product_name: str, order_id: st
                 (price_cents - creator_share) if price_cents else 0)
 
 
+async def _fulfill_course_order(buyer_email: str, product_name: str, order_id: str, provider: str = ""):
+    """Grant a paid creator-course purchase.
+
+    Called from the order_created / sale.created webhook. Matches the
+    pending-sale row written at checkout time, then:
+      1. inserts creator_enrollments → course becomes accessible
+      2. marks the pending row fulfilled (audit trail, no double-grant)
+    Idempotent: an already-fulfilled pending row short-circuits.
+    """
+    import re as _re
+    if not (buyer_email and product_name):
+        return
+    email_rx = "^" + _re.escape(buyer_email.strip().lower()) + "$"
+    name_rx = "^" + _re.escape(product_name.strip()) + "$"
+    pending = await db.creator_checkout_pending.find_one_and_update(
+        {"buyer_email": {"$regex": email_rx, "$options": "i"},
+         "provider_product_name": {"$regex": name_rx, "$options": "i"},
+         "status": "pending"},
+        {"$set": {"status": "fulfilled",
+                  "fulfilled_at": datetime.now(timezone.utc).isoformat(),
+                  "provider_order_id": order_id}},
+        sort=[("created_at", -1)],
+    )
+    if not pending:
+        return  # not a creator course (or already fulfilled)
+
+    course_id = pending.get("course_id", "")
+    buyer_id = pending.get("buyer_id", "")
+    if not course_id or not buyer_id:
+        return
+
+    # Idempotency guard: never double-enroll.
+    existing = await db.creator_enrollments.find_one(
+        {"course_id": course_id, "user_id": buyer_id}
+    )
+    if not existing:
+        await db.creator_enrollments.update_one(
+            {"course_id": course_id, "user_id": buyer_id},
+            {"$setOnInsert": {"enrolled_at": datetime.now(timezone.utc).isoformat()}},
+            upsert=True,
+        )
+
+    # Update course enrollment count.
+    try:
+        await db.creator_courses.update_one({"course_id": course_id}, {"$inc": {"enrollment_count": 1}})
+    except Exception:
+        pass
+
+    try:
+        await audit(buyer_id, "creator.course.purchased",
+                    target=course_id, meta={"order_id": order_id, "provider": provider})
+        await notify(buyer_id, "Course Enrolled",
+                     f"Your purchase is complete — the course is now available in your dashboard.",
+                     link="/courses", kind="success")
+    except Exception:
+        pass
+    logger.info("course fulfillment OK: %s bought %s (order %s)",
+                buyer_email, course_id, order_id)
+
+
 async def _grant_tier_by_email(user_email: str, product_key: str, *, reason: str = "payment"):
     """Upgrade-only tier grant matched by buyer email (order + subscription events).
 
@@ -1042,6 +1102,21 @@ async def payments_webhook(request: Request):
                                  "Thank you — your sponsorship is paid and will be matched to a scholar. Track milestones in your sponsor view.",
                                  link="/sponsor", kind="success")
 
+        # ── Creator course enrollment ─────────────────────────────────────
+        # A paid creator-course order grants the buyer access to the course.
+        # The checkout endpoint wrote a pending row in creator_checkout_pending;
+        # match it here and mark it fulfilled.
+        if user_email and status == "paid":
+            try:
+                await _fulfill_course_order(
+                    buyer_email=user_email,
+                    product_name=(first_item.get("product_name") or ""),
+                    order_id=order_id,
+                    provider="lemon_squeezy",
+                )
+            except Exception:
+                logger.exception("LS webhook: course fulfillment failed (order %s)", order_id)
+
         # Shared upgrade-only grant (order_created, subscriptions, resumes).
         await _grant_tier_by_email(user_email, product_key, reason="payment")
 
@@ -1545,6 +1620,18 @@ async def gumroad_webhook(request: Request):
                 )
             except Exception:
                 logger.exception("Gumroad webhook: media fulfillment failed (sale %s)", sale_id)
+
+        # ── Creator course enrollment ─────────────────────────────────────
+        if email and product_key:
+            try:
+                await _fulfill_course_order(
+                    buyer_email=email,
+                    product_name=product_name,
+                    order_id=sale_id,
+                    provider="gumroad",
+                )
+            except Exception:
+                logger.exception("Gumroad webhook: course fulfillment failed (sale %s)", sale_id)
 
     # ── Shared upgrade-only grant (one-time purchases + subscription starts) ─
     await _grant_tier_by_email(email, product_key, reason="gumroad_payment")
