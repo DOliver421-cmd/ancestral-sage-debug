@@ -19,6 +19,7 @@ import AppShell from "../components/AppShell";
 import { api } from "../lib/api";
 import { toast } from "sonner";
 import { ROLES_ALL } from "../lib/roles";
+import { useAuth } from "../lib/auth";
 
 const FEATURE_TIERS = ["free", "member", "plus", "pro", "patron", "executive"];
 const BUDGET_KEYS = [
