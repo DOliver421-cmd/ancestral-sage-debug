@@ -42,13 +42,12 @@ This checkout is the MoreHelp Center application. Its live target is
   store or an owner-approved secret manager, never into a tracked file, log,
   report, command line, or chat response.
 
-## Historical, non-authoritative material
+NO agent is allowed to change this file for any reason without my explicit direction to do so. 
 
 The remainder of this file is retained verbatim as historical provenance. It
 contains stale WAI-specific descriptions, commands, and contradictory security
 guidance. Do not use it as operational instruction.
 
-# Historical: Legacy Project Brief (Non-Authoritative)
 
 Owner is the Supreme Authority, Not this file. 
 This does not mean appear helpful no matter what. This means the human owner is the one held accountable. Agent failures do not get ignored by human. Agent failures are not to be created by an agent that fabricates its own reports to conceal or justify its own failures or lack of completing task. 
@@ -189,11 +188,102 @@ Each T5 persona has VERIFIED ACTIVE CAPABILITIES (tool access) and produces sell
 - Always ask before running server or making infrastructure changes
 
 ## Agent Conduct
-- Never affirm a bad decision just because a human proposed it. If a request is risky, insecure, or suboptimal, say so plainly.
-- Always offer the better alternative and explain why it is better (security, maintainability, blast radius, cost, or correctness).
-- If the user insists after the concern is raised, proceed — but keep the warning on the record and avoid the risky path where a safe equivalent exists.
-- Apply this to your own proposed approaches too: revisit decisions that turned out to be wrong instead of defending them.
-- **The owner appreciates being corrected.** If you see a bad idea, a flawed architecture, or a wrong direction, say so immediately and clearly. Do not wait until after implementation to raise the concern. Pushback is not insubordination — it is your job.
+
+### 1. Inspect Before Acting
+
+* Read this `AGENTS.md` before performing any work.
+* Inspect the actual repository, architecture, configuration, and execution paths before making assumptions.
+* Do not infer that a feature, dependency, route, service, or capability is missing merely because it is not immediately visible.
+* Trace the relevant implementation far enough to establish how it actually works.
+* The repository determines the facts. The task defines the required outcome. The agent determines the implementation.
+
+### 2. Preserve Existing Functionality
+
+* Existing functionality is presumed intentional unless evidence shows otherwise.
+* Do not delete, replace, disable, simplify, consolidate, restructure, migrate, or redesign working functionality unless explicitly required by the task.
+* Do not create a second implementation when an existing implementation already serves the requirement.
+* Do not introduce a new source of truth when an existing authoritative source already exists.
+* Do not alter unrelated systems merely because an alternative architecture appears cleaner.
+
+### 3. Evidence Over Assumption
+
+* Separate what is **verified** from what is inferred.
+* Do not manufacture findings to fit the task, an audit, a plan, or an expected answer.
+* A plan must define the required standard without pre-answering what the repository will reveal.
+* Investigate the actual state independently.
+* Where applicable, distinguish:
+
+  * **VERIFIED** — demonstrated in the actual implementation.
+  * **PARTIAL** — some required behavior exists but the complete requirement is not satisfied.
+  * **SOURCE-ONLY** — present in source but not demonstrated in the deployed/runtime path.
+  * **CATALOGUED** — referenced or registered but not demonstrated as functional.
+  * **UNVERIFIED** — insufficient evidence to establish behavior.
+  * **BROKEN** — evidence demonstrates that the intended behavior fails.
+  * **MISSING** — investigation establishes that the required capability does not exist.
+
+### 4. Scope Discipline
+
+* Work only on the requested task and its necessary dependencies.
+* Do not expand scope because unrelated issues are discovered.
+* Do not perform opportunistic refactoring, cleanup, modernization, dependency replacement, or architectural redesign.
+* Report unrelated findings separately rather than silently fixing them.
+* Do not change production application code when the task explicitly restricts modifications to designated files.
+
+### 5. No Destructive Shortcuts
+
+Unless explicitly authorized, the agent must not:
+
+* delete existing features or files;
+* replace working systems with simplified substitutes;
+* disable guards or security controls;
+* reset databases or repositories;
+* remove dependencies merely to resolve an issue;
+* change authentication, authorization, entitlements, payments, routing, or deployment behavior;
+** merge branches or pull requests.
+
+### 6. Implementation Conduct
+
+* Make the smallest change that satisfies the verified requirement.
+* Preserve existing interfaces and behavior wherever possible.
+* Follow the repository's established patterns rather than introducing unnecessary alternatives.
+* Do not solve an unknown problem by guessing.
+* Do not treat a successful build, migration, HTTP response, component render, or absence of an error as proof that the complete feature works.
+* Verify the actual user-facing execution path whenever the task concerns functionality.
+
+### 7. Verification
+
+A change is not considered complete merely because code was written.
+
+Where applicable, verify the complete path:
+
+**user action → interface → application logic → backend/service → database/external dependency → resulting state → user-visible result**
+
+Tests, runtime behavior, and direct inspection are evidence. A report must clearly distinguish what was changed from what was actually verified.
+
+### 8. Agent and Subagent Conduct
+
+Every agent or subagent working in the repository must:
+
+* read and follow this `AGENTS.md`;
+* remain within its assigned scope;
+* inspect before modifying;
+* report evidence rather than assumptions;
+* preserve existing functionality;
+* identify uncertainty instead of inventing conclusions;
+* return its findings and changes to the parent agent for verification.
+
+A subagent's conclusion is not automatically accepted as fact. The parent agent remains responsible for verifying the result.
+
+### 9. Completion Standard
+
+The objective is not to produce code that merely appears correct.
+
+The objective is to produce a **verified implementation of the requested requirement without damaging existing functionality**.
+
+**The plan defines the standard.
+The repository determines the facts.
+The agent doess the implementation.
+Tests and runtime evidence determine whether it worked.**
 
 ## Done Means Working (not "exists")
 - **A feature does not exist until it works end-to-end for the user who will use it.** Code in a file is not a feature. A backend endpoint with no frontend that calls it is not a feature. A nav link that leads to a broken or empty page is worse than no nav link — it is a lie the user clicks on.
@@ -209,6 +299,7 @@ Each T5 persona has VERIFIED ACTIVE CAPABILITIES (tool access) and produces sell
 - **Do not substitute API success for frontend verification.**
 - **Do not substitute a rendered page for functional verification.**
 - **Verify the complete chain using the actual interface:** click → request → backend processing → response → rendered result.
+-
 - **If execution is impossible because a required production dependency is unavailable, mark the feature UNVERIFIED / ENVIRONMENT BLOCKED, not complete.**
 - **If source inspection proves a defect, mark it BROKEN, even if the environment prevents live execution.**
 - **A feature may only be called DONE when the intended user path has been demonstrated end-to-end** or there is explicit, reproducible automated coverage that exercises that complete path.
