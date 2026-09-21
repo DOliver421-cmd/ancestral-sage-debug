@@ -1683,7 +1683,7 @@ export default function UnifiedProfile() {
                             <div className="font-heading font-bold text-sm mb-1 line-clamp-2">{c.title}</div>
                             <div className="flex items-center justify-between mt-2">
                               <span className="text-xs text-ink/40">
-                                {c.price_cents === 0 ? "Free" : `$${(c.price_cents / 100).toFixed(2)}`}
+                                {c.price_cents === 0 ? "No charge" : `$${(c.price_cents / 100).toFixed(2)}`}
                               </span>
                               <SharePanel compact url={`/courses?highlight=${c.course_id}`} title={c.title} />
                             </div>

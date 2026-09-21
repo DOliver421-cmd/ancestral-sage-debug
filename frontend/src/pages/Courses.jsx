@@ -32,9 +32,9 @@ const CATEGORY_ORDER = [
 ];
 
 function PriceBadge({ cents, source }) {
-  if (source === "creator" && cents === 0) return <span className="text-xs font-bold text-green-600 bg-green-100 px-2 py-0.5 rounded-full">Free</span>;
-  if (source === "module" && cents === 0) return <span className="text-xs font-bold text-ink/70 bg-ink/5 border border-ink/15 px-2 py-0.5 rounded-full">Included with membership</span>;
-  if (cents === 0) return <span className="text-xs font-bold text-green-600 bg-green-100 px-2 py-0.5 rounded-full">Free</span>;
+  if (source === "creator" && cents === 0) return null;
+  if (source === "module" && cents === 0) return null;
+  if (cents === 0) return null;
   return <span className="text-xs font-bold text-copper bg-amber-100 px-2 py-0.5 rounded-full">${(cents / 100).toFixed(2)}</span>;
 }
 
@@ -201,7 +201,7 @@ export default function Courses() {
     } catch (e) {
       const detail = e?.response?.data?.detail || "";
       if (e?.response?.status === 501 || /not configured/i.test(String(detail))) {
-        toast.info("Paid courses are coming soon — free courses enroll instantly, and nothing can be charged yet.");
+        toast.info("Paid courses are coming soon — courses enroll instantly, and nothing can be charged yet.");
       } else {
         toast.error(detail || "Could not start enrollment.");
       }
@@ -248,17 +248,17 @@ export default function Courses() {
           </p>
         </div>
 
-        {/* Featured free course */}
+        {/* Featured course */}
         <div className="mt-6">
           <div className="flex items-center justify-between mb-3">
-            <div className="overline text-copper">Featured Free Course</div>
+            <div className="overline text-copper">Featured Course</div>
           </div>
           <Link to={user ? "/ascension-protocols" : "/register"}
             className="flex flex-col sm:flex-row sm:items-center gap-4 rounded-2xl p-6 transition-all hover:shadow-lg"
             style={{ background: "linear-gradient(135deg,#14120a 0%,#241a08 60%,#0d1a0a 100%)", border: "1px solid rgba(232,165,30,0.35)" }}>
             <div className="w-14 h-14 rounded-2xl flex items-center justify-center shrink-0" style={{ background: "rgba(232,165,30,0.15)", fontSize: 28 }}>𓋹</div>
             <div className="flex-1">
-              <div className="overline" style={{ color: "#E8A51E" }}>Free for members · Zero Tokens · Sign-up required</div>
+              <div className="overline" style={{ color: "#E8A51E" }}>Included with membership · Zero Tokens · Sign-up required</div>
               <div className="font-heading font-extrabold text-white" style={{ fontSize: "1.15rem", lineHeight: 1.25 }}>
                 The Ascension Protocols — Ancestral & Cosmic Remembrance
               </div>
@@ -267,7 +267,7 @@ export default function Courses() {
               </p>
             </div>
             <span className="inline-flex items-center gap-2 font-bold text-sm px-5 py-2.5 rounded-xl shrink-0 self-start sm:self-center" style={{ background: "#E8A51E", color: "#0a0a0a" }}>
-              {user ? "Begin free →" : "Sign up to begin — free →"}
+              {user ? "Begin course →" : "Sign up to begin →"}
             </span>
           </Link>
         </div>
@@ -328,7 +328,7 @@ export default function Courses() {
                                   className="flex items-center gap-1.5 text-xs font-bold bg-copper hover:bg-amber-600 text-bone px-3 py-1.5 rounded-full transition-colors disabled:opacity-50"
                                 >
                                   {isBuying ? <Loader2 className="w-3 h-3 animate-spin" /> : <ShoppingBag className="w-3 h-3" />}
-                                  {course.price_cents === 0 ? "Enroll Free" : "Buy Now"}
+                                  {course.price_cents === 0 ? "Enroll" : "Buy Now"}
                                 </button>
                               )
                             ) : (
