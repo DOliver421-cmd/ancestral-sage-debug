@@ -218,6 +218,19 @@ export default function CreatorCourses() {
                         value={(parseInt(form.price_cents) || 0) / 100}
                         onChange={e => setForm(f => ({ ...f, price_cents: Math.round(parseFloat(e.target.value) * 100) || 0 }))}
                         placeholder="0"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="overline text-xs text-ink/50 block mb-1">Thumbnail URL (optional)</label>
+                    <input
+                      className="input w-full"
+                      value={form.thumbnail_url}
+                      onChange={e => setForm(f => ({ ...f, thumbnail_url: e.target.value }))}
+                      placeholder="https://..."
+                      maxLength={500}
+                    />
+                  </div>
                        />
                      </div>
                    </div>
