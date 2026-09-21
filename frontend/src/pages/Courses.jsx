@@ -1,27 +1,134 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import PublicNav from "../components/PublicNav";
 import BackButton from "../components/BackButton";
 import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { toast } from "sonner";
-import { BookOpen, ShoppingBag, CheckCircle, Loader2 } from "lucide-react";
+import { BookOpen, ShoppingBag, CheckCircle, Loader2, GraduationCap, Wrench, Zap, ArrowRight } from "lucide-react";
 import CheckoutModal from "../components/CheckoutModal";
 
-const CATEGORY_LABELS = {
-  general: "General",
-  electrical: "Electrical & Trades",
-  "ai-tech": "AI & Tech",
-  "arts-music": "Arts & Music",
-  workforce: "Workforce",
-  wellness: "Wellness",
-  publishing: "Publishing",
-  business: "Business",
+const CATEGORY_META = {
+  k12_core:      { label: "K-12 Core Subjects", icon: GraduationCap, color: "bg-copper" },
+  k12_elective:  { label: "K-12 Electives", icon: GraduationCap, color: "bg-copper" },
+  adult:         { label: "Adult Education & Career", icon: GraduationCap, color: "bg-teal-600" },
+  trade:         { label: "Trade & Workforce", icon: Wrench, color: "bg-amber-600" },
+  creative:      { label: "Creative & Community", icon: GraduationCap, color: "bg-rose-600" },
+  general:       { label: "General", icon: BookOpen, color: "bg-ink" },
+  electrical:    { label: "Electrical & Trades", icon: Wrench, color: "bg-amber-600" },
+  "ai-tech":     { label: "AI & Technology", icon: Wrench, color: "bg-purple-700" },
+  "arts-music":  { label: "Arts & Music", icon: GraduationCap, color: "bg-rose-600" },
+  workforce:     { label: "Workforce Development", icon: Wrench, color: "bg-amber-600" },
+  wellness:      { label: "Wellness", icon: GraduationCap, color: "bg-green-700" },
+  publishing:    { label: "Publishing", icon: BookOpen, color: "bg-ink" },
+  business:      { label: "Business", icon: GraduationCap, color: "bg-blue-700" },
+  protocol:      { label: "Protocols", icon: Zap, color: "bg-purple-700" },
 };
 
-function PriceBadge({ cents }) {
+const CATEGORY_ORDER = [
+  "k12_core", "k12_elective", "adult", "trade", "creative",
+  "general", "electrical", "ai-tech", "arts-music", "workforce",
+  "wellness", "publishing", "business", "protocol",
+];
+
+function PriceBadge({ cents, source }) {
+  if (source === "creator" && cents === 0) return <span className="text-xs font-bold text-green-600 bg-green-100 px-2 py-0.5 rounded-full">Free</span>;
+  if (source === "module" && cents === 0) return <span className="text-xs font-bold text-ink/70 bg-ink/5 border border-ink/15 px-2 py-0.5 rounded-full">Included with membership</span>;
   if (cents === 0) return <span className="text-xs font-bold text-green-600 bg-green-100 px-2 py-0.5 rounded-full">Free</span>;
   return <span className="text-xs font-bold text-copper bg-amber-100 px-2 py-0.5 rounded-full">${(cents / 100).toFixed(2)}</span>;
+}
+
+function normalizeItem(source, raw) {
+  if (source === "academy") {
+    return {
+      id: raw.slug,
+      source: "academy",
+      title: raw.title,
+      summary: raw.summary || "",
+      description: raw.description || "",
+      status: raw.status || "planned",
+      track: raw.track || raw.tracks?.[0] || "",
+      tracks: raw.tracks || [],
+      grade_label: raw.grade_label || "",
+      subject_label: raw.subject_label || "",
+      subject: raw.subject || "",
+      grades: raw.grades || [],
+      grade_level: raw.grade_level || (raw.grades?.[0] || ""),
+      lesson_count: raw.lesson_count || 0,
+      est_hours: raw.est_hours || 0,
+      slug: raw.slug,
+      category: raw.category || "k12_elective",
+      price_cents: 0,
+      link: `/academy/courses/${raw.slug}`,
+    };
+  }
+  if (source === "module") {
+    return {
+      id: raw.slug,
+      source: "module",
+      title: raw.title,
+      summary: raw.description || "",
+      description: raw.description || "",
+      status: raw.active !== false ? "published" : "planned",
+      track: raw.category || "",
+      tracks: [raw.category || ""],
+      grade_label: raw.level || "",
+      subject_label: raw.category_label || raw.category || "",
+      subject: raw.category || "",
+      grades: [],
+      lesson_count: raw.lesson_count || raw.tasks?.length || 0,
+      est_hours: 0,
+      slug: raw.slug,
+      category: raw.category || "general",
+      price_cents: raw.price_cents || 0,
+      link: `/modules/${raw.slug}`,
+    };
+  }
+  if (source === "protocol") {
+    return {
+      id: raw.slug || raw.id || "ascension-protocols",
+      source: "protocol",
+      title: raw.title,
+      summary: raw.description || raw.summary || "",
+      description: raw.description || "",
+      status: "published",
+      track: "protocol",
+      tracks: ["protocol"],
+      grade_label: "",
+      subject_label: "Protocol",
+      subject: "protocol",
+      grades: [],
+      lesson_count: raw.lesson_count || 0,
+      est_hours: 0,
+      slug: raw.slug || "ascension-protocols",
+      category: "protocol",
+      price_cents: 0,
+      link: `/ascension-protocols`,
+    };
+  }
+  if (source === "creator") {
+    return {
+      id: raw.course_id,
+      source: "creator",
+      title: raw.title,
+      summary: raw.description || "",
+      description: raw.description || "",
+      status: raw.status || "published",
+      track: raw.category || "",
+      tracks: [raw.category || ""],
+      grade_label: "",
+      subject_label: raw.category || "",
+      subject: raw.category || "",
+      grades: [],
+      lesson_count: raw.sections?.reduce((a, s) => a + (s.lessons?.length || 0), 0) || 0,
+      est_hours: 0,
+      slug: raw.course_id,
+      category: raw.category || "general",
+      price_cents: raw.price_cents || 0,
+      link: null,
+    };
+  }
+  return null;
 }
 
 export default function Courses() {
@@ -33,23 +140,41 @@ export default function Courses() {
   const [enrolledIds, setEnrolledIds] = useState(new Set());
   const [loading, setLoading] = useState(true);
   const [buying, setBuying] = useState(null);
-  const [category, setCategory] = useState("");
   const [checkoutUrl, setCheckoutUrl] = useState(null);
 
   useEffect(() => {
     async function load() {
       setLoading(true);
       try {
-        const [catalogRes, enrollRes] = await Promise.allSettled([
-          api.get("/creator/courses/published", { params: { limit: 48, category } }),
+        const [academyRes, modulesRes, creatorRes, enrollRes] = await Promise.allSettled([
+          api.get("/academy/courses"),
+          api.get("/modules"),
+          api.get("/creator/courses/published", { params: { limit: 48 } }),
           user ? api.get("/creator/enrollments/me") : Promise.resolve(null),
         ]);
-        if (catalogRes.status === "fulfilled") {
-          setCourses(catalogRes.value.data.courses || []);
+        const items = [];
+        if (academyRes.status === "fulfilled") {
+          for (const c of (academyRes.value.data?.courses || [])) {
+            const n = normalizeItem("academy", c);
+            if (n) items.push(n);
+          }
+        }
+        if (modulesRes.status === "fulfilled") {
+          for (const m of (Array.isArray(modulesRes.value.data) ? modulesRes.value.data : [])) {
+            const n = normalizeItem("module", m);
+            if (n) items.push(n);
+          }
+        }
+        if (creatorRes.status === "fulfilled") {
+          for (const c of (creatorRes.value.data?.courses || [])) {
+            const n = normalizeItem("creator", c);
+            if (n) items.push(n);
+          }
         }
         if (enrollRes.status === "fulfilled" && enrollRes.value) {
           setEnrolledIds(new Set(enrollRes.value.data.enrolled_course_ids || []));
         }
+        setCourses(items);
       } catch {
         toast.error("Could not load courses.");
       } finally {
@@ -57,18 +182,18 @@ export default function Courses() {
       }
     }
     load();
-  }, [user, category]);
+  }, [user]);
 
   async function handleEnrollOrBuy(course) {
     if (!user) {
       window.location.href = "/login";
       return;
     }
-    setBuying(course.course_id);
+    setBuying(course.id);
     try {
-      const { data } = await api.post(`/creator/courses/${course.course_id}/checkout`);
+      const { data } = await api.post(`/creator/courses/${course.id}/checkout`);
       if (data.enrolled) {
-        setEnrolledIds(prev => new Set([...prev, course.course_id]));
+        setEnrolledIds(prev => new Set([...prev, course.id]));
         toast.success("Enrolled! Check your dashboard.");
       } else if (data.url) {
         setCheckoutUrl(data.url);
@@ -85,6 +210,25 @@ export default function Courses() {
     }
   }
 
+  const grouped = useMemo(() => {
+    const g = {};
+    for (const c of courses) {
+      const key = c.category || "other";
+      if (!g[key]) g[key] = [];
+      g[key].push(c);
+    }
+    for (const k of Object.keys(g)) {
+      g[k].sort((a, b) => (a.title || "").localeCompare(b.title || ""));
+    }
+    return g;
+  }, [courses]);
+
+  const visibleCategories = useMemo(() => {
+    return CATEGORY_ORDER.filter(k => (grouped[k] || []).length > 0);
+  }, [grouped]);
+
+  const isHighlighted = (item) => item.id === highlightId;
+
   return (
     <div className="min-h-screen bg-bone">
       <PublicNav />
@@ -97,20 +241,17 @@ export default function Courses() {
       <div className="max-w-6xl mx-auto px-6 py-10">
         <BackButton to="/" />
         <div className="mt-6">
-          <div className="overline text-copper">Creator Catalog</div>
-          <h1 className="font-heading text-4xl font-bold text-ink mt-2">Courses from the community.</h1>
+          <div className="overline text-copper">Course Catalogue</div>
+          <h1 className="font-heading text-4xl font-bold text-ink mt-2">All courses & training</h1>
           <p className="text-ink/60 mt-3 max-w-2xl">
-            Real courses by real creators in the M.O.R.E. network. Creators keep 70% of every sale.
+            Every learning path on the platform — homeschool academy, workforce modules, protocols, and community creator courses. Browse freely; sign in to enroll.
           </p>
         </div>
 
-        {/* Featured course — one highlighted free course. Course content is
-            never public: guests get an honest sign-up CTA instead of a dead-end link
-            into a registration-gated page. */}
+        {/* Featured free course */}
         <div className="mt-6">
           <div className="flex items-center justify-between mb-3">
             <div className="overline text-copper">Featured Free Course</div>
-            <Link to="/courses" className="text-xs font-bold text-copper hover:underline">View all courses →</Link>
           </div>
           <Link to={user ? "/ascension-protocols" : "/register"}
             className="flex flex-col sm:flex-row sm:items-center gap-4 rounded-2xl p-6 transition-all hover:shadow-lg"
@@ -131,25 +272,6 @@ export default function Courses() {
           </Link>
         </div>
 
-        {/* Category filter */}
-        <div className="flex gap-2 flex-wrap mt-6">
-          <button
-            onClick={() => setCategory("")}
-            className={`text-xs font-bold px-3 py-1.5 rounded-full border transition-colors ${category === "" ? "bg-ink text-bone border-ink" : "border-ink/20 text-ink/60 hover:border-ink/40"}`}
-          >
-            All
-          </button>
-          {Object.entries(CATEGORY_LABELS).map(([key, label]) => (
-            <button
-              key={key}
-              onClick={() => setCategory(key)}
-              className={`text-xs font-bold px-3 py-1.5 rounded-full border transition-colors ${category === key ? "bg-ink text-bone border-ink" : "border-ink/20 text-ink/60 hover:border-ink/40"}`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-
         {loading ? (
           <div className="flex items-center justify-center py-24 text-ink/40">
             <Loader2 className="w-6 h-6 animate-spin mr-2" /> Loading courses…
@@ -157,63 +279,78 @@ export default function Courses() {
         ) : courses.length === 0 ? (
           <div className="text-center py-24">
             <BookOpen className="w-10 h-10 text-ink/20 mx-auto mb-3" />
-            <p className="text-ink/40 text-sm">No published courses yet in this category.</p>
-            {user && (
-              <Link to="/creator/courses" className="text-copper text-sm font-bold mt-2 inline-block">
-                Publish your own →
-              </Link>
-            )}
+            <p className="text-ink/40 text-sm">No published courses yet.</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-8">
-            {courses.map(course => {
-              const enrolled = enrolledIds.has(course.course_id);
-              const isOwn = user && course.creator_id === user.id;
-              const isBuying = buying === course.course_id;
-              const isHighlighted = course.course_id === highlightId;
+          <div className="mt-10 space-y-12">
+            {visibleCategories.map((catKey) => {
+              const items = grouped[catKey];
+              const meta = CATEGORY_META[catKey] || { label: catKey, icon: BookOpen, color: "bg-ink" };
+              const Icon = meta.icon;
               return (
-                <div
-                  key={course.course_id}
-                  ref={isHighlighted ? (el => { highlightRef.current = el; if (el) setTimeout(() => el.scrollIntoView({ behavior: "smooth", block: "center" }), 300); }) : null}
-                  className={`card-flat p-5 flex flex-col gap-3 transition-all ${isHighlighted ? "ring-2 ring-copper shadow-lg" : ""}`}
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <span className="text-xs text-ink/40 font-medium">
-                      {CATEGORY_LABELS[course.category] || course.category}
-                    </span>
-                    <PriceBadge cents={course.price_cents} />
+                <section key={catKey}>
+                  <div className="flex items-center gap-3 mb-4">
+                    <span className={`${meta.color} text-white p-1.5 rounded-lg`}><Icon className="w-4 h-4" /></span>
+                    <h2 className="font-heading text-xl font-bold text-ink">{meta.label}</h2>
+                    <span className="text-xs text-ink/40 font-bold">({items.length})</span>
                   </div>
-                  <div className="font-heading font-bold text-ink text-base leading-snug">{course.title}</div>
-                  {course.description && (
-                    <p className="text-xs text-ink/60 line-clamp-2">{course.description}</p>
-                  )}
-                  <div className="flex items-center justify-between mt-auto pt-2 border-t border-ink/10">
-                    <span className="text-xs text-ink/40">
-                      {course.enrollment_count || 0} enrolled
-                    </span>
-                    {isOwn ? (
-                      <Link
-                        to="/creator/courses"
-                        className="text-xs font-bold text-copper border border-copper/40 hover:border-copper px-3 py-1.5 rounded-full transition-colors"
-                      >
-                        Manage
-                      </Link>
-                    ) : enrolled ? (
-                      <span className="flex items-center gap-1 text-xs font-bold text-green-600">
-                        <CheckCircle className="w-3.5 h-3.5" /> Enrolled
-                      </span>
-                    ) : (
-                      <button
-                        onClick={() => handleEnrollOrBuy(course)}
-                        disabled={isBuying}
-                        className="flex items-center gap-1.5 text-xs font-bold bg-copper hover:bg-amber-600 text-bone px-3 py-1.5 rounded-full transition-colors disabled:opacity-50"
-                      >
-                        {isBuying ? <Loader2 className="w-3 h-3 animate-spin" /> : <ShoppingBag className="w-3 h-3" />}
-                        {course.price_cents === 0 ? "Enroll Free" : "Buy Now"}
-                      </button>
-                    )}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {items.map((course) => {
+                      const enrolled = enrolledIds.has(course.id);
+                      const isBuying = buying === course.id;
+                      const highlighted = isHighlighted(course);
+                      const CardContent = (
+                        <div
+                          ref={highlighted ? (el => { if (el) setTimeout(() => el.scrollIntoView({ behavior: "smooth", block: "center" }), 300); }) : null}
+                          className={`card-flat p-5 flex flex-col gap-3 transition-all ${highlighted ? "ring-2 ring-copper shadow-lg" : ""}`}
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <span className="text-xs text-ink/40 font-medium">{meta.label}</span>
+                            <PriceBadge cents={course.price_cents} source={course.source} />
+                          </div>
+                          <div className="font-heading font-bold text-ink text-base leading-snug">{course.title}</div>
+                          {course.summary && (
+                            <p className="text-xs text-ink/60 line-clamp-2">{course.summary}</p>
+                          )}
+                          <div className="flex items-center justify-between mt-auto pt-2 border-t border-ink/10">
+                            <span className="text-xs text-ink/40">
+                              {course.lesson_count > 0 ? `${course.lesson_count} lesson${course.lesson_count === 1 ? "" : "s"}${course.est_hours > 0 ? ` · ~${course.est_hours} hrs` : ""}` : course.status === "published" ? "Available now" : "In development"}
+                            </span>
+                            {course.source === "creator" ? (
+                              enrolled ? (
+                                <span className="flex items-center gap-1 text-xs font-bold text-green-600">
+                                  <CheckCircle className="w-3.5 h-3.5" /> Enrolled
+                                </span>
+                              ) : (
+                                <button
+                                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleEnrollOrBuy(course); }}
+                                  disabled={isBuying}
+                                  className="flex items-center gap-1.5 text-xs font-bold bg-copper hover:bg-amber-600 text-bone px-3 py-1.5 rounded-full transition-colors disabled:opacity-50"
+                                >
+                                  {isBuying ? <Loader2 className="w-3 h-3 animate-spin" /> : <ShoppingBag className="w-3 h-3" />}
+                                  {course.price_cents === 0 ? "Enroll Free" : "Buy Now"}
+                                </button>
+                              )
+                            ) : (
+                              <span className="inline-flex items-center gap-1 text-xs font-black uppercase tracking-widest text-copper">
+                                View <ArrowRight className="w-3.5 h-3.5" />
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      );
+
+                      if (course.link) {
+                        return (
+                          <Link key={course.id} to={course.link} ref={highlighted ? highlightRef : null} className="block">
+                            {CardContent}
+                          </Link>
+                        );
+                      }
+                      return <div key={course.id}>{CardContent}</div>;
+                    })}
                   </div>
-                </div>
+                </section>
               );
             })}
           </div>

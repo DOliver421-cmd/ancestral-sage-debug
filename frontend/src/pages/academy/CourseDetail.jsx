@@ -34,7 +34,7 @@ export default function CourseDetail() {
         <div className="max-w-3xl mx-auto px-6 py-24 text-center">
           <AlertCircle className="w-10 h-10 text-destructive mx-auto mb-4" />
           <h1 className="font-heading text-2xl font-bold text-ink">{error}</h1>
-          <Link to="/academy/curriculum" className="btn-copper inline-flex items-center gap-2 mt-6">Back to curriculum</Link>
+          <Link to="/courses" className="btn-copper inline-flex items-center gap-2 mt-6">Back to all courses</Link>
         </div>
       </div>
     );
@@ -56,8 +56,8 @@ export default function CourseDetail() {
       <PublicHeader />
       <section className="bg-ink text-white">
         <div className="max-w-6xl mx-auto px-6 py-10">
-          <Link to="/academy/curriculum" className="text-white/50 hover:text-white text-sm font-bold flex items-center gap-1 mb-4">
-            <ArrowRight className="w-3.5 h-3.5 rotate-180" /> Curriculum
+          <Link to="/courses" className="text-white/50 hover:text-white text-sm font-bold flex items-center gap-1 mb-4">
+            <ArrowRight className="w-3.5 h-3.5 rotate-180" /> All Courses
           </Link>
           <div className="flex flex-wrap items-center gap-2">
             <TrackTag track={data.track} />
@@ -88,7 +88,7 @@ export default function CourseDetail() {
               We won't pretend it's ready: it will appear as <strong>Available now</strong> only once real
               content ships. Explore the courses that are live today, or check back as the curriculum grows.
             </p>
-            <Link to="/academy/curriculum" className="btn-copper inline-flex items-center gap-2 mt-5">See available courses <ArrowRight className="w-4 h-4" /></Link>
+            <Link to="/courses" className="btn-copper inline-flex items-center gap-2 mt-5">See available courses <ArrowRight className="w-4 h-4" /></Link>
           </div>
         ) : (
           <div className="grid lg:grid-cols-3 gap-8">
