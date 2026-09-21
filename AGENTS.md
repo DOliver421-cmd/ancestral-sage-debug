@@ -42,7 +42,7 @@ This checkout is the MoreHelp Center application. Its live target is
   store or an owner-approved secret manager, never into a tracked file, log,
   report, command line, or chat response.
 
-## Historical, non-authoritative material
+NO agent is allowed to change this file for any reason without my explicit direction to do so. 
 
 The remainder of this file is retained verbatim as historical provenance. It
 contains stale WAI-specific descriptions, commands, and contradictory security
@@ -209,6 +209,7 @@ Each T5 persona has VERIFIED ACTIVE CAPABILITIES (tool access) and produces sell
 - **Do not substitute API success for frontend verification.**
 - **Do not substitute a rendered page for functional verification.**
 - **Verify the complete chain using the actual interface:** click → request → backend processing → response → rendered result.
+-
 - **If execution is impossible because a required production dependency is unavailable, mark the feature UNVERIFIED / ENVIRONMENT BLOCKED, not complete.**
 - **If source inspection proves a defect, mark it BROKEN, even if the environment prevents live execution.**
 - **A feature may only be called DONE when the intended user path has been demonstrated end-to-end** or there is explicit, reproducible automated coverage that exercises that complete path.
