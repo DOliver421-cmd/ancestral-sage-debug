@@ -45,7 +45,7 @@ function TypeBadge({ type }) {
 }
 
 function formatPrice(cents) {
-  if (!cents || cents === 0) return "Free";
+  if (!cents || cents === 0) return "No charge";
   return `$${(cents / 100).toFixed(2)}`;
 }
 
@@ -180,7 +180,7 @@ function BrowseTab({ user, onCheckoutUrl }) {
         setCheckingOut(null);
         return;
       }
-      if (r.data.url) setCheckoutUrl(r.data.url);
+      if (r.data.url) onCheckoutUrl(r.data.url);
       else throw new Error("Checkout URL was not returned");
     } catch (e) {
       toast.error(e?.response?.data?.detail || "Checkout failed");
@@ -188,7 +188,7 @@ function BrowseTab({ user, onCheckoutUrl }) {
     }
   }
 
-  async function handleFreeDownload(product) {
+  async function handleDownload(product) {
     if (!user) { toast.error("Sign in to download"); return; }
     try {
       const access = await api.get(`/media/products/${product.id}/download`);
@@ -285,11 +285,11 @@ function BrowseTab({ user, onCheckoutUrl }) {
                   </button>
                 ) : (
                   <button
-                    onClick={() => handleFreeDownload(product)}
+                    onClick={() => handleDownload(product)}
                     className="flex items-center gap-1.5 bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-emerald-700 transition-colors"
                   >
                     <Download size={14} />
-                    Free
+                    Download
                   </button>
                 )}
               </div>
