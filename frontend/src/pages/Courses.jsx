@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import PublicNav from "../components/PublicNav";
 import BackButton from "../components/BackButton";
@@ -135,7 +135,6 @@ export default function Courses() {
   const { user } = useAuth();
   const [searchParams] = useSearchParams();
   const highlightId = searchParams.get("highlight");
-  const highlightRef = useRef(null);
   const [courses, setCourses] = useState([]);
   const [enrolledIds, setEnrolledIds] = useState(new Set());
   const [loading, setLoading] = useState(true);
@@ -224,7 +223,15 @@ export default function Courses() {
   }, [courses]);
 
   const visibleCategories = useMemo(() => {
-    return CATEGORY_ORDER.filter(k => (grouped[k] || []).length > 0);
+    const known = [];
+    const unknown = [];
+    for (const k of Object.keys(grouped)) {
+      if (CATEGORY_META[k]) known.push(k);
+      else unknown.push(k);
+    }
+    known.sort((a, b) => (CATEGORY_ORDER.indexOf(a) === -1 ? 1 : CATEGORY_ORDER.indexOf(b) === -1 ? -1 : CATEGORY_ORDER.indexOf(a) - CATEGORY_ORDER.indexOf(b)));
+    unknown.sort();
+    return [...known, ...unknown];
   }, [grouped]);
 
   const isHighlighted = (item) => item.id === highlightId;
