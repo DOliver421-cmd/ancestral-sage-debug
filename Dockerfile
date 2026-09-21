@@ -7,6 +7,7 @@ COPY frontend/package*.json ./
 RUN npm ci --legacy-peer-deps
 
 ARG CACHE_BUST=20260921
+RUN echo "CACHE_BUST=${CACHE_BUST}" && touch /frontend/.cache-bust
 COPY frontend/ ./
 
 # REACT_APP_BACKEND_URL is baked in at build time.
