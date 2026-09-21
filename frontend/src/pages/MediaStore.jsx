@@ -180,7 +180,7 @@ function BrowseTab({ user, onCheckoutUrl }) {
         setCheckingOut(null);
         return;
       }
-      if (r.data.url) setCheckoutUrl(r.data.url);
+      if (r.data.url) onCheckoutUrl(r.data.url);
       else throw new Error("Checkout URL was not returned");
     } catch (e) {
       toast.error(e?.response?.data?.detail || "Checkout failed");
@@ -216,7 +216,7 @@ function BrowseTab({ user, onCheckoutUrl }) {
 
   return (
     <div>
-      <MembershipsSection user={user} onCheckoutUrl={setCheckoutUrl} />
+      <MembershipsSection user={user} onCheckoutUrl={onCheckoutUrl} />
       {/* Filter chips */}
       <div className="flex gap-2 flex-wrap mb-6">
         {filters.map(f => (
