@@ -334,7 +334,7 @@ export default function Landing() {
                       {course.enrollment_count > 0 && ` · ${course.enrollment_count} enrolled`}
                     </p>
                     <div className="text-sm font-bold text-copper">
-                      {course.price_cents === 0 ? "Free" : `$${(course.price_cents / 100).toFixed(0)}`}
+                      {course.price_cents === 0 ? "No charge" : `$${(course.price_cents / 100).toFixed(0)}`}
                     </div>
                   </div>
                 </div>

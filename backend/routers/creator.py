@@ -246,7 +246,7 @@ async def creator_course_checkout(course_id: str, user: User = Depends(_dep_curr
             {"$setOnInsert": {"enrolled_at": datetime.now(timezone.utc).isoformat()}},
             upsert=True,
         )
-        return {"enrolled": True, "free": True}
+        return {"enrolled": True}
 
     # Only PAID courses require a configured payment provider.
     if not PAYMENTS_ENABLED:

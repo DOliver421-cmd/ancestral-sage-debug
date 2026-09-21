@@ -73,7 +73,7 @@ export default function CourseDetail() {
           </div>
           {!planned && (
             <Link to="/academy/parent" className="inline-flex items-center gap-2 px-6 py-3 bg-signal text-ink font-black hover:bg-signal/85 transition-colors mt-6">
-              <GraduationCap className="w-4 h-4" /> {user ? "Enroll this course for your student" : "Start Homeschooling Free"} <ArrowRight className="w-4 h-4" />
+              <GraduationCap className="w-4 h-4" /> {user ? "Enroll this course for your student" : "Start Homeschooling"} <ArrowRight className="w-4 h-4" />
             </Link>
           )}
         </div>
@@ -130,7 +130,7 @@ export default function CourseDetail() {
                 <div className="card-flat border-l-4 border-copper bg-white p-6">
                   <div className="font-heading font-bold text-ink flex items-center gap-2"><Lock className="w-4 h-4 text-copper" /> Lesson content is for enrolled students</div>
                   <p className="text-sm text-ink/60 mt-1.5 leading-relaxed">
-                    Create a free parent account, add a student in this grade, and the course will be
+                     Create a parent account, add a student in this grade, and the course will be
                     ready to open — lessons unlock one at a time as mastery is earned.
                   </p>
                   <div className="flex flex-wrap gap-3 mt-4">

@@ -80,7 +80,7 @@ const COPY_PLATFORMS = [
     icon: "▶",
     color: "#ff0000",
     buildText: (url, title, description) =>
-      `📚 ${title} | Free on M.O.R.E. Help Center\n\n${description || "Join the community, learn real skills, and earn certificates."}\n\n👉 Enroll free: ${url}\n\n#MORE #FreeEducation #WorkforceTraining`,
+      `📚 ${title} | M.O.R.E. Help Center\n\n${description || "Join the community, learn real skills, and earn certificates."}\n\n👉 Enroll: ${url}\n\n#MORE #Education #WorkforceTraining`,
   },
   {
     key: "instagram",
@@ -88,7 +88,7 @@ const COPY_PLATFORMS = [
     icon: "◎",
     color: "#e1306c",
     buildText: (url, title) =>
-      `${title} — free on M.O.R.E. Help Center 🎓\n\nReal skills. Real community. Real certificates.\n\nLink in bio 👉 ${url}\n\n#MORE #FreeEducation #Community`,
+      `${title} — on M.O.R.E. Help Center 🎓\n\nReal skills. Real community. Real certificates.\n\nLink in bio 👉 ${url}\n\n#MORE #Education #Community`,
   },
   {
     key: "tiktok",
@@ -96,7 +96,7 @@ const COPY_PLATFORMS = [
     icon: "♪",
     color: "#010101",
     buildText: (url, title) =>
-      `${title} 🎓 FREE on M.O.R.E. Help Center — link in bio!\n${url}`,
+      `${title} 🎓 on M.O.R.E. Help Center — link in bio!\n${url}`,
   },
 ];
 
