@@ -29,9 +29,13 @@ const warnings = [];
 // ── 1. Build the route table from App.js (the authority) ────────────────────
 const appSource = fs.readFileSync(path.join(SRC, "App.js"), "utf8");
 // Matches path="/x", path="/x/:slug", path="*"
-const routePatterns = [...appSource.matchAll(/path="([^"]+)"/g)]
-  .map((m) => m[1])
-  .filter((p) => p !== "*"); // the catch-all renders Error404 — not a real destination
+const declaredRoutes = [...appSource.matchAll(/path="([^"]+)"/g)].map((m) => m[1]);
+const routePatterns = declaredRoutes.filter((p) => p !== "*"); // the catch-all renders Error404 — not a real destination
+const routeCounts = new Map();
+for (const route of routePatterns) routeCounts.set(route, (routeCounts.get(route) || 0) + 1);
+for (const [route, count] of routeCounts) {
+  if (count > 1) failures.push(`DUPLICATE ROUTE: path="${route}" is declared ${count} times in App.js`);
+}
 
 // Redirect targets must themselves resolve (no redirect-to-a-404).
 const redirectTargets = [...appSource.matchAll(/<Navigate[^>]*\sto=["']([^"']+)["']/g)].map((m) => m[1]);
@@ -149,7 +153,7 @@ for (const t of toolEntries) {
 }
 
 // ── 6. Report ───────────────────────────────────────────────────────────────
-console.log(`route-integrity: ${routePatterns.length} routes, ${registryEntries.length} registry entries, ${seen.size} link candidates, ${redirectTargets.length} redirects, ${toolEntries.length} original tools`);
+console.log(`route-integrity: ${routePatterns.length} routes (${routeCounts.size} unique), ${registryEntries.length} registry entries, ${seen.size} link candidates, ${redirectTargets.length} redirects, ${toolEntries.length} original tools`);
 
 if (failures.length) {
   console.error("\n❌ DEAD LINKS / DRIFT FOUND — fix before shipping:\n");

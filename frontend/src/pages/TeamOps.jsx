@@ -139,7 +139,7 @@ export default function TeamOps() {
 
         <div className="mt-6 flex gap-4 justify-center">
           <Link to="/privacy" className="text-xs text-copper hover:underline">Privacy Policy</Link>
-          <Link to="/refund" className="text-xs text-copper hover:underline">Refund Policy</Link>
+          <Link to="/refund-policy" className="text-xs text-copper hover:underline">Refund Policy</Link>
           <Link to="/terms" className="text-xs text-copper hover:underline">Terms of Service</Link>
         </div>
       </div>

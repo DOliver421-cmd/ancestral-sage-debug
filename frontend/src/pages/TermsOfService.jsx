@@ -4,6 +4,7 @@ import BackButton from "../components/BackButton";
 import { useAuth } from "../lib/auth";
 import { api } from "../lib/api";
 import { CheckSquare, Square, CheckCircle } from "lucide-react";
+import { toast } from "sonner";
 
 export default function TermsOfService() {
   const { user } = useAuth();
@@ -20,11 +21,13 @@ export default function TermsOfService() {
     setSaving(true);
     try {
       if (user) {
-        await api.post("/users/accept-terms", { version: "v1", timestamp: new Date().toISOString() }).catch(() => {});
+        await api.post("/users/accept-terms", { version: "v1", timestamp: new Date().toISOString() });
       }
       localStorage.setItem("terms_accepted_v1", new Date().toISOString());
       setDone(true);
       setAccepted(true);
+    } catch {
+      toast.error("We couldn't save your acceptance to your account. Please try again.");
     } finally {
       setSaving(false);
     }
@@ -99,6 +102,7 @@ export default function TermsOfService() {
                 <div className="text-lg">You have accepted these terms.</div>
                 <div className="text-sm text-ink/50 font-normal mt-0.5">
                   Accepted on {new Date(localStorage.getItem("terms_accepted_v1") || Date.now()).toLocaleDateString()}
+                  {!user && " on this device"}
                 </div>
               </div>
             </div>

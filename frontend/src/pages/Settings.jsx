@@ -8,7 +8,7 @@ import { KeyRound, ShieldCheck, AlertTriangle, User as UserIcon, Save, Mail, Tra
 import { Link } from "react-router-dom";
 
 export default function Settings() {
-  const { user, refresh } = useAuth();
+  const { user, refresh, logout } = useAuth();
   const [params] = useSearchParams();
   const forced = params.get("force") === "1" || user?.must_change_password;
   const [tab, setTab] = useState(forced ? "password" : "profile");
@@ -357,12 +357,19 @@ export default function Settings() {
                 className="flex items-center gap-2 text-sm px-5 py-2 rounded-lg bg-red-600 text-white font-bold hover:bg-red-700"
                 onClick={async () => {
                   try {
-                    await api.delete("/auth/account");
-                    toast.success("Account scheduled for deletion. You will be signed out.");
-                    localStorage.removeItem("auth_token");
+                    const { data } = await api.delete("/auth/account");
+                    if (!data?.ok && !data?.partial) {
+                      throw new Error("The server did not confirm account deletion.");
+                    }
+                    if (data.partial) {
+                      toast.error("Your account was deactivated, but some data could not be erased. Contact support.");
+                    } else {
+                      toast.success("Account deletion was scheduled. You will be signed out.");
+                    }
+                    logout();
                     window.location.href = "/";
                   } catch (err) {
-                    const detail = err?.response?.data?.detail;
+                    const detail = err?.response?.data?.detail || err?.message;
                     toast.error(typeof detail === "string" ? detail : "Account deletion failed.");
                     setShowDeleteModal(false);
                   }
