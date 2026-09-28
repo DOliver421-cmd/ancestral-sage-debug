@@ -231,6 +231,7 @@ export default function CreatorCourses() {
                       maxLength={500}
                     />
                   </div>
+                </div>
 
                 {/* Sections */}
                 <div>
