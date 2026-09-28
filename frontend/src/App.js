@@ -183,8 +183,12 @@ import { ROLE_RANK } from "./lib/roles";
 
 function Protected({ children, roles, loginRoute = "/login" }) {
   const { user, loading } = useAuth();
+  const location = useLocation();
   if (loading) return <div className="p-12 text-ink font-heading">Loading…</div>;
-  if (!user) return <Navigate to={loginRoute} replace />;
+  if (!user) {
+    const returnTo = `${location.pathname}${location.search}${location.hash}`;
+    return <Navigate to={`${loginRoute}?returnTo=${encodeURIComponent(returnTo)}`} replace />;
+  }
   if (roles && roles.length > 0) {
     const needed = Math.min(...roles.map((r) => ROLE_RANK[r] ?? 99));
     const have = ROLE_RANK[user.role] ?? 0;
@@ -207,8 +211,12 @@ function BoundedAdmin({ children, roles, label, backTo = "/admin" }) {
 // Supervisor-specific protection — redirects to the Supervisor login, not the main login.
 function SupervisorProtected({ children }) {
   const { user, loading } = useAuth();
+  const location = useLocation();
   if (loading) return <div className="p-12 text-ink font-heading">Loading…</div>;
-  if (!user) return <Navigate to="/supervisor-login" replace />;
+  if (!user) {
+    const returnTo = `${location.pathname}${location.search}${location.hash}`;
+    return <Navigate to={`/supervisor-login?returnTo=${encodeURIComponent(returnTo)}`} replace />;
+  }
   if ((ROLE_RANK[user.role] ?? 0) < ROLE_RANK["executive_admin"]) return <Navigate to="/supervisor-login" replace />;
   return children;
 }
@@ -302,20 +310,17 @@ function App() {
           <Route path="/plans" element={<Plans />} />
           {/* Public funnel pages */}
           <Route path="/main" element={<LandingMarketplace />} />
-          <Route path="/help-center" element={<Navigate to="/more-help-center" replace />} />
           <Route path="/more-help-center" element={<MoreHelpCenter />} />
-          {/* Supervisor — the real supervisor panel (SeshatsHub) lives below at
+          <Route path="/help-center" element={<HelpCenter />} />
+          {/* Supervisor — the authenticated operations panel is at /supervisor. */}
+          {/* The real supervisor panel (SeshatsHub) lives below at
               /supervisor via SupervisorProtected. A duplicate definition here
               used to shadow it with the public greeter page. */}
           <Route path="/supervisor/login" element={<SupervisorLogin />} />
-          <Route path="/seshats-hub" element={<Navigate to="/more-help-center" replace />} />
-          <Route path="/help-center" element={<HelpCenter />} />
           {/* Knowledge Base — handbooks + top support articles (Phase C) */}
           <Route path="/knowledge-base" element={<KnowledgeBase />} />
           <Route path="/knowledge" element={<KnowledgeFinder />} />
           <Route path="/seshats-hub" element={<SeshatsHubPublic />} />
-          {/* M.O.R.E. Help Center — unified entry point (greeter / exec / decoy modes) */}
-          <Route path="/more-help-center" element={<MoreHelpCenter />} />
           {/* Classic Tools — the preserved original HTML applications */}
           <Route path="/classic-tools" element={<ClassicTools />} />
           <Route path="/classic/:slug" element={<ClassicToolRoute />} />
@@ -398,22 +403,11 @@ function App() {
           <Route path="/adaptive" element={<Protected><TierGate feature="tracks"><Adaptive /></TierGate></Protected>} />
           <Route path="/compliance" element={<Protected><ComplianceList /></Protected>} />
           <Route path="/compliance/:slug" element={<Protected><ComplianceDetail /></Protected>} />
-          {/* C-9: admin routes wrapped in a secondary ErrorBoundary so a crash
-              in any admin page shows a recovery UI instead of taking down the
-              whole application. */}
+          {/* Admin tools remain available at their established route. */}
           <Route path="/admin/tools" element={<Protected roles={["admin"]}><ErrorBoundary><AdminTools /></ErrorBoundary></Protected>} />
-          <Route path="/admin/analytics" element={<Protected roles={["admin"]}><Analytics /></Protected>} />
-          <Route path="/admin/audit" element={<Protected roles={["admin"]}><AuditLog /></Protected>} />
-          <Route path="/attendance" element={<Protected roles={["instructor", "admin"]}><Attendance /></Protected>} />
-          <Route path="/incidents" element={<Protected><Incidents /></Protected>} />
-          <Route path="/settings" element={<Protected><Settings /></Protected>} />
-          <Route path="/admin/system" element={<Protected roles={["executive_admin"]}><ErrorBoundary><ExecSystem /></ErrorBoundary></Protected>} />
-          <Route path="/admin/sage-audit" element={<Protected roles={["executive_admin"]}><SageAudit /></Protected>} />
-          <Route path="/admin/staff-meetings" element={<Protected roles={["executive_admin"]}><StaffMeetingHistory /></Protected>} />
-          <Route path="/admin/health" element={<Protected roles={["admin"]}><SystemHealth /></Protected>} />
-          <Route path="/admin/moderation" element={<Protected roles={["admin"]}><ModerationAnalytics /></Protected>} />
-          <Route path="/revenue" element={<Protected roles={["admin", "executive_admin"]}><RevenueDivision /></Protected>} />
-          <Route path="/admin/tools" element={<Navigate to="/admin" replace />} />
+          <Route path="/admin/system" element={<BoundedAdmin roles={["executive_admin"]} label="Executive System" backTo="/admin/command"><ErrorBoundary><ExecSystem /></ErrorBoundary></BoundedAdmin>} />
+          <Route path="/admin/sage-audit" element={<BoundedAdmin roles={["executive_admin"]} label="Sage Audit" backTo="/admin"><SageAudit /></BoundedAdmin>} />
+          <Route path="/admin/staff-meetings" element={<BoundedAdmin roles={["executive_admin"]} label="Staff Meetings" backTo="/admin"><StaffMeetingHistory /></BoundedAdmin>} />
           <Route path="/admin/analytics" element={<BoundedAdmin roles={["admin"]} label="Analytics"><Analytics /></BoundedAdmin>} />
           <Route path="/admin/audit" element={<BoundedAdmin roles={["support_staff", "admin"]} label="Audit Log"><AuditLog /></BoundedAdmin>} />
           <Route path="/attendance" element={<Protected roles={["instructor", "admin"]}><Attendance /></Protected>} />
@@ -423,15 +417,12 @@ function App() {
            <Route path="/personas" element={<AdminPage><Personas /></AdminPage>} />
            <Route path="/personas/:slug" element={<BoundedAdmin roles={["admin", "executive_admin"]} label="Persona Profile" backTo="/personas"><PersonaProfile /></BoundedAdmin>} />
            <Route path="/admin/personas" element={<BoundedAdmin roles={["admin", "executive_admin"]} label="Persona Management" backTo="/admin"><PersonaManagementConsole /></BoundedAdmin>} />
-          <Route path="/admin/system" element={<Navigate to="/admin/command" replace />} />
           {/* Site Control Panel — executive_admin only, not linked from any nav */}
           <Route path="/admin/control" element={<BoundedAdmin roles={["executive_admin"]} label="Site Control Panel" backTo="/admin"><SiteControlPanel /></BoundedAdmin>} />
           <Route path="/admin/features" element={<BoundedAdmin roles={["admin"]} label="Feature Control Center" backTo="/admin"><FeatureControlCenter /></BoundedAdmin>} />
           <Route path="/admin/office" element={<BoundedAdmin roles={["executive_admin"]} label="Business Office" backTo="/admin"><ExecBusinessOffice /></BoundedAdmin>} />
           <Route path="/admin/exec-control" element={<BoundedAdmin roles={["executive_admin"]} label="Sovereign Command" backTo="/admin"><ExecControlPanel /></BoundedAdmin>} />
           <Route path="/admin/director" element={<BoundedAdmin roles={["executive_admin"]} label="Director Dashboard" backTo="/admin"><AdminPage><ExecutiveDirectorDashboard /></AdminPage></BoundedAdmin>} />
-          <Route path="/admin/sage-audit" element={<BoundedAdmin roles={["executive_admin"]} label="Sage Audit" backTo="/admin"><SageAudit /></BoundedAdmin>} />
-          <Route path="/admin/staff-meetings" element={<BoundedAdmin roles={["executive_admin"]} label="Staff Meetings" backTo="/admin"><StaffMeetingHistory /></BoundedAdmin>} />
           <Route path="/admin/exec-report" element={<BoundedAdmin roles={["executive_admin"]} label="Executive Site Report" backTo="/admin"><ExecutiveSiteReport /></BoundedAdmin>} />
           <Route path="/admin/health-report" element={<BoundedAdmin roles={["admin", "executive_admin"]} label="System Health" backTo="/admin"><SystemHealth /></BoundedAdmin>} />
           <Route path="/admin/health" element={<BoundedAdmin roles={["admin"]} label="System Health"><SystemHealth /></BoundedAdmin>} />

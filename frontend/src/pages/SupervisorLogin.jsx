@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, Link, useSearchParams } from "react-router-dom";
 import { useAuth } from "../lib/auth";
 
 const INK    = "#2e1065";
@@ -9,6 +9,11 @@ const BONE   = "#F7F7F5";
 export default function SupervisorLogin() {
   const { login, user } = useAuth();
   const nav = useNavigate();
+  const [params] = useSearchParams();
+  const requestedReturnTo = params.get("returnTo");
+  const returnTo = requestedReturnTo?.startsWith("/") && !requestedReturnTo.startsWith("//")
+    ? requestedReturnTo
+    : "/supervisor";
   const [email,    setEmail]    = useState("");
   const [password, setPassword] = useState("");
   const [loading,  setLoading]  = useState(false);
@@ -35,7 +40,7 @@ export default function SupervisorLogin() {
         nav("/settings?force=1");
         return;
       }
-      nav("/supervisor", { replace: true });
+      nav(returnTo, { replace: true });
     } catch (err) {
       setError(err?.response?.data?.detail || "Authentication failed.");
     } finally {

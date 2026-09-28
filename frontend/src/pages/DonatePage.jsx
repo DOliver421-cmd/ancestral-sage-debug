@@ -1,5 +1,6 @@
 import { useState } from "react";
 import AppShell from "../components/AppShell";
+import { useAuth } from "../lib/auth";
 import { api } from "../lib/api";
 import { Heart } from "lucide-react";
 import { toast } from "sonner";
@@ -8,6 +9,7 @@ import CheckoutModal from "../components/CheckoutModal";
 const PRESET_AMOUNTS = [10, 25, 50, 100, 250];
 
 export default function DonatePage() {
+  const { user } = useAuth();
   const [selected, setSelected] = useState(25);
   const [custom, setCustom] = useState("");
   const [loading, setLoading] = useState(false);

@@ -21,7 +21,7 @@ export default function ResetPassword() {
 
   const submit = async (e) => {
     e.preventDefault();
-    if (pw.length < 6) return toast.error("Password must be at least 6 characters");
+    if (pw.length < 8) return toast.error("Password must be at least 8 characters");
     if (pw !== confirm) return toast.error("New password and confirmation don't match");
     setBusy(true);
     try {
@@ -55,7 +55,7 @@ export default function ResetPassword() {
               Pick something strong.
             </h1>
             <p className="mt-6 text-white/70 max-w-md">
-              At least 6 characters &mdash; mix letters, numbers, and a symbol if you can.
+              At least 8 characters &mdash; mix letters, numbers, and a symbol if you can.
               This link is single-use; if you need another one, request again.
             </p>
           </div>
@@ -100,11 +100,11 @@ export default function ResetPassword() {
 
               <div className="mt-8 space-y-4">
                 <div>
-                  <label className="overline text-ink/60">New password (min 6 chars)</label>
+                  <label className="overline text-ink/60">New password (min 8 chars)</label>
                   <input
                     type="password"
                     required
-                    minLength={6}
+                    minLength={8}
                     value={pw}
                     onChange={(e) => setPw(e.target.value)}
                     className="w-full mt-2 px-4 py-3 bg-white border border-ink/20 focus:border-ink focus:outline-none focus:ring-2 focus:ring-signal"
@@ -116,7 +116,7 @@ export default function ResetPassword() {
                   <input
                     type="password"
                     required
-                    minLength={6}
+                    minLength={8}
                     value={confirm}
                     onChange={(e) => setConfirm(e.target.value)}
                     className="w-full mt-2 px-4 py-3 bg-white border border-ink/20 focus:border-ink focus:outline-none focus:ring-2 focus:ring-signal"

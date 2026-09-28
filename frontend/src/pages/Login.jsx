@@ -11,7 +11,10 @@ export default function Login() {
   const { login } = useAuth();
   const nav = useNavigate();
   const [params] = useSearchParams();
-  const returnTo = params.get("returnTo");
+  const requestedReturnTo = params.get("returnTo");
+  const returnTo = requestedReturnTo?.startsWith("/") && !requestedReturnTo.startsWith("//")
+    ? requestedReturnTo
+    : "/profile";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -27,9 +30,10 @@ export default function Login() {
         nav("/settings?force=1");
         return;
       }
-      // Honor a returnTo destination (e.g. persona pages), otherwise land on
-      // the landing page — they choose where to go from there.
-      nav(returnTo && returnTo.startsWith("/") ? returnTo : "/");
+      // Continue to the protected destination, or take a new member directly
+      // to their profile. Reject protocol-relative destinations to avoid an
+      // external redirect through a crafted returnTo parameter.
+      nav(returnTo);
     } catch (err) {
       toast.error(err?.response?.data?.detail || "Login failed");
     } finally { setLoading(false); }

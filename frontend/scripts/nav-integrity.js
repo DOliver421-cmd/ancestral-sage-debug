@@ -198,13 +198,22 @@ const shell = fs.readFileSync(path.join(SRC, "components", "AppShell.jsx"), "utf
 const app = fs.readFileSync(path.join(SRC, "App.js"), "utf8");
 const routeTable = [...app.matchAll(/path="([^"]+)"/g)].map((m) => m[1]).filter((p) => p !== "*");
 
-// 1. Dashboard is authed-only in the sidebar (not in anonymous Explore).
-// In the tier-first architecture, Dashboard is defined inside CUSTOMER_TIERS data
-// and rendered inside isAuthed blocks. Verify the data definition exists and the
-// Explore section doesn't contain it.
-const hasDashboard = shell.includes('testid: "nav-dashboard"') || shell.includes('testid="nav-dashboard"');
-if (!hasDashboard) fail("Dashboard must exist in nav", "nav-dashboard not found in AppShell");
-else ok("Dashboard exists in nav data");
+// 1. The signed-in landing is Profile (the old dashboard routes redirect there).
+// Keep Profile available to signed-in customer and staff nav, never to visitors.
+const hasProfileNav = shell.includes('nl("/profile", "My Profile"')
+  && shell.includes("{isAuthed && !isStaff")
+  && shell.includes("{isAuthed && isStaff");
+if (!hasProfileNav) fail("Signed-in Profile navigation", "profile must be available in customer and staff nav");
+else ok("Profile is available to signed-in customers and staff");
+const dashboardRedirectsToProfile = app.includes('<Route path="/dashboard" element={<Protected><Navigate to="/profile" replace /></Protected>} />');
+if (!dashboardRedirectsToProfile) fail("Dashboard compatibility route", "signed-in dashboard should redirect to Profile behind auth");
+else ok("Legacy dashboard route is protected and redirects to Profile");
+const supervisorRedirectPreservesDestination = app.includes('`/supervisor-login?returnTo=${encodeURIComponent(returnTo)}`');
+const supervisorLoginUsesInternalReturnTo = fs.readFileSync(path.join(SRC, "pages", "SupervisorLogin.jsx"), "utf8")
+  .includes('nav(returnTo, { replace: true })');
+if (!supervisorRedirectPreservesDestination || !supervisorLoginUsesInternalReturnTo)
+  fail("Supervisor return path", "anonymous executive access should resume its intended route after login");
+else ok("Supervisor login preserves the intended executive destination");
 
 // 2. Arena appears exactly once and only inside the Executive staff section.
 const arenaOccurrences = shell.split("\n").filter((l) => l.includes('"nav-arena"')).length;
@@ -244,8 +253,8 @@ else fail("Customer nav must be gated by isAuthed && !isStaff");
 const exploreIdx = shell.indexOf('label="Explore"');
 const exploreEnd = shell.indexOf('{/* ─────────── AUTHENTICATED', exploreIdx);
 const exploreBlock = shell.slice(exploreIdx, exploreEnd > exploreIdx ? exploreEnd : exploreIdx + 2000);
-if (exploreBlock.includes("nav-dashboard")) fail("Explore section must not contain Dashboard");
-else ok("Explore section contains no Dashboard");
+if (exploreBlock.includes("nav-dashboard") || exploreBlock.includes("nav-profile")) fail("Explore section must not expose signed-in navigation");
+else ok("Explore section contains no signed-in Dashboard/Profile navigation");
 
 // 9. TierCard component exists for locked-tier upgrade prompts.
 if (shell.includes('function TierCard')) ok("TierCard component exists for upgrade prompts");

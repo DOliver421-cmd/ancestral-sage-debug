@@ -137,6 +137,7 @@ export default function Register() {
               <input
                 type="text"
                 required
+                maxLength={500}
                 value={form.full_name}
                 onChange={(e) => setForm({ ...form, full_name: e.target.value })}
                 placeholder="Your name"
