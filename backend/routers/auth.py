@@ -179,8 +179,14 @@ def _make_reset_token() -> tuple:
 def _validate_reset_request(token: str, new_password: str) -> None:
     """Input validation for /auth/reset-password.  Raises HTTPException(400)
     on failure; returns None on success."""
-    # 8-char floor to match registration (the old 6-char check let one path
-    # set a weaker password than every other auth path accepts).
+    # 8-char floor to match registration.
+    #
+    # This module is NOT mounted (server.py keeps the inline auth endpoints and
+    # registers only /auth/cross-site-token, /auth/cross-site-login and
+    # /auth/factory-reset from it), so this check is currently unreachable.
+    # Unlike server.py, ResetPasswordReq here has no min_length and no
+    # validator — so if this router is ever mounted wholesale, THIS check is
+    # the only thing enforcing the floor. Keep it aligned at 8.
     if len(new_password) < 8:
         raise HTTPException(400, "Password must be at least 8 characters")
     if len(token) < 16:
@@ -574,8 +580,10 @@ async def change_password(body: ChangePasswordReq, request: Request,
     """Any authenticated user can change their own password.
     Returns a fresh token + updated user so the client can update its cache
     immediately without relying on a follow-up /auth/me call."""
-    # 8-char floor to match registration; ChangePasswordReq enforces it at the
-    # model layer (this guard is defence in depth).
+    # 8-char floor to match registration. Unreachable while this router is
+    # unmounted (see _validate_reset_request above); ChangePasswordReq in this
+    # module carries no min_length either, so this guard is the sole floor if
+    # the router is ever mounted. Keep aligned at 8.
     if len(body.new_password) < 8:
         raise HTTPException(400, "Password must be at least 8 characters")
     doc = await db.users.find_one({"id": user.id}, {"_id": 0})

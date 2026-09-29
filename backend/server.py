@@ -2494,8 +2494,10 @@ async def admin_reset_password(uid: str, body: AdminResetPasswordReq,
     """Admin-only: reset another user's password.
     An admin cannot reset an executive_admin's password; only an
     executive_admin can do that."""
-    # 8-char floor to match registration/change-password; AdminResetPasswordReq
-    # already enforces it at the model layer (this guard is defence in depth).
+    # 8-char floor to match registration/change-password. AdminResetPasswordReq
+    # already rejects <8 during model validation, so this guard is not the
+    # binding check on this path — it is here so the handler keeps the same
+    # 400 contract if the model constraint is ever loosened.
     _require_password_min_8(body.new_password)
     target = await db.users.find_one({"id": uid}, {"_id": 0})
     if not target:
@@ -2890,8 +2892,9 @@ async def change_password(body: ChangePasswordReq, user: User = Depends(current_
     """Any authenticated user can change their own password.
     Returns a fresh token + updated user so the client can update its cache
     immediately without relying on a follow-up /auth/me call."""
-    # 8-char floor to match registration; ChangePasswordReq already enforces it
-    # at the model layer (this guard is defence in depth).
+    # 8-char floor to match registration. ChangePasswordReq already rejects <8
+    # during model validation (min_length=8), so this guard is not the binding
+    # check on this path; it keeps the 400 contract if that ever changes.
     _require_password_min_8(body.new_password)
     doc = await db.users.find_one({"id": user.id}, {"_id": 0})
     if not doc or not verify_pw(body.current_password, doc["password_hash"]):
@@ -2993,8 +2996,11 @@ async def forgot_password(body: ForgotPasswordReq, request: Request):
 def _validate_reset_request(token: str, new_password: str) -> None:
     """Input validation for /auth/reset-password.  Raises HTTPException(400)
     on failure; returns None on success."""
-    # ResetPasswordReq already enforces the 8-char floor at the model layer;
-    # keep the same floor here so the two layers can never disagree.
+    # ResetPasswordReq enforces the 8-char floor at the model layer via
+    # _min_password, which rejects a short password during request validation
+    # — before this function is ever called. This check is therefore not what
+    # protects the live endpoint; it exists so the helper enforces the floor on
+    # its own for any direct caller (and the tests call it directly).
     _require_password_min_8(new_password)
     if len(token) < 16:
         raise HTTPException(400, "Invalid token")
@@ -10532,8 +10538,8 @@ try:
         ("POST", "/admin/users/{uid}/ban", _users_router.admin_ban_user),
         ("POST", "/admin/users/{uid}/unban", _users_router.admin_unban_user),
         ("POST", "/admin/users/{uid}/erasure", _users_router.admin_user_erasure),
-        ("GET", "/admin/users/{uid}/sessions", _users_router.exec_list_user_sessions),
-        ("DELETE", "/admin/users/{uid}/sessions", _users_router.exec_force_logout),
+        ("GET", "/admin/users/{uid}/sessions", _users_router.admin_list_sessions),
+        ("DELETE", "/admin/users/{uid}/sessions", _users_router.admin_revoke_sessions),
         ("POST", "/admin/users/bulk", _users_router.exec_bulk_action),
         ("GET", "/admin/users/{uid}/audit", _users_router.exec_user_audit),
         ("GET", "/admin/mfa/config", _users_router.get_mfa_config),
@@ -10546,13 +10552,36 @@ try:
         ("DELETE", "/admin/users/{uid}/elevated-role", _users_router.revoke_elevated_role),
         ("PATCH", "/admin/users/{uid}/sage-tier", _users_router.set_user_sage_tier),
         ("POST", "/users/accept-terms", _users_router.users_accept_terms),
-        ("POST", "/admin/users/{uid}/reset-password", _users_router.admin_reset_password),
+        ("POST", "/admin/users/{uid}/reset-password", _users_router.admin_reset_password_exec),
     ]
+    # Validate every handler BEFORE registering any. The table above holds
+    # attribute lookups (_users_router.foo), so a stale name raised on the
+    # first miss, skipped the whole loop, and was swallowed by the except
+    # below as a single WARNING — silently dropping all 20 user-admin
+    # endpoints (including force-logout) while the frontend kept calling them.
+    # Checking up front turns a bad name into a loud, complete error instead
+    # of a silent partial-registration.
+    _missing_users_routes = [
+        (_m, _p, _h) for _m, _p, _h in _USERS_ROUTES
+        if not callable(_h)
+    ]
+    if _missing_users_routes:
+        raise RuntimeError(
+            "routers/users.py route table contains non-callable handlers: "
+            + ", ".join(f"{_m} {_p} -> {_h!r}" for _m, _p, _h in _missing_users_routes)
+        )
     for _m, _p, _h in _USERS_ROUTES:
         api_router.add_api_route(_p, _h, methods=[_m])
     logger.info("Registered %d user-administration endpoints from routers/users.py", len(_USERS_ROUTES))
 except Exception as _ure:
-    logger.warning("user-administration endpoints not registered: %s", _ure)
+    # Fail closed and loud: these are admin identity/authorization endpoints.
+    # A silent skip here means security controls 404 while the UI still calls
+    # them, which is exactly the class of bug this block previously hid.
+    logger.error(
+        "user-administration endpoints FAILED to register (%d routes lost): %s",
+        len(_USERS_ROUTES) if "_USERS_ROUTES" in dir() else -1, _ure, exc_info=True,
+    )
+    raise
 
 try:
     from routers import personas as _personas_router

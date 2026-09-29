@@ -473,7 +473,12 @@ async def admin_reset_password(uid: str, body: AdminResetPasswordReq,
     return {"ok": True}
 
 
-@router.get("/admin/users/{uid}/sessions")
+# NOTE: an orphaned `@router.get("/admin/users/{uid}/sessions")` decorator used
+# to sit here. With no function between it and the next decorator it stacked
+# onto exec_bulk_action below, registering the session-list GET against the
+# bulk-action handler. Removed; the real session routes are
+# admin_list_sessions / admin_revoke_sessions further down this module.
+
 
 @router.post("/admin/users/bulk")
 async def exec_bulk_action(body: dict, user: User = Depends(_require_rank("executive_admin"))):
@@ -733,12 +738,19 @@ class _AdminResetPasswordReq(BaseModel):
 
 
 @router.post("/admin/users/{uid}/reset-password")
-async def admin_reset_password(uid: str, body: _AdminResetPasswordReq,
-                                request,
-                                user: User = Depends(_require_rank("executive_admin"))):
+async def admin_reset_password_exec(uid: str, body: _AdminResetPasswordReq,
+                                    request,
+                                    user: User = Depends(_require_rank("executive_admin"))):
     """Reset a user's password and revoke all their sessions.
     executive_admin only — this is a sensitive identity operation.
     The target user will need to use the new password on next login.
+
+    Named `admin_reset_password_exec` deliberately: this module also defines
+    `admin_reset_password` above (POST /admin/users/{uid}/password, admin
+    rank + can_modify). The two differ in BOTH path and authorization, and the
+    second definition used to shadow the first, so a module-level reference to
+    `admin_reset_password` resolved to whichever came last. Distinct names keep
+    each route bound to its own policy.
     """
     target = await db.users.find_one({"id": uid}, {"_id": 0, "role": 1, "full_name": 1, "email": 1})
     if not target:
