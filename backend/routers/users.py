@@ -452,8 +452,10 @@ async def admin_reset_password(uid: str, body: AdminResetPasswordReq,
     """Admin-only: reset another user's password.
     An admin cannot reset an executive_admin's password; only an
     executive_admin can do that."""
-    if len(body.new_password) < 6:
-        raise HTTPException(400, "Password must be at least 6 characters")
+    # 8-char floor to match registration/change-password; AdminResetPasswordReq
+    # already enforces it at the model layer (this guard is defence in depth).
+    if len(body.new_password) < 8:
+        raise HTTPException(400, "Password must be at least 8 characters")
     target = await db.users.find_one({"id": uid}, {"_id": 0})
     if not target:
         raise HTTPException(404, "User not found")

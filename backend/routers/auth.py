@@ -179,8 +179,10 @@ def _make_reset_token() -> tuple:
 def _validate_reset_request(token: str, new_password: str) -> None:
     """Input validation for /auth/reset-password.  Raises HTTPException(400)
     on failure; returns None on success."""
-    if len(new_password) < 6:
-        raise HTTPException(400, "Password must be at least 6 characters")
+    # 8-char floor to match registration (the old 6-char check let one path
+    # set a weaker password than every other auth path accepts).
+    if len(new_password) < 8:
+        raise HTTPException(400, "Password must be at least 8 characters")
     if len(token) < 16:
         raise HTTPException(400, "Invalid token")
 
@@ -572,8 +574,10 @@ async def change_password(body: ChangePasswordReq, request: Request,
     """Any authenticated user can change their own password.
     Returns a fresh token + updated user so the client can update its cache
     immediately without relying on a follow-up /auth/me call."""
-    if len(body.new_password) < 6:
-        raise HTTPException(400, "Password must be at least 6 characters")
+    # 8-char floor to match registration; ChangePasswordReq enforces it at the
+    # model layer (this guard is defence in depth).
+    if len(body.new_password) < 8:
+        raise HTTPException(400, "Password must be at least 8 characters")
     doc = await db.users.find_one({"id": user.id}, {"_id": 0})
     if not doc or not verify_pw(body.current_password, doc["password_hash"]):
         raise HTTPException(401, "Current password is incorrect")
