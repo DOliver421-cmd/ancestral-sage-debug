@@ -17,10 +17,10 @@ Provider-free, DB-free regressions for the payment/entitlement fixes:
      payment_pending → fulfilled transition are gated on
      payment_status == "paid".
 
-  4. (xfail — fix pending) Gumroad webhook must fail CLOSED when a
-     GUMROAD_API_KEY is configured and the sale cannot be verified through
-     the Gumroad API. The current handler logs the failure and grants the
-     entitlements anyway.
+  4. Gumroad webhook fails CLOSED when a GUMROAD_API_KEY is configured and
+     the sale cannot be verified through the Gumroad API: the sale is
+     rejected (400) with no payment record and no entitlement grant. Without
+     a configured key the webhook stays lenient (offline/dev behavior).
 
 Everything runs against in-memory fakes: no Mongo, no provider, no network.
 Tests are sync and drive coroutines with asyncio.run(), mirroring the
@@ -422,13 +422,8 @@ class TestStripePaidGating:
 
 
 # ---------------------------------------------------------------------------
-# Gumroad — unverifiable sales must be rejected (fix pending).
+# Gumroad — unverifiable sales must be rejected (fail-closed).
 # ---------------------------------------------------------------------------
-@pytest.mark.xfail(
-    reason="Phase 3 fix pending (editor snapshot limit blocked the patch): "
-           "with GUMROAD_API_KEY configured, an unverifiable sale must be "
-           "rejected (400) instead of processed. See the Phase 3 handoff.",
-    strict=False)
 class TestGumroadVerificationFailClosed:
     def test_unverifiable_sale_is_rejected(self, fake_db, monkeypatch):
         monkeypatch.setattr(payments, "GUMROAD_API_KEY", "gr-test-key")
@@ -464,3 +459,39 @@ class TestGumroadVerificationFailClosed:
             _run(payments.gumroad_webhook(FakeRequest(payload)))
         assert ei.value.status_code == 400
         assert fake_db.payments.inserted == []
+
+    def test_missing_sale_id_is_rejected_when_key_configured(self, fake_db, monkeypatch):
+        # Verification is impossible without a sale_id, so a configured key
+        # must fail closed instead of processing the payload blindly.
+        monkeypatch.setattr(payments, "GUMROAD_API_KEY", "gr-test-key")
+        monkeypatch.setattr(payments, "PAYMENTS_ENABLED", True)
+
+        payload = json.dumps({
+            "email": BUYER,
+            "product_name": payments.PAYMENT_PRODUCTS["more_monthly"]["name"],
+            "amount": 900,
+            "currency": "usd",
+        }).encode()
+
+        with pytest.raises(HTTPException) as ei:
+            _run(payments.gumroad_webhook(FakeRequest(payload)))
+        assert ei.value.status_code == 400
+        assert fake_db.payments.inserted == []
+
+    def test_lenient_mode_without_key_still_processes_sale(self, fake_db, monkeypatch):
+        # Without a configured key the webhook stays lenient (offline/dev):
+        # no verification is attempted and the sale is processed normally.
+        monkeypatch.setattr(payments, "GUMROAD_API_KEY", "")
+        monkeypatch.setattr(payments, "PAYMENTS_ENABLED", True)
+
+        payload = json.dumps({
+            "sale_id": "s-lenient",
+            "email": BUYER,
+            "product_name": payments.PAYMENT_PRODUCTS["more_monthly"]["name"],
+            "amount": 900,
+            "currency": "usd",
+        }).encode()
+
+        result = _run(payments.gumroad_webhook(FakeRequest(payload)))
+        assert result == {"received": True}
+        assert len(fake_db.payments.inserted) == 1
