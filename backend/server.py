@@ -2494,8 +2494,9 @@ async def admin_reset_password(uid: str, body: AdminResetPasswordReq,
     """Admin-only: reset another user's password.
     An admin cannot reset an executive_admin's password; only an
     executive_admin can do that."""
-    if len(body.new_password) < 6:
-        raise HTTPException(400, "Password must be at least 6 characters")
+    # 8-char floor to match registration/change-password; AdminResetPasswordReq
+    # already enforces it at the model layer (this guard is defence in depth).
+    _require_password_min_8(body.new_password)
     target = await db.users.find_one({"id": uid}, {"_id": 0})
     if not target:
         raise HTTPException(404, "User not found")
@@ -2889,8 +2890,9 @@ async def change_password(body: ChangePasswordReq, user: User = Depends(current_
     """Any authenticated user can change their own password.
     Returns a fresh token + updated user so the client can update its cache
     immediately without relying on a follow-up /auth/me call."""
-    if len(body.new_password) < 6:
-        raise HTTPException(400, "Password must be at least 6 characters")
+    # 8-char floor to match registration; ChangePasswordReq already enforces it
+    # at the model layer (this guard is defence in depth).
+    _require_password_min_8(body.new_password)
     doc = await db.users.find_one({"id": user.id}, {"_id": 0})
     if not doc or not verify_pw(body.current_password, doc["password_hash"]):
         raise HTTPException(401, "Current password is incorrect")
@@ -2991,8 +2993,9 @@ async def forgot_password(body: ForgotPasswordReq, request: Request):
 def _validate_reset_request(token: str, new_password: str) -> None:
     """Input validation for /auth/reset-password.  Raises HTTPException(400)
     on failure; returns None on success."""
-    if len(new_password) < 6:
-        raise HTTPException(400, "Password must be at least 6 characters")
+    # ResetPasswordReq already enforces the 8-char floor at the model layer;
+    # keep the same floor here so the two layers can never disagree.
+    _require_password_min_8(new_password)
     if len(token) < 16:
         raise HTTPException(400, "Invalid token")
 

@@ -116,3 +116,31 @@ class TestResetEmailEscaping:
     def test_default_name_when_empty(self):
         _, html = _reset_email_html("", "https://app.example/r?token=t")
         assert "Hi there," in html
+
+
+# ---------------------------------------------------------------------------
+# No weak 6-character password floor may survive anywhere in the backend.
+# Phase 5 cleanup: six handler-level checks enforced 6 chars — three in
+# server.py (shadowed by 8-char request models) and three in routers/ (not
+# mounted, but a latent 6-char floor if they ever are). All aligned to 8.
+# ---------------------------------------------------------------------------
+class TestNoWeakPasswordFloorRemains:
+    def test_no_six_character_password_floor_in_backend_source(self):
+        backend = Path(__file__).resolve().parents[1]
+        offenders = []
+        for path in sorted(backend.rglob("*.py")):
+            if ".pydeps" in path.parts or path.name == Path(__file__).name:
+                continue
+            text = path.read_text(encoding="utf-8", errors="ignore")
+            if "at least 6 characters" in text:
+                offenders.append(str(path.relative_to(backend)))
+        assert offenders == [], (
+            "6-character password floor reintroduced in: " + ", ".join(offenders))
+
+    def test_reset_request_helper_enforces_8(self):
+        with pytest.raises(HTTPException) as ei:
+            server._validate_reset_request(LONG_TOKEN, "Ab12cd")
+        assert ei.value.status_code == 400
+        assert "8" in str(ei.value.detail)
+        # Exactly 8 passes the password floor (token length is a separate gate)
+        server._validate_reset_request(LONG_TOKEN, "Ab12cdef")
