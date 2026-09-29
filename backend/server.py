@@ -2742,7 +2742,10 @@ async def gdpr_delete_account(user: User = Depends(current_user)):
             "gdpr_deleted_at": datetime.now(timezone.utc).isoformat(),
             "gdpr_grace_until": (datetime.now(timezone.utc) + timedelta(days=30)).isoformat(),
             "password_hash": "[deleted]",
-        }}
+        },
+        # C-2: revoke any outstanding JWTs immediately (same mechanism as
+        # revoke_all_sessions) — a deleted account's tokens must not outlive it.
+        "$inc": {"token_version": 1}},
     )
     # C-7: Remove user data from all collections that hold user-linked records.
     # Errors are collected and reported rather than silently swallowed.
@@ -2751,12 +2754,14 @@ async def gdpr_delete_account(user: User = Depends(current_user)):
         "auth_sessions", "notifications", "chat_history", "certificates",
         "tts_usage", "password_reset_tokens",
     ]
-    _gdpr_errors: list[str] = []
+    _gdpr_errors: list[str] = []   # detail — server-side logs/audit only
+    _gdpr_failed: list[str] = []   # collection names — safe for the client
     for _coll in _gdpr_collections:
         try:
             await db[_coll].delete_many({"user_id": user.id})
         except Exception as _e:
             _gdpr_errors.append(f"{_coll}: {_e}")
+            _gdpr_failed.append(_coll)
             logger.error("GDPR deletion failed for collection %s (user %s): %s", _coll, user.id, _e)
     # Anonymise audit_log and incidents references in-place (preserve audit trail, remove PII).
     for _ref_coll in ("audit_log", "incidents"):
@@ -2767,6 +2772,7 @@ async def gdpr_delete_account(user: User = Depends(current_user)):
             )
         except Exception as _e:
             _gdpr_errors.append(f"{_ref_coll}(anonymise): {_e}")
+            _gdpr_failed.append(f"{_ref_coll}(anonymise)")
             logger.error("GDPR anonymise failed for %s (user %s): %s", _ref_coll, user.id, _e)
     await audit(user.id, "gdpr.account_deleted", meta={"grace_period_days": 30, "deletion_errors": _gdpr_errors})
     if _gdpr_errors:
@@ -2774,7 +2780,9 @@ async def gdpr_delete_account(user: User = Depends(current_user)):
             "ok": False,
             "partial": True,
             "message": "Account anonymised but some data collections could not be fully cleared. Support has been notified.",
-            "errors": _gdpr_errors,
+            # Raw DB exception strings stay in logs/audit meta — the client
+            # only learns WHICH collections failed.
+            "errors": _gdpr_failed,
         }
     return {"ok": True, "message": "Account scheduled for deletion. You have a 30-day grace period to contact support if this was a mistake."}
 
@@ -2809,6 +2817,20 @@ async def gdpr_export_data(user: User = Depends(current_user)):
     consents = await db.ai_consents.find({"user_id": user.id}, {"_id": 0}).to_list(length=9999)
     if consents:
         export["ai_consents"] = consents
+
+    # Payments & purchases (includes guest-checkout rows keyed by buyer email)
+    pay_rows = await db.payments.find(
+        {"$or": [{"user_id": user.id}, {"buyer_email": user.email}]}, {"_id": 0}
+    ).to_list(length=9999)
+    if pay_rows:
+        export["payments"] = pay_rows
+
+    # Other user-linked records (sessions, notifications, portfolio, chat,
+    # digital purchases) — GDPR Art. 20 right to data portability.
+    for _coll in ("digital_purchases", "auth_sessions", "notifications", "portfolio", "chat_history"):
+        _rows = await db[_coll].find({"user_id": user.id}, {"_id": 0}).to_list(length=9999)
+        if _rows:
+            export[_coll] = _rows
 
     # Audit trail (limited)
     audit_log = await db.audit_log.find({"actor_id": user.id}, {"_id": 0}).sort("at", -1).to_list(length=100)
@@ -10430,8 +10452,11 @@ async def ready():
     try:
         await client.admin.command("ping")
         db_ok = True
-    except Exception as _re:
-        db_detail = str(_re)[:120]
+    except Exception:
+        # Never surface raw driver exception strings on an unauthenticated
+        # probe — log the detail and return a generic reason.
+        logger.exception("readiness probe: database ping failed")
+        db_detail = "database unreachable"
 
     if not db_ok:
         return JSONResponse(status_code=503, content={
@@ -10439,6 +10464,17 @@ async def ready():
             "reason": "db_down",
             "detail": db_detail,
             "startup_complete": _startup_impl_done,
+        })
+    # Readiness is gated on successful init (see _startup_done): a 200 here
+    # tells the platform to route traffic to a container whose background
+    # initialization has not finished — or has crashed. Hold at 503 until it
+    # completes.
+    if not _startup_impl_done:
+        return JSONResponse(status_code=503, content={
+            "ready": False,
+            "reason": "starting",
+            "detail": "startup not complete",
+            "startup_complete": False,
         })
     return {"ready": True, "startup_complete": _startup_impl_done}
 
