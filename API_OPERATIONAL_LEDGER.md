@@ -2,6 +2,51 @@
 
 Generated 2026-09-02 from live-mounted route resolution of the deployed backend (571 unique paths, 647 route-method entries).
 
+## Update — 2026-09-29 (surface re-measured, drift corrected)
+
+The 571/647 figure in the line above is **wrong and was never re-verified**
+after 2026-09-02. Re-measuring the mounted app produced different numbers in
+both directions, so the headline was not "the app grew" — it was "the count
+was measuring the wrong thing".
+
+| Measure | 2026-09-02 ledger | 2026-09-29 measured |
+|---|---|---|
+| `/api` unique paths | 571 | **356** |
+| `/api` route-method entries | 647 | **405** |
+| Root-mounted (non-`/api`) unique paths | not counted | **526** |
+| Total unique paths | not counted | **882** |
+| Total route-method entries | 647 | **1004** |
+
+Two measurement defects produced the old number:
+
+1. **`app.routes` holds wrappers, not routes.** This app mounts its routers
+   through access-control middleware, so the top-level list contains
+   starlette `_IncludedRouter` objects. A naive `len(app.routes)` returns
+   **53** and looks like the app exposes almost nothing. The real routes are
+   nested one level down (1005 `APIRoute` objects). Any count that did not
+   descend into `original_router.routes` was measuring the wrappers.
+2. **The executive/admin surface is mounted at the root, not under `/api`.**
+   526 paths — including all of `/exec` (66), `/admin` (36), `/ai` (35),
+   `/video` (29), `/abo` (26), `/academy` (22), `/billing` (16) — sit outside
+   `/api`. A `/api`-only sweep never saw them, so this ledger has never
+   accounted for them at all.
+
+The per-row PASS/BLOCKED classification below is **unchanged and still valid**
+for the rows it lists. What is corrected here is the scope statement: this
+ledger covered 647 of **1004** mounted route-method entries, so roughly a
+third of the live surface has no row below. Those rows are unclassified, not
+verified.
+
+Reproduce with:
+
+```bash
+cd backend && python3 scripts/tools/count_api_surface.py [--list]
+```
+
+`backend/tests/test_api_surface_ledger.py` now pins these numbers and fails on
+drift, so this cannot silently rot again. Bump the constants there and update
+this file in the same commit when the surface changes on purpose.
+
 ## Update — 2026-09-03
 
 Newly WIRED (were implemented but never mounted in `server.py`, so they were
