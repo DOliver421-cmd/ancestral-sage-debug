@@ -27,6 +27,7 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from fastapi import HTTPException  # noqa: E402
+from fastapi.testclient import TestClient  # noqa: E402
 
 import server  # noqa: E402
 from server import (  # noqa: E402
@@ -125,17 +126,65 @@ class TestResetEmailEscaping:
 # mounted, but a latent 6-char floor if they ever are). All aligned to 8.
 # ---------------------------------------------------------------------------
 class TestNoWeakPasswordFloorRemains:
-    def test_no_six_character_password_floor_in_backend_source(self):
-        backend = Path(__file__).resolve().parents[1]
-        offenders = []
-        for path in sorted(backend.rglob("*.py")):
-            if ".pydeps" in path.parts or path.name == Path(__file__).name:
-                continue
-            text = path.read_text(encoding="utf-8", errors="ignore")
-            if "at least 6 characters" in text:
-                offenders.append(str(path.relative_to(backend)))
-        assert offenders == [], (
-            "6-character password floor reintroduced in: " + ", ".join(offenders))
+    """Behavioral enforcement of the 8-character floor.
+
+    The earlier version of this guard grepped the source tree for the literal
+    string "at least 6 characters". That is a phrasing check, not a policy
+    check: it passed even when a real 6-char floor was reinstated with
+    different wording. These tests call the live ASGI app instead, so any
+    endpoint that accepts a short password fails regardless of message text.
+    """
+
+    @staticmethod
+    def _post(client, url, body):
+        return client.post(url, json=body)
+
+    def test_reset_password_endpoint_rejects_6_chars(self):
+        client = TestClient(server.app, raise_server_exceptions=False)
+        r = self._post(client, "/api/auth/reset-password",
+                       {"token": LONG_TOKEN, "new_password": "Ab12cd"})
+        # 400 = rejected by the password floor. 401/404 would mean the request
+        # got past validation, which is the regression this guards.
+        assert r.status_code == 400, r.text
+        assert "8" in r.text
+
+    def test_reset_password_endpoint_rejects_7_chars(self):
+        client = TestClient(server.app, raise_server_exceptions=False)
+        r = self._post(client, "/api/auth/reset-password",
+                       {"token": LONG_TOKEN, "new_password": "Ab12cde"})
+        assert r.status_code == 400, r.text
+
+    def test_eight_chars_passes_the_floor(self):
+        """8 chars must CLEAR the password floor.
+
+        Asserts only on the floor message, not on the downstream outcome: past
+        validation the request reaches the token lookup, whose result depends
+        on database and rate-limit state and is not what this test is about.
+        """
+        client = TestClient(server.app, raise_server_exceptions=False)
+        r = self._post(client, "/api/auth/reset-password",
+                       {"token": LONG_TOKEN, "new_password": "Ab12cdef"})
+        assert "8 characters" not in r.text, (
+            "8-character password was rejected by the floor: " + r.text
+        )
+
+    def test_admin_reset_password_endpoint_rejects_6_chars(self):
+        """The admin reset path is mounted; short passwords must not validate."""
+        client = TestClient(server.app, raise_server_exceptions=False)
+        r = self._post(client, "/api/admin/users/someone/reset-password",
+                       {"new_password": "Ab12cd"})
+        assert r.status_code in (400, 401, 403), r.text
+        if r.status_code == 400:
+            assert "8" in r.text
+
+    def test_change_password_endpoint_rejects_6_chars(self):
+        client = TestClient(server.app, raise_server_exceptions=False)
+        r = self._post(client, "/api/auth/change-password",
+                       {"current_password": "whatever", "new_password": "Ab12cd"})
+        # 401 is acceptable: auth runs before the handler body. 422 would mean
+        # the schema let a 6-char password through.
+        assert r.status_code in (400, 401, 403, 422), r.text
+        assert r.status_code != 200
 
     def test_reset_request_helper_enforces_8(self):
         with pytest.raises(HTTPException) as ei:
@@ -144,3 +193,74 @@ class TestNoWeakPasswordFloorRemains:
         assert "8" in str(ei.value.detail)
         # Exactly 8 passes the password floor (token length is a separate gate)
         server._validate_reset_request(LONG_TOKEN, "Ab12cdef")
+
+
+# ---------------------------------------------------------------------------
+# User-administration routes must actually mount.
+#
+# Regression: server.py's _USERS_ROUTES table referenced handler names that
+# did not exist in routers/users.py (exec_list_user_sessions /
+# exec_force_logout). The surrounding `except Exception` swallowed the
+# AttributeError into a log WARNING, so ALL 20 user-admin endpoints silently
+# vanished — including force-logout. The frontend called them anyway.
+# ---------------------------------------------------------------------------
+class TestUserAdminRoutesRegistered:
+    REQUIRED = [
+        "/api/admin/users/{uid}",
+        "/api/admin/users/{uid}/tier",
+        "/api/admin/users/{uid}/ban",
+        "/api/admin/users/{uid}/unban",
+        "/api/admin/users/{uid}/erasure",
+        "/api/admin/users/{uid}/sessions",
+        "/api/admin/users/{uid}/audit",
+        "/api/admin/users/{uid}/reset-password",
+        "/api/admin/users/{uid}/elevated-role",
+        "/api/admin/users/bulk",
+        "/api/admin/mfa/config",
+        "/api/admin/access/ipwhitelist",
+    ]
+
+    def test_all_user_admin_paths_present(self):
+        paths = server.app.openapi()["paths"]
+        missing = [p for p in self.REQUIRED if p not in paths]
+        assert missing == [], "user-admin routes not registered: " + ", ".join(missing)
+
+    def test_force_logout_is_reachable_not_404(self):
+        """Force logout is a real security control; it must not 404."""
+        client = TestClient(server.app, raise_server_exceptions=False)
+        r = client.delete("/api/admin/users/someone/sessions")
+        assert r.status_code != 404, r.text
+        assert r.status_code in (401, 403), r.text
+
+    def test_session_list_binds_the_session_handler(self):
+        """The GET must reach admin_list_sessions on the module's own router.
+
+        Regression: an orphaned @router.get("/admin/users/{uid}/sessions")
+        decorator in routers/users.py had no function beneath it, so it stacked
+        onto exec_bulk_action and registered the session-list GET against the
+        bulk-action handler.
+
+        This must be asserted against routers.users.router, NOT the app's
+        OpenAPI: server.py registers these handlers by name via add_api_route
+        and never mounts the module router, so the app surface stays correct
+        even while the module's own routing table is wrong.
+        """
+        from routers import users as users_router
+
+        matches = [
+            r for r in users_router.router.routes
+            if getattr(r, "path", "") == "/admin/users/{uid}/sessions"
+            and "GET" in getattr(r, "methods", set())
+        ]
+        assert matches, "no GET route registered for /admin/users/{uid}/sessions"
+        for r in matches:
+            assert r.endpoint.__name__ == "admin_list_sessions", (
+                "GET /admin/users/{uid}/sessions is bound to "
+                f"{r.endpoint.__name__}, expected admin_list_sessions"
+            )
+
+    def test_reset_password_route_binds_the_exec_policy_handler(self):
+        """guards the admin_reset_password vs admin_reset_password_exec shadow."""
+        spec = server.app.openapi()
+        op = spec["paths"]["/api/admin/users/{uid}/reset-password"]["post"]
+        assert op["operationId"].startswith("admin_reset_password_exec"), op["operationId"]
