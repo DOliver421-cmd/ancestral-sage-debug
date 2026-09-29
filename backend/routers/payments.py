@@ -1509,8 +1509,20 @@ async def gumroad_webhook(request: Request):
     else:
         logger.warning("Gumroad webhook: no sale_id in payload")
 
-    # ── Authenticity: verify the sale via Gumroad API (when key is available) ──
-    if GUMROAD_API_KEY and sale_id:
+    # ── Authenticity: verify the sale via Gumroad API (fail-closed when key is available) ──
+    # When GUMROAD_API_KEY is configured, a sale that cannot be proven genuine
+    # (missing sale_id, non-200 verification response, or an unreachable
+    # verification API) is rejected with 400 BEFORE any payment record or
+    # entitlement grant — processing it anyway would let anyone unlock paid
+    # features with a forged webhook. The idempotency marker written above is
+    # removed on rejection so a legitimate provider retry is not swallowed as a
+    # duplicate after a transient failure. Without a configured key the webhook
+    # stays lenient (offline/dev behavior).
+    if GUMROAD_API_KEY:
+        if not sale_id:
+            logger.warning("Gumroad webhook: rejecting sale without sale_id (verification impossible)")
+            raise HTTPException(400, "Unverified Gumroad sale")
+        _verified = False
         try:
             import httpx
             async with httpx.AsyncClient(timeout=10) as client:
@@ -1518,13 +1530,20 @@ async def gumroad_webhook(request: Request):
                     f"https://api.gumroad.com/v2/sales/{sale_id}",
                     params={"access_token": GUMROAD_API_KEY},
                 )
-                if resp.status_code != 200:
-                    logger.warning(
-                        "Gumroad webhook: sale %s failed API verification (%d)",
-                        sale_id, resp.status_code,
-                    )
+            _verified = resp.status_code == 200
+            if not _verified:
+                logger.warning(
+                    "Gumroad webhook: sale %s failed API verification (%d)",
+                    sale_id, resp.status_code,
+                )
         except Exception:
             logger.exception("Gumroad webhook: API verification failed for sale %s", sale_id)
+        if not _verified:
+            try:
+                await db.webhook_events.delete_one({"_id": f"gumroad:{sale_id}"})
+            except Exception:
+                logger.exception("Gumroad webhook: failed to clear idempotency marker for %s", sale_id)
+            raise HTTPException(400, "Unverified Gumroad sale")
 
     # ── Match product name → catalog key ─────────────────────────────────────
     product_key = _match_product_key(product_name)
