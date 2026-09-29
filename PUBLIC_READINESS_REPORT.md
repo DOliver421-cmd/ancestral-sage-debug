@@ -1,8 +1,47 @@
 # MoreHelp Center — Full Site Public Readiness Report
 
-**Date:** 2026-09-02 (updated 2026-09-03)
+**Date:** 2026-09-02 (updated 2026-09-03, re-verified 2026-09-29)
 **Live target:** https://charming-analysis-morehelpcenter.up.railway.app (Railway, auto-deploys from `main`)
 **Repo:** `DOliver421-cmd/ancestral-sage-debug`
+
+## Update — 2026-09-29 (encryption vault fix landed; ledger drift corrected)
+
+**Status: still NOT GO.** The §5 gate is unchanged. What moved in this pass is
+one shipped fix and one corrected measurement.
+
+**Shipped (`main` @ `d2f521a`, PR #466):** `keyvault.init(db)` was never called
+from the server startup sequence, so `get_fernet()` could only read
+`PROVIDER_KEY_ENCRYPTION_SECRET` from the environment. A deployment without
+that variable had no cipher at all, and every provider-key / BYOK save was
+refused with `HTTP 503 encryption_unavailable`. `_on_startup_impl()` now calls
+`init(db)`, which loads the persisted secret from MongoDB or auto-generates
+and persists one on first boot, and logs which source won. The loud refusal is
+preserved — plaintext storage is still never permitted.
+
+**Corrected: the API surface figures in this report were wrong.** §1 cites
+"571 unique paths, 647 route-method entries" from `API_OPERATIONAL_LEDGER.md`.
+Re-measured on 2026-09-29:
+
+| Measure | Previously reported | Measured |
+|---|---|---|
+| `/api` unique paths | 571 | **356** |
+| `/api` route-method entries | 647 | **405** |
+| Root-mounted (non-`/api`) paths | not counted | **526** |
+| Total route-method entries | 647 | **1004** |
+
+This is **not** evidence that endpoints were removed. Two measurement defects
+explain it: `app.routes` contains access-control wrapper objects rather than
+routes (a naive count returns 53), and the executive/admin surface — all of
+`/exec`, `/admin`, `/ai`, `/video`, `/billing` and more — is mounted at the
+root, outside `/api`, so a `/api`-only sweep never counted it. Net effect:
+**this report's completeness claim covered 647 of 1004 mounted entries.** The
+uncovered ~357 are unclassified, not verified. Reproduce with
+`backend/scripts/tools/count_api_surface.py`; the numbers are now pinned by
+`backend/tests/test_api_surface_ledger.py` so they cannot drift unnoticed again.
+
+**Still blocking GO — unchanged from §5:** the three human proofs (real account,
+real purchase, non-technical walkthrough) and the environment checklist. Neither
+is producible from this workspace; both need the owner against production.
 
 ## Update — 2026-09-03 (owner-driven theme + API wiring pass)
 
