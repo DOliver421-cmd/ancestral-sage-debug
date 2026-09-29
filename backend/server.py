@@ -1419,6 +1419,21 @@ async def _on_startup_impl():
     else:
         logger.info("STARTUP: No MONGO_BACKUP_URL set — single-DB mode.")
 
+    # ── Encryption vault ────────────────────────────────────────────────────
+    # keyvault.init() is the ONLY path that loads the persisted Fernet secret
+    # from MongoDB or auto-generates and persists one on first boot. Without
+    # this call get_fernet() can only see PROVIDER_KEY_ENCRYPTION_SECRET, so a
+    # deployment without that env var ends up with no cipher at all and every
+    # provider-key / BYOK save is refused (HTTP 503 encryption_unavailable).
+    # Runs before any seeding or request handling. Never raises.
+    try:
+        import keyvault as _keyvault
+
+        await _keyvault.init(db)
+        logger.info("STARTUP: keyvault encryption source — %s", _keyvault.source())
+    except Exception as _e:
+        logger.warning("STARTUP: keyvault init failed (non-fatal): %s", _e)
+
     try:
         await ensure_indexes()
     except Exception as _e:
