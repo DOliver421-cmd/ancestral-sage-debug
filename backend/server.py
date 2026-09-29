@@ -559,9 +559,29 @@ class ForgotPasswordReq(BaseModel):
     email: EmailStr
 
 
+def _require_password_min_8(value: str) -> str:
+    """Shared password floor for recovery flows.
+
+    Server-side reset/recovery must enforce the same 8-character minimum as
+    registration, password-change, and the reset UI — the old 6-char floor on
+    /auth/reset-password let one path set a weaker password than every other
+    path on the site accepts. Raised as HTTPException(400) so the endpoints
+    keep their documented 400 contract and the token/recovery code is not
+    consumed by a rejected request.
+    """
+    if len(value) < 8:
+        raise HTTPException(400, "Password must be at least 8 characters")
+    return value
+
+
 class ResetPasswordReq(BaseModel):
     token: str
     new_password: str
+
+    @field_validator("new_password")
+    @classmethod
+    def _min_password(cls, v: str) -> str:
+        return _require_password_min_8(v)
 
 
 class EmergencyRecoveryReq(BaseModel):
@@ -569,6 +589,11 @@ class EmergencyRecoveryReq(BaseModel):
     email: EmailStr
     recovery_code: str
     new_password: str
+
+    @field_validator("new_password")
+    @classmethod
+    def _min_password(cls, v: str) -> str:
+        return _require_password_min_8(v)
 
 
 class RecoveryCodeStatusReq(BaseModel):
@@ -771,17 +796,23 @@ def _build_reset_url(raw_token: str, base: Optional[str] = None) -> str:
 
 def _reset_email_html(full_name: str, reset_url: str) -> tuple[str, str]:
     """Returns (subject, html) for a password reset email."""
+    # User-controlled fields must be HTML-escaped before interpolation — a
+    # display name like <img onerror=...> would otherwise execute in the
+    # recipient's mail client.
+    from html import escape as _html_escape
+    name = _html_escape(full_name or "there")
+    url = _html_escape(reset_url, quote=True)
     subject = "Reset your W.A.I. password"
     html = f"""
     <div style="font-family:system-ui,Segoe UI,Roboto,sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#0a0e14">
       <h2 style="margin:0 0 8px">Reset your password</h2>
-      <p>Hi {full_name},</p>
+      <p>Hi {name},</p>
       <p>We received a request to reset your W.A.I. password. The link below is single-use and expires in {RESET_TOKEN_TTL_MIN} minutes.</p>
       <p style="margin:28px 0">
-        <a href="{reset_url}" style="background:#0a0e14;color:#fff;padding:12px 20px;text-decoration:none;font-weight:600">Reset Password</a>
+        <a href="{url}" style="background:#0a0e14;color:#fff;padding:12px 20px;text-decoration:none;font-weight:600">Reset Password</a>
       </p>
       <p style="font-size:12px;color:#666">If you didn't ask for this, you can safely ignore this message — your password won't change.</p>
-      <p style="font-size:12px;color:#666">Or paste this URL into your browser:<br><code style="word-break:break-all">{reset_url}</code></p>
+      <p style="font-size:12px;color:#666">Or paste this URL into your browser:<br><code style="word-break:break-all">{url}</code></p>
     </div>
     """
     return subject, html

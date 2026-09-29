@@ -768,25 +768,31 @@ async def stripe_webhook(request: Request):
                     pass
             return {"received": True}
 
-        # Media Store digital product — match the pending-sale row (buyer + title)
+        # Media Store digital product — match the pending-sale row (buyer + title).
+        # Only a session whose payment_status is "paid" may fulfill anything:
+        # checkout.session.completed can fire for unpaid sessions (async
+        # payment methods) and must not hand over goods early.
         if product_key == "media":
-            title = session_meta.get("product_title") or ""
-            try:
-                await _fulfill_media_order(buyer_email=buyer_email, product_name=title,
-                                           order_id=session_id)
-            except Exception:
-                logger.exception("Stripe webhook: media fulfillment failed (%s)", session_id)
+            if paid:
+                title = session_meta.get("product_title") or ""
+                try:
+                    await _fulfill_media_order(buyer_email=buyer_email, product_name=title,
+                                               order_id=session_id)
+                except Exception:
+                    logger.exception("Stripe webhook: media fulfillment failed (%s)", session_id)
             return {"received": True}
 
-        # Mark the pre-payment pending row fulfilled (it unmatchable rows remain
-        # pending and are surfaced for human reconciliation). Idempotent by design.
-        try:
-            await db.payment_pending.update_one(
-                {"provider_order": session_id, "status": "pending"},
-                {"$set": {"status": "fulfilled", "fulfilled_at": datetime.now(timezone.utc).isoformat()}},
-            )
-        except Exception:
-            pass
+        # Mark the pre-payment pending row fulfilled only once the session is
+        # actually paid (unpaid/unmatchable rows remain pending and are
+        # surfaced for human reconciliation). Idempotent by design.
+        if paid:
+            try:
+                await db.payment_pending.update_one(
+                    {"provider_order": session_id, "status": "pending"},
+                    {"$set": {"status": "fulfilled", "fulfilled_at": datetime.now(timezone.utc).isoformat()}},
+                )
+            except Exception:
+                pass
 
         # Catalog product — record the order, grant tier / BYOK / scholarship.
         await _record_stripe_order({
@@ -1007,6 +1013,14 @@ async def payments_webhook(request: Request):
                 return {"received": True, "idempotent": True}
 
 
+        # Resolve the catalog key BEFORE recording the payment (fixed UnboundLocalError). This used to
+        # run after the insert, so the `product_key` reference below raised
+        # UnboundLocalError inside the try/except and the payment record was
+        # silently lost for every Lemon Squeezy order.
+        first_item = data.get("first_order_item") or {}
+        product_key = _match_product_key(first_item.get("product_name", ""))
+        order_paid = status == "paid"
+
         try:
             _ls_user = await _find_user_by_email(user_email, {"_id": 0, "id": 1}) if user_email else None
             await db.payments.insert_one({
@@ -1031,12 +1045,12 @@ async def payments_webhook(request: Request):
         # Best-effort tier grant: match buyer email → user, product name → key.
         # Exact current name first, then legacy (pre-rebrand) aliases so
         # existing subscribers keep counting on renewals.
-        first_item = data.get("first_order_item") or {}
-        product_key = _match_product_key(first_item.get("product_name", ""))
         # ── BYOK ($3 one-time unlock, below instructor tier) ────────────────
         # A paid BYOK product grants byok_enabled directly (not a membership
         # tier — instructor tier and above activate BYOK free without payment).
-        if user_email and product_key == "byok":
+        # Only a PAID order may grant it: Lemon Squeezy emits order_created for
+        # unpaid/pending/failed orders too.
+        if user_email and order_paid and product_key == "byok":
             user_doc = await _find_user_by_email(user_email, {"id": 1, "byok_enabled": 1})
             if user_doc:
                 await db.users.update_one(
@@ -1074,7 +1088,7 @@ async def payments_webhook(request: Request):
         # A paid scholarship order marks the sponsor's pending pledge as paid.
         # The committee then matches the pledge to an approved application
         # (milestone-based release, so funds follow real progress).
-        if user_email and product_key == "scholarship":
+        if user_email and order_paid and product_key == "scholarship":
             user_doc = await _find_user_by_email(user_email, {"id": 1})
             if user_doc:
                 # `total` arrives in integer cents from Lemon Squeezy.
@@ -1118,10 +1132,13 @@ async def payments_webhook(request: Request):
                 logger.exception("LS webhook: course fulfillment failed (order %s)", order_id)
 
         # Shared upgrade-only grant (order_created, subscriptions, resumes).
-        await _grant_tier_by_email(user_email, product_key, reason="payment")
+        # Paid orders only — an unpaid order_created event must never lift a
+        # user's tier.
+        if order_paid:
+            await _grant_tier_by_email(user_email, product_key, reason="payment")
 
         # Digital product delivery: record ownership so the user can download.
-        if product_key == "book" and _ls_user:
+        if order_paid and product_key == "book" and _ls_user:
             await db.digital_purchases.update_one(
                 {"user_id": _ls_user["id"], "product_key": "book"},
                 {"$set": {
@@ -1133,7 +1150,7 @@ async def payments_webhook(request: Request):
                 }},
                 upsert=True,
             )
-        if product_key == "grassroots_guide" and _ls_user:
+        if order_paid and product_key == "grassroots_guide" and _ls_user:
             await db.digital_purchases.update_one(
                 {"user_id": _ls_user["id"], "product_key": "grassroots_guide"},
                 {"$set": {
