@@ -1,222 +1,274 @@
-# API KEY GATEWAY — BUILD & FIX PLAN (`/admin/providers`)
+# API KEY GATEWAY — BUILD & FIX PLAN v2 (`/admin/providers`)
 
-**Requested:** platform-owned global provider pool with full admin/exec control — one surface for every AI
-credential and the gateway that routes them; `POST /v1/chat/completions` with `model: "auto"` selecting only
-verified providers in no-current-platform-cost classes; monetization/BYOK providers visible and testable but
-excluded unless policy authorizes routing; model-verified, provider-aware failover; Gemini 15 RPM and Mistral
-1M tokens/month enforced; credentials encrypted at rest and never leaving the server.
+**Supersedes the first draft.** This version is grounded in a second, deeper verification pass over the
+gateway internals (`ai/llm_gateway.py`, `ai/key_pool.py`, `ai/team_monitor.py`, `routers/provider_gateway.py`,
+`routers/revenue_exec.py`, the 7 `ai_usage_log` writers, the specialty integrations) and in the owner's written
+expectations for the surface. Everything marked VERIFIED was executed or quoted from source on 2026-10-10.
 
-**Rule set applied:** fixes, not workarounds. No cosmetic metadata fixes. No "make it honest" relabelling of
-inert code. Every control must be alterable, verifiable, and updatable by the owner **through the interface** —
-a registry the owner cannot edit, verify, or push from the UI is a hardcoded mock. Zero-mock enforcement.
-
-**Starting point is verified, not assumed** — everything in §0 was executed on 2026-10-10 against a live local
-server + Mongo with a locally-promoted executive account (local test DB only; no production writes).
+**The build (owner's words, restated as the acceptance target):** one surface for every AI credential and the
+gateway that routes them. Platform-owned global provider pool; configured credentials fund the platform's AI
+capability and absorb usage when member traffic spikes. Every provider shown with the same routing class,
+credential state, and verification requirements; live transport and model availability come from the provider's
+actual endpoint and credential. `POST /v1/chat/completions` with `model: "auto"` selects only verified providers
+in the no-current-platform-cost classes. Monetization and BYOK providers remain visible and testable but are
+excluded unless their policy explicitly authorizes routing. Failover is model-verified and provider-aware.
+Gemini 15 RPM and Mistral 1M tokens/month remain enforced. Credentials are encrypted at rest and never leave
+the server. Human controls are live-wired; zero mock; no cosmetic fixes.
 
 ---
 
-## 0. Verified starting point (runtime evidence)
+## 1. Verified baseline (what execution proved, with exact numbers)
 
-| Surface | Status | Executed evidence |
+**Real and working today:**
+
+| Fact | Evidence |
+|---|---|
+| Route `/admin/providers` → `ProviderGateway.jsx`, gated frontend (`ROLE_RANK` 7) and backend (`_exec` → 403) | `App.js:510`; executed 200 as locally-promoted exec |
+| `GET /api/providers/quick-setup/status` returns **15** providers (9 AI + stripe/lemon_squeezy/gumroad + sambanova/openrouter/huggingface), masked `••••7890`, source | executed |
+| `POST /api/providers/quick-setup` encrypts with the keyvault Fernet, upserts, reloads the gateway | executed `{configured:true, key_masked:"••••7890"}` |
+| `GET /api/admin/gateway/status` + `PATCH /budget` + `POST /reset-budget` take effect live | executed; cap 200 000 rolling hour |
+| `GET/PATCH /api/admin/gateway/ranking` persists a 12-provider order | executed, `source: "default"` |
+| Failover chain runs in-process with per-key cooldown + KB fallback | `llm_gateway.py:743-857`; `ai/key_pool.py` |
+| `GET /api/ai/provider-test` live-pings **8** providers (omits cohere, huggingface, openai, deepseek) | executed; returns `{ok, reason}` per provider |
+| Keyvault: env → Mongo-persisted → ephemeral Fernet; masking display-only; no raw key in any response/log | `keyvault.py`; `provider_gateway.py:69` |
+| BYOK (7 routes) real; member BYOK keys resolved first in `call_llm` and never counted against platform budgets | `byok.py`; `llm_gateway.py:566-606` |
+
+**Broken or missing (each verified, each fixed in §4):**
+
+| # | Defect | Executed evidence |
 |---|---|---|
-| Route `/admin/providers` → `ProviderGateway.jsx`, exec-gated frontend (`ROLE_RANK` 7) and backend (`_exec` 403) | **REAL** | `App.js:510`; page renders |
-| `GET /api/providers/quick-setup/status` | **REAL** | 200, returns **15** providers (9 AI + stripe/lemon/gumroad + sambanova/openrouter/huggingface), masked key, source |
-| `POST /api/providers/quick-setup` (save key) | **REAL (partial)** | 200 `{configured:true, key_masked:"••••7890"}` — Fernet-encrypted, upserts `db.api_keys`, reloads gateway. **No validation on save** — a typo'd key is accepted and reported Active |
-| `PATCH/DELETE /api/providers/keys/by-provider/{type}` | **REAL write, broken effect** | after `DELETE`, `GET /api/admin/gateway/status` still shows groq `available: true` — **the deleted key keeps serving traffic until process restart**. Same for disable. Revocation is not real |
-| `GET /api/admin/gateway/status` + `/budget` + `/reset-budget` | **REAL, live effect** | budget cap 200 000, `tokens_used` live; PATCH budget takes effect immediately |
-| `GET/PATCH /api/admin/gateway/ranking` | **REAL persistence, ZERO routing effect** | returns the 12-provider list; `call_llm` order is the hardcoded tuple `("groq","cerebras","sambanova","gemini")` (`ai/llm_gateway.py:743`) — the persisted ranking is never read by the router. The product's own UI admits it ("Use API Keys tab to push/revoke/disable providers to enforce hard routing") |
-| Failover chain in-process | **REAL** | rotation + per-key cooldown + KB fallback |
-| `GET /api/ai/provider-test` | **REAL endpoint, no UI caller** | live-tests 8 providers, returns `{ok, reason}` per provider |
-| `POST /v1/chat/completions` | **MISSING** | **404** executed |
-| Model `"auto"` selection | **MISSING** | `call_llm(model=...)` accepts the param and ignores it; every tier passes its own hardcoded model constant |
-| Usage log | **PARTIAL/broken** | endpoint reads `ai_usage_log`; the UI renders `log.provider_id` / `log.result` — fields **no writer produces** (writers store `provider`; there is no `result`). Every row renders blank provider/status. No counters, no tokens, no fallback chains, no index. `ai_usage_log` count = 0 in the audited DB despite executed AI calls |
-| Specialty keys (Exa, NASA, Pexels, Gumroad, Stripe, Resend, Gmail, Cloudflare Workers AI, HF Inference, ElevenLabs, Groq Audio) | **MISSING** | env-var-only reads at request time (`nasa_observatory.py:43`, `studio.py:612`, `server.py:769-890`, `ai/persona_tts.py:36`); no vault storage, no CRUD, no masked display, no test surface |
-| Payment/Credit Keys (Together/OpenAI/DeepSeek grant label, monthly grant tokens, used-this-month) | **MISSING** | no such data model anywhere |
-| "Refresh live models" | **MISSING** | no endpoint fetches provider catalogs; the page's "Refresh" only re-reads DB/env status |
-| "Test all providers" / per-row Test / Configure / Credential-active toggle | **MISSING in UI** | backend test endpoints exist (`/api/ai/provider-test`, `/api/providers/keys/{key_id}/test`) with zero frontend callers on this page |
-| Gemini 15 RPM, Mistral 1M tokens/month | **NOT ENFORCED** | labels only — no code reads either number; the only Gemini mechanism is a cooldown after a real 429 |
-| Token accounting | **PARTIAL** | provider-reported `usage` only; HuggingFace returns 0/0 by construction; no local counter |
-| Provider coverage | **9 UI cards of 15 statuses** | `sambanova`, `openrouter`, `huggingface` statuses are returned and silently dropped |
-| Model/tier strings in UI | **STATIC** | three different Groq model names in three files (`llm_gateway.py:127` `openai/gpt-oss-120b`, `provider_gateway.py:17` `llama-3.3-70b-versatile`, `byok.py:60` same, page preset "Llama 3.3 70B"); Gemini drift (docstring 2.0 vs constant `gemini-3.6-flash`) |
-| Keyvault / Fernet at rest / masking / no raw-key leakage | **REAL, well-built** | `keyvault.py`; `"••••"+value[-4:]`; projections exclude `encrypted_key`; no log emits a key |
-| Nav defect | **BROKEN** | sidebar link sits in the `minRole:"admin"` section (`AppShell.jsx:214`) while the route requires `executive_admin` — an admin clicks and is bounced to `/dashboard` |
-| Anthropic references | **POLICY VIOLATION, present** | `ai/ai_cost_tracker.py:13-18` prices claude models; `wai_institute/pipelines/conversational_engine.py:177-187` has a dead `client.messages.create(model="claude-haiku-4-5")` (client never imported). AGENTS.md forbids Anthropic on this platform |
-| `run_monitor_loop()` provider health auto-revoke | **REAL code, never started** | whole-word search finds only its definition |
-| `db.api_keys` schema collision | **DEFECT** | provider keys (`provider_id`/`encrypted_key`) and customer API-as-a-service keys (`key_hash`/`tier`) share the collection; `reload_provider_keys` scans both |
-| Legacy collections | **WRITE-ONLY** | `/api/providers/keys*` UI writes `ai_providers`/`ai_provider_keys`; the gateway only reads `api_providers`/`api_keys` — keys saved there never load |
-| Indexes | **MISSING** | none for `api_keys`, `api_providers`, `ai_usage_log`, `provider_rankings` |
+| D1 | **Revocation is not real.** Disable *and* delete leave the key live in the process. `reload_provider_keys` only fills empty globals (`llm_gateway.py:101-103`) and never clears one | executed: after `DELETE /providers/keys/by-provider/groq`, `GET /admin/gateway/status` still `available: true`; a live exec toggle in `MoreHelpCenter.jsx:534/543` therefore changes nothing until restart |
+| D2 | **Multi-replica amplification of D1.** Keys are import-time module globals per process; a Railway deployment with >1 replica never evicts anywhere | source: globals + `KeyPool` are per-process; reload only runs at startup and after a write *in that replica* |
+| D3 | **`model:"auto"` does not exist.** `call_llm(model=...)` ignores the parameter; every tier passes its own hardcoded model constant | source; 0 of ~80 call sites pass `model=` |
+| D4 | **`POST /v1/chat/completions` does not exist** | executed 404 |
+| D5 | **Ranking is a stored preference with zero routing effect** — the router reads the hardcoded tuple `("groq","cerebras","sambanova","gemini")` (`llm_gateway.py:743`); `db.provider_rankings` is written and never read by the router | source + executed (ranking PATCH then routing unchanged) |
+| D6 | **Usage log records almost nothing and displays fields that don't exist.** 7 writers in `routers/ai.py` (tool routes only) store `user_id/endpoint/skill/model/provider/cost_usd/created_at`; the UI renders `log.provider_id` / `log.result` — **no writer emits either**. No `result`, no tokens, no `request_id`, no fallback chain. The main chat path logs nothing: `ai_usage_log` count = 0 in the audited DB after executed AI calls. No index on `created_at` | executed + source |
+| D7 | **Key save accepts any non-empty string** and reports Active — a typo'd key is stored as configured | source (`provider_gateway.py:139-140`); BYOK has a real test (`byok.py:246`) that this path lacks |
+| D8 | **Model/tier strings are static and disagree across four files**: Groq is `openai/gpt-oss-120b` (`llm_gateway.py:127`), `llama-3.3-70b-versatile` (`provider_gateway.py:17`), `llama-3.3-70b-versatile` (`byok.py:60`), "Llama 3.3 70B" (UI preset); Gemini is `gemini-3.6-flash` vs `gemini-2.0-flash` vs docstring "2.0" | source |
+| D9 | **Coverage gap: 9 UI cards of 15 statuses** — sambanova/openrouter/huggingface statuses are returned and silently dropped; the owner's pool lists **27** providers | source |
+| D10 | **Gemini 15 RPM and Mistral 1M tokens/month are labels nothing reads** — no counter exists; the only Gemini mechanism is a cooldown after a real 429 | source (grep: zero readers) |
+| D11 | **Token accounting is provider-reported only** — HuggingFace returns 0/0 by construction; no local counter exists for any limit | source (`llm_gateway.py:287-288`, `:854-855`) |
+| D12 | **Specialty keys are env-only**: Exa, NASA, Pexels, Gumroad, Stripe, Resend, Gmail, Cloudflare Workers AI, HF Inference (images/music), ElevenLabs, Groq Audio — no vault storage, no CRUD, no masking, no test surface, owner cannot update them from the platform | source: `nasa_observatory.py:43`, `studio.py:612`, `server.py:769-890`, `ai/persona_tts.py:36`, `jamil.py:255` |
+| D13 | **Three specialty integrations do not exist at all**: Exa (grep: zero backend code), Cloudflare Workers AI (zero), HF image/music inference (zero). The reference UI shows them ACTIVE — the keys cannot be doing anything | source |
+| D14 | **Payment/Credit Keys do not exist**: no grant label, monthly grant tokens, notes, or used-this-month field anywhere | source |
+| D15 | **Nav defect**: sidebar link sits in the `minRole:"admin"` section (`AppShell.jsx:214`) while the route requires `executive_admin` — an admin clicks and is bounced | source |
+| D16 | **`db.api_keys` schema collision**: provider credentials (`provider_id`/`encrypted_key`) share the collection with customer API-as-a-service keys (`key_hash`/`tier`); `reload_provider_keys` scans both shapes | source |
+| D17 | **Legacy write-only collections**: the older `/api/providers/keys*` path writes `ai_providers`/`ai_provider_keys`; the gateway only reads `api_providers`/`api_keys` | source |
+| D18 | **No indexes** on `api_keys`, `api_providers`, `ai_usage_log`, `provider_rankings` | source (`ensure_indexes` list) |
+| D19 | **Anthropic references remain** against platform policy: `ai/ai_cost_tracker.py:13-18` prices claude models; `wai_institute/pipelines/conversational_engine.py:177-187` holds a dead `client.messages.create(model="claude-haiku-4-5")` | source |
+| D20 | **`run_monitor_loop()` never starts** — real per-provider health probe + auto-revoke on 401/403 (`ai/team_monitor.py:254`) is dead code | source (whole-word search: definition only) |
+| D21 | The page's Refresh button refreshes only the status call, never the open tab | source (`ProviderGateway.jsx:441-443`) |
 
 ---
 
-## 1. FIXES (each is a root-cause fix with an executed DoD — no workarounds)
+## 2. Owner's expectations → verified reality → required change
 
-### FIX-1 · Revocation must be real (highest severity)
-**Defect (executed):** disable **and** delete leave the key live in the process; status flips back only after
-restart. On a compromised key, the admin panel lies while traffic keeps flowing.
-**Fix:** `ai/llm_gateway.reload_provider_keys` currently only fills empty globals
-(`llm_gateway.py:101-103`). Add a real eviction path: reconcile the process globals against the DB on every
-reload — set from DB when present, **clear the global when the row is absent or `status != "active"`** — and
-make `PATCH/DELETE` call that reconciliation. The next AI call after a delete must fail over to the next
-provider.
-**DoD (executed):** save key → `gateway/status` shows available; DELETE → status shows **not available**
-*without restart* and the next `POST /api/ai/chat` fails over (reply comes from the next provider or KB, not
-the deleted key); same for disable; restart-safe (DB is the source of truth).
-
-### FIX-2 · `model: "auto"` must actually route
-**Defect (executed):** `POST /v1/chat/completions` 404; `call_llm` ignores its `model` argument.
-**Fix:** implement selection in the gateway: `model="auto"` → the highest-ranked **verified** provider whose
-**cost class is no-current-platform-cost** and whose live model list contains a usable model; explicit model
-names route to the provider that serves them; unknown model → structured 404 error, not a silent substitute.
-**DoD (executed):** `POST /v1/chat/completions {model:"auto"}` returns a real reply and the response records
-which provider served it; `model:"nonexistent-model"` → 404 with the list of available models.
-
-### FIX-3 · Ranking must be a real control, not a stored preference
-**Defect:** `/admin/gateway/ranking` persists; the router never reads it. This is the "glorified hardcoded
-mock" the owner named — a panel that looks like control and changes nothing.
-**Fix:** the router reads the persisted ranking (from `db.provider_rankings`, cached with a short TTL, DB is
-authoritative) instead of the hardcoded tuple; validation prevents saving a ranking containing providers with
-no usable credential; every change audits (who/when/what) and takes effect on the next call.
-**DoD (executed):** reorder two providers via the API/UI → the very next auto-routed call uses the new order
-(prove by testing with two configured keys and checking the recorded provider).
-
-### FIX-4 · Key save must validate before accepting
-**Defect:** `POST /providers/quick-setup` accepts any non-empty string and reports Active.
-**Fix:** run the existing real test (`byok.py:246` pattern / `provider-test` caller) against the key before
-persisting; on failure return the provider's error and do **not** store; on success store and mark
-`verified_at` + the models the key can actually use.
-**DoD (executed):** save a deliberately invalid key → 4xx with the provider's reason, `api_keys` unchanged,
-status still unconfigured; save a valid key → stored, masked, verified timestamp shown in the UI.
-
-### FIX-5 · Usage log must record and display real facts
-**Defect (executed):** UI reads `provider_id`/`result`; writers store `provider` and no result; no tokens, no
-fallback chains, no counters; no index.
-**Fix:** one writer at the single choke point where the gateway completes a call, recording: `request_id`,
-`user_id`, `endpoint`, `model_requested`, `provider`, `model_served`, `result` (success/fail + reason),
-`prompt_tokens`, `completion_tokens`, `latency_ms`, `cost_class`, `fallback_chain` (ordered list of attempted
-providers), `created_at`. Aggregates (requests in window, succeeded, success rate, tokens today, tokens in
-window) computed from the log. Add the `created_at` index. Fix the UI to read the fields that exist.
-**DoD (executed):** make 10 calls (some forced to fail by disabling the primary) → log shows 10 rows with
-chains, counts match exactly, window counters match a direct Mongo count, UI renders provider + result.
-
-### FIX-6 · Enforce the two named limits for real
-**Defect:** Gemini 15 RPM and Mistral 1M tokens/month are labels; nothing counts.
-**Fix:** per-provider counters in Mongo (requests in the rolling minute for Gemini; tokens in the rolling
-month for Mistral) enforced before dispatch, human-editable values, surfaced in the UI with live usage; on
-exhaustion the router skips that provider (and the UI shows why).
-**DoD (executed):** with a Gemini key configured, drive 16 requests in a minute → the 16th is served by
-another provider and the log/Gemini row shows `limit_reached`; Mistral: drive >1M provider-reported tokens in
-the month → same.
-
-### FIX-7 · Kill the drift: one registry, live models
-**Defect:** model/tier strings hardcoded in four places; 9-of-15 provider coverage.
-**Fix:** a single provider registry (id, name, models, tier/routing class, cost class, limits, signup URL,
-verification requirements, credential state) as the only source; the UI renders from it; "Refresh live
-models" fetches each configured provider's `GET /models` (real HTTP) and records `models_verified_at`;
-a provider whose model list cannot be fetched is marked unverified and excluded from auto-routing.
-**DoD (executed):** with 2 providers configured, Refresh live models → their rows show the real model IDs
-returned by the providers; an unconfigured provider shows "Not configured / Not tested"; the auto-routing
-pool equals exactly the verified set.
-
-### FIX-8 · Specialty keys must live in the vault and be real controls
-**Defect:** Exa, NASA, Pexels, Gumroad, Stripe, Resend, Gmail, Cloudflare Workers AI, HF Inference, ElevenLabs,
-Groq Audio are env-only: no CRUD, no masking, no test, and the owner cannot update them from the platform.
-**Fix:** store them encrypted at rest in the same vault (same Fernet path), masked display, replace-key flow,
-Test button wired to the real integration tests that already exist (Resend/Gmail test-send at
-`ops_admin.py:214-260`, Pexels search at `studio.py:612`, NASA, Gumroad, Stripe, HF, ElevenLabs, Groq audio);
-integrations read the vault first, env as migration fallback; each row shows saved date and credential-active
-toggle with the same eviction guarantee as AI keys.
-**DoD (executed):** save a Pexels key via the UI → Specialty Tools Pexels search returns real photos; save a
-Gmail app password → test send delivers; disable → the tool reports not-configured without a restart.
-
-### FIX-9 · Payment / Credit Keys with real usage counters
-**Fix:** grant label, monthly grant tokens, notes, and **used-this-month computed from actual gateway calls**
-charged to that credit pool (not a manual field). Enforce the monthly grant ceiling in routing the same way
-as FIX-6.
-**DoD (executed):** set a 1 000-token monthly grant on Together → after traffic exceeds it, the row shows the
-overage and Together is excluded from auto-routing until reset.
-
-### FIX-10 · Structural fixes around the vault
-- Split `api_keys` into `api_provider_keys` (encrypted credentials) and the customer API-as-a-service keys
-  (rename/namespace), with indexes on both; `reload_provider_keys` must scan only its own collection.
-- Add the missing indexes (`api_keys`, `api_providers`, `ai_usage_log.created_at`, `provider_rankings`).
-- Legacy `/api/providers/keys*` writers: either migrate to the vault collection or delete the dead path — no
-  silent write-only collections left behind.
-- **Remove the Anthropic references** (`ai_cost_tracker.py` rate rows, `conversational_engine.py` dead client
-  call) — platform policy, absolute.
-- Start `run_monitor_loop()` (real per-provider health probe + auto-revoke on 401/403) with its state visible
-  in the UI.
-- Fix the nav defect: move the sidebar entry to the executive section so an admin never sees a link that bounces.
-- Fix the page's Refresh button so it refreshes the tab being viewed.
+| Expectation (from the spec) | Reality (verified) | Required change |
+|---|---|---|
+| ~27-provider pool with rank, sign-up link, live model line ("live: qwen/qwen3.8-27b (+5 more)") | 15 in the vault dict, 9 in the UI, models hardcoded | Registry with all 27 + live `/models` fetch per provider (FIX-7) |
+| Routing class + cost class per provider (Tier 1 Fastest … Tier 26 Media; aggregator; credit) | Two disagreeing internal tables (`gateway_status()` tiers 1a–9; UI presets) | One registry field set: display rank, routing class, cost class, limit spec, verification requirement |
+| Credential masked (`***PV76`), saved state, `Credential active` On/Off toggle | Masking real; **toggle exists but has no effect** (D1) | Toggle with immediate eviction (FIX-1) |
+| Connection column: `Online · 278ms` + timestamp, `Not tested`, `Not configured` | No connection state anywhere | Per-provider last-test state: result, latency, timestamp (B3) |
+| Actions per row: `Test`, `Configure`, `+ Add / replace key` | Configure/save real but unvalidated; Test absent | Validate-on-save (FIX-4) + row Test (B1) |
+| `Test all providers` | Endpoint exists (8 providers), **no UI caller** | Button wiring + extend to all registry providers |
+| `Refresh live models` | **Does not exist** | Real `GET /models` per provider → verified model lists (FIX-7) |
+| `Encrypt stored keys` | Encryption unconditional on save; no legacy-scan action | Backfill action: find plaintext/legacy rows → encrypt → report counts (B1) |
+| `API Keys Vault` (specialty keys: Exa, NASA, Pexels, Gumroad, Stripe, Resend, Gmail, Cloudflare, HF Inference, ElevenLabs, Groq Audio) with masked key, saved date, replace input, Get-a-key, Test, Save | **None of it exists**; three integrations have no code at all (D12, D13) | Vault CRUD + real tests + build the three missing integrations (FIX-8) |
+| Payment/Credit Keys: Together/OpenAI/DeepSeek with `Used this month: N tokens`, grant label, monthly grant tokens, notes, Save | **Does not exist** (D14) | Grant model with real usage counters + ceiling enforcement (FIX-9) |
+| Specialty Tools (staff tier 8+): Pexels search + Run, etc. | Absent from this page (Pexels search exists in VideoStudio) | Tools panel executing through vault keys (B8) |
+| Usage Log: requests/succeeded/success-rate/tokens today/tokens window + per-request fallback chains | Endpoint reads `ai_usage_log`; UI shows blank provider/status; no counters, no chains, no tokens (D6) | Choke-point writer + aggregates + fixed UI (FIX-5) |
+| `model:"auto"` → verified no-cost providers only | Missing (D3, D4) | Routing engine + `/v1/chat/completions` (FIX-2, FIX-3) |
+| Monetization/BYOK visible + testable, excluded unless policy authorizes | BYOK visible/testable (real); no policy switch exists | Policy flags, default excluded, owner-flippable, audited (B4) |
+| Gemini 15 RPM, Mistral 1M tokens/month enforced | Labels only (D10, D11) | DB-backed rolling-window counters, enforced pre-dispatch, human-editable (FIX-6) |
 
 ---
 
-## 2. BUILD — the API Key Manager surface (live-wired, zero mock)
+## 3. Design decisions (from the findings — these are what make the fixes real)
 
-Everything below is rendered from the registry and the vault; every control writes through the API and takes
-effect on the next request; nothing is a static string pretending to be state.
+**D-A · The database is the only source of truth for credentials; the process is a cache.**
+Import-time globals (`GROQ_API_KEY` etc.) are why revocation is impossible and why multi-replica deploys drift.
+Credentials resolve at **call time** from a short-TTL snapshot of the vault collections (env fills gaps only for
+providers with no vault row). A write invalidates the snapshot in its own replica immediately and everywhere
+within the TTL. This is the root fix behind FIX-1 and it also removes the D2 multi-replica hole. The existing
+`KeyPool` gains an `evict(key)` so rotation state cannot resurrect a revoked key.
 
-**B1 · Header controls** — `Test all providers` (wires the existing real `/api/ai/provider-test`, extended to
-every provider in the registry), `Refresh live models` (real `GET /models` per provider), `Encrypt stored keys`
-(backfill that finds legacy plaintext rows, encrypts them with the vault Fernet, reports counts; refuses
-plaintext storage going forward — the refusal path already exists).
-**B2 · Filter** — free-text filter over the provider table.
-**B3 · Provider table** — one row per registry provider: Provider (+ sign-up link), Model (live-verified),
-Tier/routing class, Status (configured / verified / limit-reached / not configured), Credential (`••••` last-4),
-Credential-active toggle, Connection (last test result + latency + timestamp), Actions: Test · Configure ·
-Add/replace key. Configure validates before accepting (FIX-4). Disable evicts immediately (FIX-1).
-**B4 · Routing policy panel (human controls, all real):** the editable ranking that actually routes (FIX-3);
-the per-provider limits (Gemini RPM, Mistral monthly tokens, Together/OpenAI/DeepSeek grant ceilings) editable
-in the UI and enforced (FIX-6/FIX-9); the hourly token budget (already live); policy switches deciding whether
-monetization/BYOK providers may ever serve auto-routing (default: excluded, exactly as specified) — off by
-default, owner-flippable, audited.
-**B5 · `POST /v1/chat/completions`** — OpenAI-compatible request/response (messages, model, stream optional);
-`model:"auto"` selects only verified providers in no-current-platform-cost classes; BYOK/monetization
-providers remain visible and testable but are excluded unless the policy authorizes them; every response
-records the serving provider and the full fallback chain.
-**B6 · Payment / Credit Keys** — Together AI, OpenAI, DeepSeek: grant label, monthly grant tokens, notes,
-used-this-month from real accounting (FIX-9).
-**B7 · Specialty Keys** — the 11 specialty credentials, vaulted, masked, tested, toggleable (FIX-8).
-**B8 · Specialty Tools** — the real integrations these keys power (Pexels search with Run, Gmail test send,
-NASA APoD fetch, Gumroad/Stripe status) executing through the vault keys.
-**B9 · Usage Log** — requests in window, succeeded, success rate, tokens today, tokens in window, and the
-per-request fallback chains, grouped per request so each chain is visible (FIX-5).
+**D-B · One registry, DB-backed, human-editable.** Collection `api_provider_registry`, one doc per provider:
+`provider_id, display_name, signup_url, display_rank, routing_class, cost_class, base_url, default_model,
+models_verified: [], models_verified_at, verification: {mode, last_result, last_latency_ms, last_checked_at},
+credential_state: {configured, active, masked, saved_at, verified_at}, limits: {rpm, monthly_tokens, grant_tokens},
+policy: {auto_routable, requires_policy_authorization}`. Seeded from code constants, then owned by the owner
+through the UI. `llm_gateway`'s tier table, `provider_gateway.PROVIDERS`, and the UI presets all render from it —
+this is what kills D8/D9 drift permanently.
 
----
+**D-C · Routing classes** (the owner's "same routing class" requirement):
+`no_cost_free` (Groq, Cerebras, SambaNova, Gemini, Grok, Cohere, Mistral, Together-free, OpenRouter-free,
+HuggingFace) — auto-eligible when configured + active + verified + within limits;
+`credit_grant` (Together, OpenAI, DeepSeek credit pools) — visible + testable, excluded from auto unless policy
+authorizes; `aggregator` (OpenRouter — operator-selected model) — auto-eligible only for its verified free
+model, policy-controlled; `monetization` / `byok` — always excluded from platform auto-routing unless the policy
+flag explicitly authorizes; `media_specialty` (Cloudflare, HF-inference, Pollinations, ElevenLabs, Groq audio) —
+not chat-routable; `kb_fallback` — always last.
 
-## 3. Non-negotiable enforcement rules for the build
+**D-D · "Verified" is a state machine, not a label.** `configured → tested (live 1-token call) → verified
+(models fetched from the provider's own endpoint and the intended model present)`. Only `verified` providers
+enter auto-routing. A failed test or a model-list fetch failure demotes to `unverified` with the reason shown.
+This is the "model-verified, provider-aware" failover the spec demands.
 
-1. **No mock, no stub, no placeholder.** If a control exists in the UI it must read/write a real endpoint with
-   an observable effect. If it cannot be real yet, it does not ship.
-2. **No cosmetic fixes.** Relabelling inert code, hiding it, or documenting it as "by design" is a violation,
-   not a delivery.
-3. **Human control is the acceptance test:** every constant above (ranking, limits, budgets, policy switches,
-   credentials) must be changeable by the owner through `/admin/providers` (or an existing exec console), with
-   the change effective without a restart and audited.
-4. **Executed proof per element** — each row's DoD in §1 names the run that proves it.
-5. **Secrets never leave the server:** masked display only, encrypted at rest, no key in any response body,
-   log, or error message.
+**D-E · One writer, one choke point.** Every chat path funnels through `call_llm`; the usage record is written
+once there: `request_id, user_id, endpoint, model_requested, provider, model_served, result, reason,
+prompt_tokens, completion_tokens, latency_ms, cost_class, fallback_chain[], created_at`. The 7 ad-hoc writers
+become thin wrappers that pass their endpoint label (no second schema). Counters are computed from the log, so
+the Usage Log numbers cannot disagree with the rows.
+
+**D-F · Limits live in Mongo, enforced pre-dispatch.** Rolling-minute request counters (Gemini 15 RPM) and
+rolling-month token counters (Mistral 1M; credit grants) in `api_provider_limits` — not process memory, because
+counters in memory are wrong on multi-replica and reset on deploy. Token counts come from provider `usage`
+where reported, from a local tokenizer estimate where not (HuggingFace), so the limits are real rather than
+zero-forever (D11).
 
 ---
 
-## 4. Sequencing (one PR each, owner reviewable)
+## 4. FIXES — root cause, not workaround (each with an executed DoD)
+
+**FIX-1 · Real revocation (D1, D2).** Call-time credential resolution from the TTL vault snapshot (D-A) +
+`KeyPool.evict`. DoD: save key → status available; DELETE → the **next call in the same process** fails over
+(proved by which provider serves a test message) and `gateway/status` shows not-available without restart;
+second replica (second server process on another port, same DB) shows the same within the TTL; a disabled key
+never reappears after a replica restart.
+
+**FIX-2 · `model:"auto"` + `POST /v1/chat/completions` (D3, D4).** OpenAI-compatible route; `auto` selects the
+highest-ranked provider that is `verified`, `no_cost_free` (or policy-authorized), and within limits; explicit
+models route to their provider or 404 with the available list. DoD: executed request returns a real reply and
+the response + usage row record the serving provider and chain; `model:"nope"` → 404 + model list.
+
+**FIX-3 · Ranking that routes (D5).** Router reads `api_provider_registry` order (TTL cache, DB authoritative);
+validation refuses a ranking whose top entries have no usable credential; every change audits and takes effect
+on the next call. DoD: reorder via the API → the next auto call comes from the new order (proved with two
+configured keys).
+
+**FIX-4 · Validate on save (D7).** Live 1-token test before persisting; failure returns the provider's reason
+and stores nothing; success records `verified_at` and the usable models. DoD: invalid key → 4xx, `api_keys`
+unchanged, status unconfigured; valid key → stored, masked, verified.
+
+**FIX-5 · Real usage log (D6).** Choke-point writer (D-E), `created_at` index, UI reads the fields that exist.
+DoD: 10 calls with the primary disabled mid-run → 10 rows with chains; counters equal a direct Mongo count;
+tokens non-zero for a non-HF provider.
+
+**FIX-6 · Enforced limits (D10, D11).** Mongo rolling-window counters + local token estimate where the provider
+reports none; values owner-editable; exhaustion excludes the provider from auto-routing and is shown in its row.
+DoD: 16 Gemini requests in a minute → the 16th is served elsewhere and the row shows `limit_reached`; Mistral
+monthly counter crossing the cap → same.
+
+**FIX-7 · One registry + live models (D8, D9).** Registry seeded from the current constants, extended to the
+owner's 27; Refresh live models does real `GET /models`; unconfigured/unverifiable providers render as
+`Not configured` / `Not tested`; the four disagreeing model strings collapse to the registry's
+`models_verified` list. DoD: with two keys configured, Refresh shows real provider model IDs; auto-pool equals
+exactly the verified set.
+
+**FIX-8 · Specialty vault (D12, D13).** All 11 specialty credentials vaulted (same Fernet path), masked,
+replaceable, testable, toggleable with FIX-1 eviction; integrations read vault-then-env; the three missing
+integrations (Exa search, Cloudflare Workers AI image/audio, HF image/music inference) are built against their
+real APIs. DoD: save a Pexels key via the UI → Specialty Tools Pexels search returns real photos; Gmail test
+send delivers; Exa search returns real results; disable → tool reports not-configured without restart.
+
+**FIX-9 · Payment/Credit Keys with real accounting (D14).** Grant label, monthly grant tokens, notes per
+Together/OpenAI/DeepSeek; `used_this_month` computed from actual charged calls; grant ceiling enforced like
+FIX-6. DoD: 1 000-token grant → after traffic exceeds it the row shows overage and the provider leaves the
+auto-pool until reset.
+
+**FIX-10 · Structural cleanup (D15–D20).** Split `api_keys` (provider credentials vs customer API keys) with
+indexes; add the missing indexes; migrate or delete the write-only legacy path; **remove the Anthropic
+references** (policy, absolute); start `run_monitor_loop()` with its state visible in the UI; move the sidebar
+link to the executive section; make Refresh refresh the open tab.
+
+---
+
+## 5. BUILD — the surface, element by element (zero decorative elements)
+
+Every element below is bound to the registry or the vault; every control writes through the API and takes
+effect on the next request; nothing renders a static string where state belongs.
+
+**B1 · Header actions.** `Test all providers` (real pings across the whole registry, per-provider result +
+latency + timestamp), `Refresh live models` (real `GET /models` per configured provider), `Encrypt stored keys`
+(scan for legacy plaintext rows → encrypt → report counts; refuse new plaintext — refusal path exists).
+Subtitle states the policy truth: platform-owned pool, credentials encrypted at rest, masked below.
+
+**B2 · Filter** — free-text over provider name/model/tier/status.
+
+**B3 · Provider table** — one row per registry provider: rank (#), provider + sign-up link, live model line
+(`live: <model> (+N more)` from `models_verified`), routing class badge (Tier 1 Fastest … Tier 26 Media,
+Aggregator, Credit), Status (`CONFIGURED`/`NOT CONFIGURED`/`ACTIVE`/`LIMIT REACHED`), Credential (`***` last-4
++ saved date), Credential-active toggle (FIX-1), Connection (last test: `Online · <ms>` or reason +
+timestamp; `Not tested`/`Not configured`), limit badge where one applies (`Limit: 15 req/min`,
+`Limit: 1,000,000 tokens/month`), Actions: `Test` · `Configure` (validates) · `+ Add / replace key`.
+
+**B4 · Routing policy panel (human controls, all with effect).** The editable ranking that actually routes
+(FIX-3); per-provider limit values editable and enforced (FIX-6/FIX-9); the hourly budget (already live);
+policy switches for whether credit/aggregator/monetization/BYOK classes may serve auto-routing — **default:
+excluded, exactly as specified** — owner-flippable, audited, and visibly reported as the reason a provider is
+skipped.
+
+**B5 · `POST /v1/chat/completions`** — OpenAI-compatible request/response; `model:"auto"` per the class policy;
+every response and usage row records the serving provider and the full fallback chain.
+
+**B6 · Payment / Credit Keys** — Together AI, OpenAI, DeepSeek rows: `Used this month: N tokens` (from real
+accounting), grant label, monthly grant tokens, notes, dirty-state indicator, Save.
+
+**B7 · Specialty Keys vault** — the 11 specialty credentials: description, masked key + saved date, replace
+input, `Get a key` link, `Test` (real integration), `Save`, active toggle.
+
+**B8 · Specialty Tools** — the integrations these keys power, executing through the vault: Pexels search + Run,
+Gmail test send, NASA APoD fetch, Gumroad/Stripe status, Exa search, Cloudflare image gen, HF music/image gen.
+
+**B9 · Usage Log** — Requests (in window), Succeeded, Success rate, Tokens today, Tokens (window), and the
+per-request grouped fallback chains — all computed from the log written at the choke point.
+
+---
+
+## 6. Sequencing (one PR each; owner reviewable)
 
 | PR | Content | Depends on |
 |---|---|---|
 | G0 | FIX-10 structural: Anthropic removal, nav fix, indexes, collection split, Refresh-button fix | — |
-| G1 | FIX-1 eviction + FIX-4 validate-on-save (the vault becomes truthful) | — |
-| G2 | FIX-7 registry + Refresh live models + full provider coverage (26+ rows) | G1 |
-| G3 | FIX-3 ranking that routes + FIX-2 `model:"auto"` + `POST /v1/chat/completions` | G2 |
-| G4 | FIX-5 usage log + FIX-6/FIX-9 limits with real counters | G2 |
-| G5 | FIX-8 specialty vault + B8 specialty tools | G1 |
+| G1 | FIX-1 revocation (call-time resolution + eviction + snapshot TTL) | — |
+| G2 | FIX-4 validate-on-save + FIX-7 registry + live models + full 27-provider coverage | G1 |
+| G3 | FIX-3 ranking that routes + FIX-2 auto + `/v1/chat/completions` | G2 |
+| G4 | FIX-5 usage log + FIX-6 limits + FIX-9 credit accounting | G2 |
+| G5 | FIX-8 specialty vault + the three missing integrations + B8 tools | G1 |
 | G6 | B3/B4/B6/B7/B9 UI completion on the registry | G2–G5 |
-| G7 | monitor loop live + legacy path migration decision (owner) | G1 |
+| G7 | Monitor loop live + legacy path migration decision (owner) | G1 |
 
-## 5. Verification standard for every PR
+## 7. End-to-end acceptance path (the owner's walkthrough — every step executed)
 
-- Local: server + Mongo (recipe in `docs/RUNTIME_AUDIT_2026-10-10.md` §5), exec account promoted locally,
-  each DoD executed with real output pasted into the PR body.
-- Production: read-only probes only; `/v1/chat/completions` and every new endpoint verified to require the
-  intended role; no accounts created, no data written.
-- Guard rails: `frontend/scripts/{academy-open-access,route-integrity,nav-integrity}.js` + Academy suite
-  (52 tests) + `craco build`.
-- Report format (unchanged): asked vs delivered, executed evidence, what is NOT verified, own bugs as findings.
+1. Open `/admin/providers` as executive_admin: all 27 providers render with real states; a free-tier admin
+   never reaches the page.
+2. `Test all providers` → every configured provider returns a real result with latency; unconfigured report
+   `no_key`. `Refresh live models` → real model lists appear on the configured rows.
+3. Configure a Groq key with a deliberate typo → rejected with the provider's reason, nothing stored. Configure
+   the real key → stored encrypted, masked, verified, row shows `Online · <ms>`.
+4. `POST /v1/chat/completions {model:"auto"}` → real reply from the verified no-cost provider; response and
+   Usage Log both name the provider and show the chain.
+5. Reorder the ranking in the policy panel → the next auto call follows the new order.
+6. Turn the Groq credential off → the next call fails over immediately; the row shows inactive; a second
+   server process sees the same within the TTL; restart does not resurrect it.
+7. Drive 16 Gemini requests in a minute → the 16th is served by another provider and Gemini's row shows
+   `Limit: 15 req/min — limit reached`.
+8. Usage Log: requests/succeeded/success-rate/tokens-today/tokens-window match direct Mongo counts; chains are
+   grouped per request.
+9. Specialty: save a Pexels key → Pexels search in Specialty Tools returns real photos; save Gmail app
+   password → test send delivers; Exa search returns real results.
+10. Credit keys: set a 1 000-token monthly grant → exceed it → row shows overage and the provider leaves the
+    auto-pool until reset.
+11. Inspect Mongo: every credential ciphertext, no plaintext rows after `Encrypt stored keys`; no key material
+    in any response, log line, or error.
+
+## 8. Verification standard
+
+- Each fix's DoD is a **run**, pasted into the PR body with real output (recipe:
+  `docs/RUNTIME_AUDIT_2026-10-10.md` §5; exec account promoted in the local test DB only).
+- Production: read-only probes only — new endpoints verified to require the intended role; no accounts, no
+  writes.
+- Guard rails: `frontend/scripts/{academy-open-access,route-integrity,nav-integrity}.js`, Academy suite
+  (52 tests), `craco build`.
+- Report format: asked vs delivered, executed evidence, what is NOT verified, own bugs as findings. A control
+  that cannot be exercised through the interface does not count as delivered.
