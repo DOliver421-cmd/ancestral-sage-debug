@@ -6,7 +6,7 @@ import AppShell from "../../components/AppShell";
 import { TrackTag, ProgressBar, errorMessage } from "./academyKit";
 import {
   GraduationCap, UserPlus, ArrowRight, FileText, Trash2, RefreshCw,
-  AlertTriangle, CheckCircle2, Users, Sparkles, BookOpen, ShieldCheck,
+  AlertTriangle, CheckCircle2, Users, Sparkles, BookOpen, ShieldCheck, Bot,
 } from "lucide-react";
 
 const TRACK_OPTIONS = [
@@ -32,14 +32,32 @@ export default function AcademyParentHome() {
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
   const [catalog, setCatalog] = useState([]);
+  const [coachLog, setCoachLog] = useState([]);
 
   // Published course cards (public endpoint) so the form can say — before the
   // parent commits — how many courses this grade + track will actually pull in.
   useEffect(() => {
+    loadCoachLog();
     api.get("/academy/courses")
       .then((r) => setCatalog((r.data?.courses || []).filter((c) => c.status === "published")))
       .catch(() => {});
   }, []);
+
+  const loadCoachLog = useCallback(() => {
+    api.get("/academy/coach/log")
+      .then((r) => setCoachLog(r.data.entries || []))
+      .catch(() => {});
+  }, []);
+
+  const toggleCoach = async (studentId, enabled) => {
+    try {
+      await api.patch(`/academy/students/${studentId}`, { coach_enabled: enabled });
+      setNotice(`Coach ${enabled ? "on" : "off"} for that student.`);
+      load();
+    } catch (err) {
+      setError(errorMessage(err, "Could not change that setting."));
+    }
+  };
 
   const load = useCallback(() => {
     setLoading(true);
@@ -148,6 +166,62 @@ export default function AcademyParentHome() {
             </button>
           </div>
         )}
+
+        {/* AI Coach: parent control + full log */}
+        <div className="mt-8 card-flat bg-white border border-ink/10 p-6" data-testid="coach-controls">
+          <div className="flex items-center gap-3">
+            <Bot className="w-6 h-6 text-copper" />
+            <h2 className="font-heading text-lg font-bold text-ink">The AI Coach — your controls</h2>
+          </div>
+          <p className="text-sm text-ink/60 mt-2 leading-relaxed max-w-3xl">
+            The Coach answers your student's questions inside a lesson. It is a tutor, never an
+            author: every course, lesson, and check is written by people. It works with your own AI
+            key, and without one by quoting the lesson your student is already reading. It is
+            <strong> on</strong> by default — turn it off for any student, at any time. No lesson or
+            mastery check ever depends on it.
+          </p>
+          {students.filter((s) => s.status === "active").map((st) => (
+            <div key={st.id} className="mt-4 flex items-center justify-between gap-4 border-t border-ink/10 pt-4">
+              <div>
+                <div className="font-bold text-ink text-sm">{st.name}</div>
+                <div className="text-xs text-ink/50">{st.coach_enabled === false ? "Coach off" : "Coach on"}</div>
+              </div>
+              <button
+                data-testid={`coach-toggle-${st.id}`}
+                onClick={() => toggleCoach(st.id, st.coach_enabled === false)}
+                className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-bold transition-colors ${
+                  st.coach_enabled === false
+                    ? "border-ink/20 text-ink/60 hover:border-copper"
+                    : "border-copper text-copper hover:bg-copper/10"
+                }`}>
+                <Bot className="w-4 h-4" />
+                {st.coach_enabled === false ? "Turn on" : "Turn off"}
+              </button>
+            </div>
+          ))}
+          <div className="mt-5">
+            <div className="text-xs font-bold uppercase tracking-widest text-ink/50">
+              Every question and answer ({coachLog.length})
+            </div>
+            {coachLog.length === 0 ? (
+              <p className="text-sm text-ink/55 mt-2">No Coach conversations yet.</p>
+            ) : (
+              <ol className="mt-3 space-y-3 max-h-72 overflow-y-auto pr-2">
+                {coachLog.slice(0, 25).map((e) => (
+                  <li key={e.id} className="rounded-lg border border-ink/10 p-3 text-sm">
+                    <div className="text-xs text-ink/45">
+                      {e.lesson_title || e.lesson_slug}{e.grounded ? " · answered from the lesson" : ""}
+                    </div>
+                    <div className="mt-1"><strong className="text-ink/80">Student:</strong> {e.question}</div>
+                    <div className="mt-1 whitespace-pre-wrap text-ink/70">
+                      <strong className="text-ink/80">Coach:</strong> {(e.answer || "").slice(0, 320)}
+                    </div>
+                  </li>
+                ))}
+              </ol>
+            )}
+          </div>
+        </div>
 
         {adding && (
           <form onSubmit={addStudent} className="card-flat bg-white border border-ink/10 p-6 mt-4">

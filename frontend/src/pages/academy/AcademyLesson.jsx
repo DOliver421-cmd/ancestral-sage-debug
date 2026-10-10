@@ -39,6 +39,9 @@ export default function AcademyLesson() {
   const [busy, setBusy] = useState(false);
 
   // AI coach
+  // The parent controls whether this student may use the Coach at all; the
+  // lesson payload carries the student's setting so the page honours it.
+  const studentCoachDisabled = data?.student?.coach_enabled === false || data?.coach_enabled === false;
   const [coachOpen, setCoachOpen] = useState(false);
   const [coachMsgs, setCoachMsgs] = useState([]);
   const [coachText, setCoachText] = useState("");
@@ -150,7 +153,7 @@ export default function AcademyLesson() {
 
   const sendCoach = async () => {
     const text = coachText.trim();
-    if (!text || coachBusy) return;
+    if (!text || coachBusy || studentCoachDisabled) return;
     const context = [
       `You are the WAI Homeschool Academy Coach inside MoreHelp Center.`,
       `Student is working on: ${data?.course?.title} — lesson "${lesson?.title}".`,
@@ -167,7 +170,15 @@ export default function AcademyLesson() {
       // the promise the student handbooks make. (The old "tutor" mode was an
       // electrical-apprentice persona for the WAI apprenticeship program.)
       const r = await api.post("/ai/chat", { session_id: sessionId, message: `${context}\n\nStudent asks: ${text}`, mode: "academy_coach" });
-      setCoachMsgs((m) => [...m, { role: "coach", text: r.data.reply || "…" }]);
+      const answer = r.data.reply || "…";
+      setCoachMsgs((m) => [...m, { role: "coach", text: answer, grounded: r.data.grounded }]);
+      // The parent can read every exchange afterwards (see the parent dashboard).
+      try {
+        await api.post("/academy/coach/log", {
+          student_id: studentId, course_slug: courseSlug, lesson_slug: lessonSlug,
+          lesson_title: lesson?.title || "", question: text, answer, grounded: !!r.data.grounded,
+        });
+      } catch { /* the log is a safety net, never a blocker for the student */ }
     } catch {
       setCoachMsgs((m) => [...m, { role: "coach", text: "", unavailable: true }]);
     } finally { setCoachBusy(false); }
@@ -425,13 +436,19 @@ export default function AcademyLesson() {
               </p>
             </div>
 
-            {/* AI Coach */}
+            {/* AI Coach — off if the parent turned it off for this student */}
             <div className="card-flat bg-white border border-ink/10 overflow-hidden">
-              <button onClick={() => setCoachOpen((o) => !o)} className="w-full flex items-center gap-3 p-5 text-left hover:bg-ink/[0.02] transition-colors" data-testid="coach-toggle">
+              <button onClick={() => setCoachOpen((o) => !o)} disabled={studentCoachDisabled}
+                className="w-full flex items-center gap-3 p-5 text-left hover:bg-ink/[0.02] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                data-testid="coach-toggle">
                 <div className="w-10 h-10 rounded-full bg-copper/15 flex items-center justify-center text-copper"><Bot className="w-5 h-5" /></div>
                 <div className="flex-1">
                   <div className="font-heading font-bold text-ink">Coach</div>
-                  <p className="text-xs text-ink/50">AI learning help — explains, never gives away the answer.</p>
+                  <p className="text-xs text-ink/50">
+                    {studentCoachDisabled
+                      ? "Off — your parent turned the Coach off for you."
+                      : "AI learning help — explains, never gives away the answer."}
+                  </p>
                 </div>
                 <Lightbulb className={`w-5 h-5 text-copper transition-transform ${coachOpen ? "rotate-180" : ""}`} />
               </button>

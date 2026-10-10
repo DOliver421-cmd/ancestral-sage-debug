@@ -1237,6 +1237,55 @@ export default function UnifiedProfile() {
   const [activeTab, setActiveTab] = useState("home");
   const [activeTool, setActiveTool] = useState(null);
 
+  // ── Your details (name + email) ────────────────────────────────────────────
+  // PATCH /auth/me has existed all along; the profile page simply never called
+  // it, so members could not change their name or email. Editable here now.
+  const [details, setDetails]     = useState({ full_name: "", email: "" });
+  const [savingDetails, setSavingDetails] = useState(false);
+  const [detailsMsg, setDetailsMsg]       = useState(null);
+
+  useEffect(() => {
+    if (user) setDetails({ full_name: user.full_name || "", email: user.email || "" });
+  }, [user?.id, user?.full_name, user?.email]);
+
+  const saveDetails = async (e) => {
+    e.preventDefault();
+    const full_name = details.full_name.trim();
+    const email = details.email.trim().toLowerCase();
+    if (!full_name) { setDetailsMsg({ ok: false, text: "Your name can't be empty." }); return; }
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { setDetailsMsg({ ok: false, text: "That doesn't look like an email address." }); return; }
+    if (full_name === (user?.full_name || "") && email === (user?.email || "")) {
+      setDetailsMsg({ ok: false, text: "Nothing to save yet." });
+      return;
+    }
+    setSavingDetails(true);
+    setDetailsMsg(null);
+    try {
+      const body = {};
+      if (full_name !== (user?.full_name || "")) body.full_name = full_name;
+      if (email !== (user?.email || "")) body.email = email;
+      const r = await api.patch("/auth/me", body);
+      // Keep the signed-in context in step with the change.
+      try {
+        const fresh = await api.get("/auth/me");
+        if (fresh?.data) {
+          localStorage.setItem("mh_user", JSON.stringify({ ...fresh.data, token: null }));
+          if (typeof refreshUser === "function") refreshUser();
+        }
+      } catch { /* the header updates on next sign-in */ }
+      setDetailsMsg({ ok: true, text: "Saved. Your details are updated." });
+      void r;
+    } catch (err) {
+      const d = err?.response?.data?.detail;
+      setDetailsMsg({
+        ok: false,
+        text: typeof d === "string" ? d : (d?.[0]?.msg || "Could not save your details."),
+      });
+    } finally {
+      setSavingDetails(false);
+    }
+  };
+
   // Shared workspace state — persists across tool switches so context is preserved
   const workspaceState = useRef({});
 
@@ -1312,6 +1361,39 @@ export default function UnifiedProfile() {
             <h1 className="font-heading font-extrabold text-3xl text-ink">{user.full_name}</h1>
             <p className="text-sm text-ink/50 mt-1 capitalize">{(user.role || "student").replace("_", " ")} · {FEATURE_TIER_LABEL[user.feature_tier] || "Free"} tier</p>
           </div>
+
+          {/* Your details — name and email. PATCH /auth/me existed all along;
+              this page simply never called it, so nothing was editable. */}
+          <form onSubmit={saveDetails} className="card-flat bg-white border border-ink/10 p-6 mb-6" data-testid="profile-details-form">
+            <h2 className="font-heading font-bold text-ink mb-1">Your details</h2>
+            <p className="text-sm text-ink/55 mb-4">
+              Your name and email. Your role and tier are set by the platform and cannot be changed here.
+            </p>
+            <div className="grid sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-widest text-ink/45 mb-1" htmlFor="profile-full-name">Full name</label>
+                <input id="profile-full-name" data-testid="profile-full-name" value={details.full_name}
+                  onChange={(e) => setDetails((d) => ({ ...d, full_name: e.target.value }))}
+                  className="w-full border-2 border-ink/15 rounded-lg px-3 py-2.5 text-sm" autoComplete="name" />
+              </div>
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-widest text-ink/45 mb-1" htmlFor="profile-email">Email</label>
+                <input id="profile-email" data-testid="profile-email" type="email" value={details.email}
+                  onChange={(e) => setDetails((d) => ({ ...d, email: e.target.value }))}
+                  className="w-full border-2 border-ink/15 rounded-lg px-3 py-2.5 text-sm" autoComplete="email" />
+              </div>
+            </div>
+            {detailsMsg && (
+              <p className={`text-sm font-bold mt-3 ${detailsMsg.ok ? "text-emerald-700" : "text-destructive"}`}
+                 data-testid="profile-details-msg" role="status">
+                {detailsMsg.text}
+              </p>
+            )}
+            <button type="submit" disabled={savingDetails} data-testid="profile-details-save"
+              className="btn-copper inline-flex items-center gap-2 mt-4 disabled:opacity-50">
+              {savingDetails ? "Saving…" : "Save changes"}
+            </button>
+          </form>
 
           <div className="grid lg:grid-cols-3 gap-6">
             <div className="lg:col-span-2 space-y-6">
@@ -1487,10 +1569,17 @@ export default function UnifiedProfile() {
                   <Edit3 className="w-3.5 h-3.5" /> Edit
                 </button>
               )}
-              {canAccess(user, "resource_hub") && (
-                <button onClick={() => setActiveTab("resources")} className="flex items-center gap-1.5 text-xs font-bold border border-ink/20 px-3 py-1.5 rounded-full hover:border-copper transition-colors" title="Resource Hub">
-                  <Briefcase className="w-3.5 h-3.5" /> Resources
+              {canAccess(user, "resource_hub") ? (
+                <button onClick={() => setActiveTab("resources")} data-testid="profile-resources-open"
+                  className="flex items-center gap-1.5 text-xs font-bold border-2 border-copper text-copper px-3 py-1.5 rounded-full hover:bg-copper/10 transition-colors" title="Resource Hub">
+                  <Briefcase className="w-3.5 h-3.5" /> Resource Hub
                 </button>
+              ) : (
+                <Link to="/plans" data-testid="profile-resources-locked"
+                  className="flex items-center gap-1.5 text-xs font-bold border border-ink/20 text-ink/55 px-3 py-1.5 rounded-full hover:border-copper hover:text-copper transition-colors"
+                  title="Resource Hub — grants, fundraising and business resources">
+                  <Lock className="w-3.5 h-3.5" /> Resource Hub
+                </Link>
               )}
             </div>
           </div>

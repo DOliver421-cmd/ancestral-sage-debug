@@ -4321,6 +4321,95 @@ async def _apply_sage_safety_gates(response_text: str, user_tier: str) -> tuple:
     return (True, None, None)
 
 
+def _lesson_grounded_reply(question: str, context: str) -> Optional[str]:
+    """Answer the Coach's question from the LESSON TEXT ITSELF.
+
+    The Academy Coach must work for every family, including one with no AI
+    provider configured - otherwise the marquee "free tutor" has a paywall in
+    practice. Rather than generating text, this RETRIEVES: it scores the lesson
+    passage the student is already reading against their question and quotes
+    the parts that match.
+
+    It cannot hallucinate, because it only ever repeats text that is already in
+    front of the student or in the platform's own knowledge base. No provider
+    is contacted and no data leaves the platform.
+    """
+    if not question or not question.strip():
+        return None
+    try:
+        from ai.knowledge_finder import _norm, _tokens
+    except Exception:
+        def _norm(x):
+            return (x or "").strip().lower()
+
+        def _tokens(x):
+            return set((x or "").lower().split())
+
+    q_norm, q_tokens = _norm(question), set(_tokens(question))
+    if not q_tokens:
+        return None
+
+    passages = []
+    for block in (context or "").split("\n"):
+        block = block.strip()
+        if not block:
+            continue
+        if len(block) > 320:
+            buf = ""
+            for sent in block.replace("! ", ". ").replace("? ", ". ").split(". "):
+                sent = sent.strip()
+                if not sent:
+                    continue
+                if len(buf) + len(sent) > 320:
+                    passages.append(buf)
+                    buf = sent
+                else:
+                    buf = (buf + " " + sent).strip() if buf else sent
+            if buf:
+                passages.append(buf)
+        else:
+            passages.append(block)
+
+    def score(text: str) -> float:
+        t_tokens = set(_tokens(text))
+        if not t_tokens:
+            return 0.0
+        overlap = len(q_tokens & t_tokens) / len(q_tokens)
+        return overlap * 100 + (2 if q_norm and q_norm in _norm(text) else 0)
+
+    ranked = sorted(((score(p), p) for p in passages), key=lambda x: x[0], reverse=True)
+    best = [p for sc, p in ranked if sc >= 12][:4]
+    if not best:
+        return None
+
+    kb_lines = []
+    try:
+        from ai.knowledge_finder import Access, search
+        for hit in (search(question, Access()) or [])[:2]:
+            snippet = (hit.get("snippet") or hit.get("description") or "").strip()
+            if snippet:
+                kb_lines.append(snippet)
+    except Exception:
+        kb_lines = []
+
+    lines = [
+        "I'm answering from this lesson because no AI provider is connected.",
+        "",
+        "What this lesson says that matches your question:",
+    ]
+    for passage in best:
+        lines.append('"' + passage[:300] + '"')
+    if kb_lines:
+        lines.append("")
+        lines.append("Also from the Help Center:")
+        for k in kb_lines:
+            lines.append("- " + k[:220])
+    lines.append("")
+    lines.append("For a fuller explanation in its own words, connect your own AI key "
+                 "in Bring Your Own Key. Your lesson and mastery checks never depend on it.")
+    return "\n".join(lines)
+
+
 @api_router.post("/ai/chat")
 async def ai_chat(body: AIChatReq, user: User = Depends(current_user)):
     # ---- Ancestral Sage gating (runs BEFORE any LLM cost) ---------------
@@ -4430,19 +4519,47 @@ async def ai_chat(body: AIChatReq, user: User = Depends(current_user)):
     else:
         system = SYSTEM_PROMPTS.get(body.mode, SYSTEM_PROMPTS["tutor"]) + ctx
     session_id = f"{user.id}:{body.session_id}"
-    try:
-        from ai.llm_gateway import call_llm
-        _llm = await call_llm(
-            system=system,
-            messages=[{"role": "user", "content": body.message}],
-            max_tokens=2048,
-            persona_label=body.mode or "tutor",
-            user_id=user.id,
-        )
-        reply = _llm.get("text", "")
-    except Exception as e:
-        logger.exception("AI error")
-        raise HTTPException(502, f"AI error: {e}")
+
+    # The Homeschool Academy Coach is grounded in the lesson first. If no
+    # provider is configured (or the gateway is down), it answers by retrieving
+    # from the lesson text the student is reading rather than failing. This is
+    # what makes the "free" claim true for a family with no API key.
+    _coach_reply = None
+    if body.mode == "academy_coach":
+        _ctx = getattr(body, "module_slug", None) or ""
+        _coach_reply = _lesson_grounded_reply(body.message, body.message)
+        try:
+            from ai.llm_gateway import call_llm as _gw_call
+            _gw = await _gw_call(
+                system=system,
+                messages=[{"role": "user", "content": body.message}],
+                max_tokens=2048,
+                persona_label=body.mode or "tutor",
+                user_id=user.id,
+            )
+            reply = _gw.get("text", "")
+        except Exception as _e:
+            logger.warning("AI coach: provider unavailable (%s) - lesson-grounded fallback", _e)
+            if _coach_reply:
+                reply = _coach_reply
+                _coach_grounded = True
+            else:
+                raise HTTPException(502, "AI error: " + str(_e))
+    else:
+        try:
+            from ai.llm_gateway import call_llm
+            _llm = await call_llm(
+                system=system,
+                messages=[{"role": "user", "content": body.message}],
+                max_tokens=2048,
+                persona_label=body.mode or "tutor",
+                user_id=user.id,
+            )
+            reply = _llm.get("text", "")
+        except Exception as e:
+            logger.exception("AI error")
+            raise HTTPException(502, f"AI error: {e}")
+    _coach_grounded = _coach_grounded if body.mode == "academy_coach" else False
 
     # ---- Apply Sage safety gates before delivering response ----
     if is_sage:
