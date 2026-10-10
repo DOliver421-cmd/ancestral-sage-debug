@@ -8,7 +8,7 @@ ASCENSION_PROTOCOLS = {
     "subject_label": "Ascension Protocols",
     "track": "foundations",
     "tracks": ["foundations", "scholar"],
-    "grades": ["Adult"],
+    "grades": ["adult"],
     "grade_label": "Adult",
     "status": "published",
     "audience": "Adult learners; open-access practice.",
