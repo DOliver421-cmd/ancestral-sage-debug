@@ -1,9 +1,9 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../../lib/api";
 import { useAuth } from "../../lib/auth";
 import AppShell from "../../components/AppShell";
-import { TrackTag, ProgressBar, errorMessage } from "./academyKit";
+import { TrackTag, ProgressBar } from "./academyKit";
 import {
   GraduationCap, UserPlus, ArrowRight, FileText, Trash2, RefreshCw,
   AlertTriangle, CheckCircle2, Users, Sparkles, BookOpen, ShieldCheck,
@@ -31,15 +31,6 @@ export default function AcademyParentHome() {
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
-  const [catalog, setCatalog] = useState([]);
-
-  // Published course cards (public endpoint) so the form can say — before the
-  // parent commits — how many courses this grade + track will actually pull in.
-  useEffect(() => {
-    api.get("/academy/courses")
-      .then((r) => setCatalog((r.data?.courses || []).filter((c) => c.status === "published")))
-      .catch(() => {});
-  }, []);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -55,7 +46,7 @@ export default function AcademyParentHome() {
         ));
         setSummaries(sums);
       })
-      .catch((err) => setError(errorMessage(err, "Could not load your students. Try again.")))
+      .catch(() => setError("Could not load your students. Try again."))
       .finally(() => setLoading(false));
   }, []);
 
@@ -66,14 +57,12 @@ export default function AcademyParentHome() {
     setBusy(true); setError(""); setNotice("");
     try {
       const r = await api.post("/academy/students", form);
-      const trackName = TRACK_OPTIONS.find((t) => t.key === form.track)?.name || form.track;
-      const gradeName = form.grade === "K" ? "Kindergarten" : form.grade === "adult" ? "Adult" : "Grade " + form.grade;
-      setNotice(`Added ${form.name} — enrolled in ${r.data.auto_enrolled.length} course${r.data.auto_enrolled.length === 1 ? "" : "s"} for ${gradeName} · ${trackName}.`);
+      setNotice(`Added ${form.name} — enrolled in ${r.data.auto_enrolled.length} course${r.data.auto_enrolled.length === 1 ? "" : "s"} for ${form.grade === "K" ? "Kindergarten" : form.grade === "adult" ? "Adult" : "Grade " + form.grade} ${form.track}.`);
       setForm({ name: "", grade: "1", track: "foundations" });
       setAdding(false);
       load();
     } catch (err) {
-      setError(errorMessage(err, "Could not add this student."));
+      setError(err?.response?.data?.detail || "Could not add this student.");
     } finally { setBusy(false); }
   };
 
@@ -176,7 +165,6 @@ export default function AcademyParentHome() {
               </label>
             </div>
             <p className="text-xs text-ink/50 mt-2">{TRACK_OPTIONS.find((t) => t.key === form.track)?.desc}</p>
-            <FitHint catalog={catalog} grade={form.grade} track={form.track} />
             <button type="submit" disabled={busy} className="mt-4 inline-flex items-center gap-2 px-6 py-2.5 bg-signal text-ink font-black rounded-lg hover:bg-signal/85 transition-colors disabled:opacity-50" data-testid="academy-add-submit">
               {busy ? "Adding…" : "Add student & auto-enroll"} <ArrowRight className="w-4 h-4" />
             </button>
@@ -273,32 +261,5 @@ function Stat({ label, value }) {
       <div className="font-heading text-lg font-black text-ink">{value}</div>
       <div className="text-[10px] font-bold uppercase tracking-wider text-ink/45">{label}</div>
     </div>
-  );
-}
-
-/* Tells the truth about auto-enrollment before they press the button:
-   exactly how many published courses fit this grade + track, and a warning
-   when the answer is zero (adult tracks are only offered at grade Adult). */
-function FitHint({ catalog, grade, track }) {
-  const matched = useMemo(
-    () => (catalog || []).filter(
-      (c) => (c.grades || []).includes(grade) && (c.tracks || []).includes(track)
-    ),
-    [catalog, grade, track]
-  );
-  if (!catalog || catalog.length === 0) return null;
-  const label = grade === "K" ? "Kindergarten" : grade === "adult" ? "Adult" : `Grade ${grade}`;
-  if (matched.length === 0) {
-    return (
-      <p className="text-xs font-bold text-amber-700 mt-2" data-testid="academy-fit-zero">
-        No published courses fit {label} on this track yet — the student can still be added, but
-        they won&apos;t have lessons until matching curriculum ships.
-      </p>
-    );
-  }
-  return (
-    <p className="text-xs font-bold text-emerald-700 mt-2" data-testid="academy-fit-ok">
-      {matched.length} published course{matched.length === 1 ? "" : "s"} will be enrolled for {label}.
-    </p>
   );
 }

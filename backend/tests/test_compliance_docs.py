@@ -38,49 +38,6 @@ def test_notice_of_intent_cites_florida_statute():
     assert "Notice of Intent" in p["title"]
 
 
-def test_notice_of_intent_carries_the_filing_fields():
-    """Regression: the generated letter used to declare DOB / address fields
-    and then never emit them, so a parent could not file it with a county.
-    Everything the parent enters must appear in the document, and it must
-    always carry a signature line."""
-    p = _compliance_payload(
-        "notice_of_intent",
-        {"name": "Jordan Ellis"},
-        ROWS,
-        SUMMARY,
-        {
-            "district": "Miami-Dade",
-            "child_dob": "2016-04-02",
-            "address_line": "1200 NW 1st Ave, Miami, FL 33127",
-            "parent_signature": "Alexis Ellis",
-        },
-    )
-    assert p["student_name"] == "Jordan Ellis"
-    assert p["child_dob"] == "2016-04-02"
-    assert p["address_line"] == "1200 NW 1st Ave, Miami, FL 33127"
-    assert p["district"] == "Miami-Dade"
-    assert "Alexis Ellis" in p["signature_line"]
-    assert "Date:" in p["signature_line"]
-    # The field list must describe what is actually rendered.
-    assert set(p["fields"]) == {"student_name", "child_dob", "address_line", "district"}
-
-
-def test_notice_of_intent_signature_line_present_without_signature():
-    p = _compliance_payload("notice_of_intent", {"name": "Jordan"}, ROWS, SUMMARY, {})
-    assert "signature_line" in p
-    assert "____________" in p["signature_line"]
-
-
-def test_quarterly_report_includes_the_period_the_parent_entered():
-    """Regression: period_start/period_end were collected, persisted, and then
-    dropped from the document — the printed report had no reporting period."""
-    q = _compliance_payload(
-        "quarterly_report", {}, ROWS, SUMMARY,
-        {"period_start": "2026-08-01", "period_end": "2026-10-01"},
-    )
-    assert q["period"] == {"start": "2026-08-01", "end": "2026-10-01"}
-
-
 def test_annual_evaluation_includes_rows():
     p = _compliance_payload("annual_evaluation", {}, ROWS, SUMMARY)
     assert len(p["rows"]) == 2

@@ -125,11 +125,7 @@ class StudentCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
     name: str = Field(min_length=1, max_length=120)
     grade: str = Field(min_length=1, max_length=2)
-    # Every track the catalog actually ships (TRACK_KEYS). Kept as `str` with
-    # an explicit check in the handler so an unknown track returns a readable
-    # 400 string — not a pydantic 422 detail array, which the client cannot
-    # render (it crashes the page with "Objects are not valid as a React child").
-    track: str = Field(min_length=1, max_length=40)
+    track: Literal["foundations", "builder", "artist", "scholar"]
     notes: Optional[str] = Field(default=None, max_length=500)
 
 
@@ -137,7 +133,7 @@ class StudentUpdate(BaseModel):
     model_config = ConfigDict(extra="forbid")
     name: Optional[str] = Field(default=None, min_length=1, max_length=120)
     grade: Optional[str] = Field(default=None, min_length=1, max_length=2)
-    track: Optional[str] = Field(default=None, min_length=1, max_length=40)
+    track: Optional[Literal["foundations", "builder", "artist", "scholar"]] = None
     notes: Optional[str] = Field(default=None, max_length=500)
     status: Optional[Literal["active", "archived"]] = None
 
@@ -495,7 +491,7 @@ async def create_student(body: StudentCreate, user=Depends(_dep_current_user)):
     if body.grade not in GRADES:
         raise HTTPException(400, f"grade must be one of {', '.join(GRADES)}")
     if body.track not in TRACK_KEYS:
-        raise HTTPException(400, f"track must be one of {', '.join(TRACK_KEYS)}")
+        raise HTTPException(400, "track must be foundations, builder, artist, or scholar")
 
     courses = await db.academy_courses.find({}, {"_id": 0}).to_list(300)
     enrolled = [c["slug"] for c in recommended_courses(courses, body.grade, body.track)]
@@ -539,8 +535,6 @@ async def update_student(student_id: str, body: StudentUpdate, user=Depends(_dep
             raise HTTPException(400, f"grade must be one of {', '.join(GRADES)}")
         update["grade"] = body.grade
     if body.track is not None and body.track != student.get("track"):
-        if body.track not in TRACK_KEYS:
-            raise HTTPException(400, f"track must be one of {', '.join(TRACK_KEYS)}")
         update["track"] = body.track
     if "grade" in update or "track" in update:
         # Recompute the recommended enrollment set for the new grade/track,
@@ -1027,11 +1021,6 @@ class ComplianceDoc(BaseModel):
     notes: Optional[str] = Field(default=None, max_length=4000)
     period_start: Optional[str] = Field(default=None, max_length=10)
     period_end: Optional[str] = Field(default=None, max_length=10)
-    # Notice of Intent requires the child's date of birth and the parent's
-    # home address (s. 1002.41, F.S.). Collected here so the generated letter
-    # is something a county district can actually file.
-    child_dob: Optional[str] = Field(default=None, max_length=40)
-    address_line: Optional[str] = Field(default=None, max_length=200)
 
 
 _COMPLIANCE_DISCLAIMER = (
@@ -1043,19 +1032,8 @@ _COMPLIANCE_DISCLAIMER = (
 )
 
 
-def _compliance_payload(kind: str, student: dict, rows: list, summary: dict, record: Optional[dict] = None) -> dict:
-    """Build the content body for each doc kind from real Academy records.
-
-    `record` is the persisted document (school year, period, district, child
-    DOB, address). Fields the parent supplied are echoed back so the
-    generated document is complete and fileable — a Notice of Intent without
-    a date of birth and address is not a filing.
-    """
-    rec = record or {}
-    student_name = (student or {}).get("name") or ""
-    child_dob = rec.get("child_dob") or None
-    address_line = rec.get("address_line") or None
-    district = rec.get("district") or None
+def _compliance_payload(kind: str, student: dict, rows: list, summary: dict) -> dict:
+    """Build the content body for each doc kind from real Academy records."""
     if kind == "notice_of_intent":
         return {
             "title": "Notice of Intent to Establish a Home Education Program",
@@ -1068,23 +1046,14 @@ def _compliance_payload(kind: str, student: dict, rows: list, summary: dict, rec
                 "records and materials. Please enroll the student in your district's "
                 "home education program."
             ),
-            "student_name": student_name,
-            "child_dob": child_dob,
-            "address_line": address_line,
-            "district": district,
-            "fields": ["student_name", "child_dob", "address_line", "district"],
-            "signature_line": (
-                f"Parent / Home Education Program Administrator: "
-                f"{rec.get('parent_signature') or '______________________'}  "
-                f"Date: ____________"
-            ),
+            "fields": ["student_name", "dob", "address_line", "district"],
         }
     if kind == "quarterly_report":
         return {
             "title": "Quarterly Progress Report",
             "statute": "IHIP-style quarterly reporting (not required by Florida s. 1002.41)",
             "body": "Progress summary for the reporting period below, generated from completed coursework and mastery records.",
-            "period": {"start": rec.get("period_start") or None, "end": rec.get("period_end") or None},
+            "period": {"start": None, "end": None},
             "rows": rows,
             "summary": summary,
         }
@@ -1172,17 +1141,7 @@ async def generate_compliance_doc(doc: ComplianceDoc, user: dict = Depends(_dep_
         "lessons_passed": sum(r["stats"]["lessons_passed"] for r in rows),
         "lessons_total": sum(r["stats"]["lessons_total"] for r in rows),
     }
-    payload = _compliance_payload(doc.kind, student, rows, summary, {
-        "school_year": doc.school_year,
-        "district": doc.district,
-        "parent_signature": doc.parent_signature,
-        "evaluator_name": doc.evaluator_name,
-        "notes": doc.notes,
-        "period_start": doc.period_start,
-        "period_end": doc.period_end,
-        "child_dob": doc.child_dob,
-        "address_line": doc.address_line,
-    })
+    payload = _compliance_payload(doc.kind, student, rows, summary)
     record = {
         "id": str(uuid.uuid4()),
         "kind": doc.kind,
@@ -1195,8 +1154,6 @@ async def generate_compliance_doc(doc: ComplianceDoc, user: dict = Depends(_dep_
         "notes": doc.notes,
         "period_start": doc.period_start,
         "period_end": doc.period_end,
-        "child_dob": doc.child_dob,
-        "address_line": doc.address_line,
         "payload": payload,
         "generated_at": _now(),
     }

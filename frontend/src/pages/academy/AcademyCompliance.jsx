@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { api } from "../../lib/api";
 import AppShell from "../../components/AppShell";
-import { errorMessage } from "./academyKit";
 import { ArrowLeft, FileText, Printer, AlertCircle, RefreshCw, ShieldCheck } from "lucide-react";
 import { WAI_LOGO } from "../../lib/brand";
 
@@ -21,18 +20,15 @@ const KINDS = [
 const YEAR = "2026-2027";
 
 export default function AcademyCompliance() {
-  const [params, setParams] = useSearchParams();
+  const [params] = useSearchParams();
   const studentId = params.get("student");
   const [students, setStudents] = useState([]);
-  const [studentsError, setStudentsError] = useState("");
   const [kind, setKind] = useState("notice_of_intent");
   const [district, setDistrict] = useState("");
   const [evaluator, setEvaluator] = useState("");
   const [notes, setNotes] = useState("");
   const [periodStart, setPeriodStart] = useState("");
   const [periodEnd, setPeriodEnd] = useState("");
-  const [childDob, setChildDob] = useState("");
-  const [addressLine, setAddressLine] = useState("");
   const [doc, setDoc] = useState(null);
   const [docs, setDocs] = useState([]);
   const [error, setError] = useState("");
@@ -42,7 +38,7 @@ export default function AcademyCompliance() {
   useEffect(() => {
     api.get("/academy/students")
       .then((r) => setStudents(r.data.students || []))
-      .catch((e) => setStudentsError(errorMessage(e, "Could not load students.")))
+      .catch(() => setError("Could not load students."))
       .finally(() => setLoading(false));
     if (studentId) {
       api.get(`/academy/compliance/docs?student_id=${studentId}`)
@@ -50,14 +46,6 @@ export default function AcademyCompliance() {
         .catch(() => {});
     }
   }, [studentId]);
-
-  // In-app navigation (no full page reload): keeps the generator, the
-  // previously generated document, and the form state intact.
-  const chooseStudent = (id) => {
-    const next = new URLSearchParams(params);
-    if (id) next.set("student", id); else next.delete("student");
-    setParams(next, { replace: true });
-  };
 
   const generate = () => {
     if (!studentId) { setError("Choose a student first."); return; }
@@ -72,17 +60,9 @@ export default function AcademyCompliance() {
       notes: notes || undefined,
       period_start: periodStart || undefined,
       period_end: periodEnd || undefined,
-      child_dob: childDob || undefined,
-      address_line: addressLine || undefined,
     })
-      .then((r) => {
-        setDoc(r.data.doc);
-        // Refresh the previously-generated list so the new document shows up.
-        return api.get(`/academy/compliance/docs?student_id=${studentId}`)
-          .then((r2) => setDocs(r2.data.docs || []))
-          .catch(() => {});
-      })
-      .catch((e) => setError(errorMessage(e, "Could not generate document.")))
+      .then((r) => setDoc(r.data.doc))
+      .catch((e) => setError(e?.response?.data?.detail || "Could not generate document."))
       .finally(() => setGenerating(false));
   };
 
@@ -128,17 +108,10 @@ export default function AcademyCompliance() {
 
           <div>
             <label className="block text-sm font-bold text-ink mb-1">Student</label>
-            <select value={studentId || ""} onChange={(e) => chooseStudent(e.target.value)} className="w-full border-2 border-ink/15 rounded-lg px-3 py-2.5 text-sm bg-white" data-testid="compliance-student-select">
+            <select value={studentId || ""} onChange={(e) => window.location.assign(`/academy/compliance?student=${e.target.value}`)} className="w-full border-2 border-ink/15 rounded-lg px-3 py-2.5 text-sm bg-white" data-testid="compliance-student-select">
               <option value="">Choose a student…</option>
               {students.map((st) => <option key={st.id} value={st.id}>{st.name}</option>)}
             </select>
-            {studentsError && <p className="text-xs font-bold text-destructive mt-1">{studentsError}</p>}
-            {!studentsError && students.length === 0 && !loading && (
-              <p className="text-xs text-ink/55 mt-1">
-                No student profiles yet.{" "}
-                <Link to="/academy/parent" className="font-bold text-copper underline">Add one from the Family Dashboard</Link>.
-              </p>
-            )}
           </div>
 
           <div>
@@ -171,18 +144,6 @@ export default function AcademyCompliance() {
                 <label className="block text-sm font-bold text-ink mb-1">Evaluator name (optional)</label>
                 <input value={evaluator} onChange={(e) => setEvaluator(e.target.value)} className="w-full border-2 border-ink/15 rounded-lg px-3 py-2.5 text-sm" />
               </div>
-            )}
-            {kind === "notice_of_intent" && (
-              <>
-                <div>
-                  <label className="block text-sm font-bold text-ink mb-1">Child&apos;s date of birth</label>
-                  <input type="date" value={childDob} onChange={(e) => setChildDob(e.target.value)} className="w-full border-2 border-ink/15 rounded-lg px-3 py-2.5 text-sm" data-testid="noi-dob" />
-                </div>
-                <div>
-                  <label className="block text-sm font-bold text-ink mb-1">Home address</label>
-                  <input value={addressLine} onChange={(e) => setAddressLine(e.target.value)} placeholder="Street, city, state, ZIP" className="w-full border-2 border-ink/15 rounded-lg px-3 py-2.5 text-sm" data-testid="noi-address" />
-                </div>
-              </>
             )}
             {kind === "quarterly_report" && (
               <>
@@ -244,18 +205,9 @@ export default function AcademyCompliance() {
               {s && (
                 <div className="mt-4 text-sm text-ink/80 grid grid-cols-2 gap-1">
                   <div><strong>Student:</strong> {s.name}</div>
-                  <div><strong>Grade:</strong> {s.grade === "K" ? "Kindergarten" : s.grade === "adult" ? "Adult" : s.grade ? `Grade ${s.grade}` : "—"}</div>
-                  {doc.payload?.child_dob && <div><strong>Date of birth:</strong> {doc.payload.child_dob}</div>}
+                  <div><strong>Grade:</strong> {s.grade || s.grade_label || "—"}</div>
                   {doc.district && <div><strong>District:</strong> {doc.district}</div>}
-                  {doc.payload?.address_line && <div><strong>Home address:</strong> {doc.payload.address_line}</div>}
                   {doc.evaluator_name && <div><strong>Evaluator:</strong> {doc.evaluator_name}</div>}
-                </div>
-              )}
-
-              {/* Reporting period — the parent sets it, so the document must show it */}
-              {doc.payload?.period && (
-                <div className="mt-4 text-sm text-ink/80">
-                  <strong>Reporting period:</strong> {doc.payload.period.start || "—"} to {doc.payload.period.end || "—"}
                 </div>
               )}
 
@@ -275,7 +227,7 @@ export default function AcademyCompliance() {
                         <td className="py-2 font-bold text-ink">{r.course_title}</td>
                         <td className="py-2">{r.subject_label || r.subject || "—"}</td>
                         <td className="py-2">{r.stats ? `${r.stats.lessons_passed}/${r.stats.lessons_total}` : "—"}</td>
-                        <td className="py-2">{r.status ? r.status.replace(/_/g, " ") : "planned"}</td>
+                        <td className="py-2">{r.status?.replace("_", " ")}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -312,7 +264,6 @@ export default function AcademyCompliance() {
               )}
 
               {doc.payload?.signature_line && <div className="mt-6 text-sm text-ink/80">{doc.payload.signature_line}</div>}
-              {doc.notes && <div className="mt-4 text-sm text-ink/70"><strong>Notes:</strong> {doc.notes}</div>}
 
               <div className="mt-6 pt-4 border-t border-ink/10 text-xs text-ink/45 leading-relaxed">{doc.disclaimer}</div>
             </div>

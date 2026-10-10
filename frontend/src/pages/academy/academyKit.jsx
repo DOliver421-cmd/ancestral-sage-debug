@@ -4,23 +4,6 @@ import { HelpCircle, Globe, LogIn, UserPlus, ArrowRight, ArrowLeft, Home, Gradua
 
 /* Shared presentational helpers for the Academy pages. */
 
-/* API errors arrive either as a readable `detail` string (HTTPException) or,
-   for a validation failure, as a `detail` array of objects. Rendering that
-   array raw crashes the page ("Objects are not valid as a React child"), so
-   every Academy page funnels errors through here first. */
-export function errorMessage(err, fallback = "Something went wrong. Please try again.") {
-  const detail = err?.response?.data?.detail;
-  if (typeof detail === "string" && detail.trim()) return detail;
-  if (Array.isArray(detail) && detail.length) {
-    const first = detail[0];
-    const where = Array.isArray(first?.loc) ? first.loc[first.loc.length - 1] : null;
-    const text = first?.msg || first?.message;
-    return where && text ? `${text} (${where})` : (text || fallback);
-  }
-  if (typeof err?.message === "string" && err.message.trim()) return err.message;
-  return fallback;
-}
-
 export const TRACK_META = {
   foundations: { name: "Foundations", grade: "K–8", tone: "copper" },
   builder: { name: "Builder / Trade", grade: "6–12", tone: "amber" },

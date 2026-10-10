@@ -22,7 +22,7 @@ HANDBOOK_ADULT = {
     "subject_label": "Adult Education",
     "track": "adult_ed",
     "tracks": ["adult_ed", "life_skills", "career", "leadership", "entrepreneurship"],
-    "grades": ["adult"],
+    "grades": ["Adult"],
     "grade_label": "Adult learners",
     "status": "published",
     "audience": "Adults returning to learning — HSE prep, career change, trade study, or business.",

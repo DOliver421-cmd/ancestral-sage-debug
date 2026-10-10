@@ -1,8 +1,6 @@
-import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../lib/auth";
 import { BRAND, WAI_LOGO } from "../lib/brand";
-import { api } from "../lib/api";
 import PublicNav from "../components/PublicNav";
 import SharePanel from "../components/SharePanel";
 import { PublicHelper } from "./Helper";
@@ -37,45 +35,6 @@ function TierBadge({ tier }) {
       {paid && <Lock className="w-2.5 h-2.5" />}
       {s.label}
     </span>
-  );
-}
-
-/* Academy stat tiles are counted from the LIVE catalog, never hardcoded —
-   a stale "54 courses / 4 tracks" claim on a marketing page is a lie the
-   owner has to answer for. Falls back to "…" until the API answers. */
-function AcademyStats() {
-  const [stats, setStats] = useState(null);
-
-  useEffect(() => {
-    let alive = true;
-    api.get("/academy/courses")
-      .then((r) => {
-        const published = (r.data?.courses || []).filter((c) => c.status === "published");
-        const handbooks = published.filter((c) => (c.slug || "").startsWith("handbook-")).length;
-        const tracks = new Set(published.map((c) => c.track).filter(Boolean));
-        const lessons = published.reduce((a, c) => a + (c.lesson_count || 0), 0);
-        if (alive) setStats({ courses: published.length, handbooks, tracks: tracks.size, lessons });
-      })
-      .catch(() => {});
-    return () => { alive = false; };
-  }, []);
-
-  const tiles = [
-    { n: stats ? String(stats.courses) : "…", label: "Courses" },
-    { n: stats ? String(stats.handbooks) : "…", label: "Handbooks" },
-    { n: stats ? String(stats.lessons) : "…", label: "Lessons" },
-    { n: stats ? String(stats.tracks) : "…", label: "Tracks" },
-  ];
-
-  return (
-    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-      {tiles.map(({ n, label }) => (
-        <div key={label} className="rounded-xl p-4 border" style={{ borderColor: "#d9d0c4", background: "#fff" }}>
-          <div style={{ fontFamily: "'Cabinet Grotesk',sans-serif", fontSize: "1.8rem", fontWeight: 900, color: "#8a5a00", lineHeight: 1 }}>{n}</div>
-          <div style={{ fontSize: 12, color: "#4a4238", marginTop: 2, textTransform: "uppercase", letterSpacing: "0.1em" }}>{label}</div>
-        </div>
-      ))}
-    </div>
   );
 }
 
@@ -214,9 +173,9 @@ export default function UnifiedGateway() {
                 <span style={{ color: "#8a5a00" }}>done right.</span>
               </h2>
               <p style={{ fontSize: "clamp(0.95rem, 1.8vw, 1.15rem)", color: "#3f3a34", maxWidth: 540, lineHeight: 1.7, marginBottom: "1.5rem" }}>
-                Sequenced K–12 and adult courses · free student handbooks · embedded
-                educational videos · Bright Futures transcript builder · compliance tools.
-                Every course free to browse and enroll.
+                54 courses · 4 student handbooks · embedded educational videos ·
+                Bright Futures transcript builder · compliance tools.
+                K–12 and adult — every course free to browse and enroll.
               </p>
 
               <div className="flex flex-wrap gap-3 mb-10">
@@ -225,14 +184,26 @@ export default function UnifiedGateway() {
                   style={{ background: "#8a5a00", color: "#fff", fontSize: 15 }}>
                   Explore the Academy <ArrowRight size={16} />
                 </Link>
-                <Link to="/academy/curriculum"
+                <Link to="/academy/courses"
                   className="inline-flex items-center gap-2 font-bold text-sm px-6 py-4 rounded-xl border"
                   style={{ borderColor: "rgba(154,101,0,0.45)", color: "#7a4d00", background: "#fff", fontSize: 15 }}>
-                  Browse the curriculum
+                  Browse All Courses
                 </Link>
               </div>
 
-              <AcademyStats />
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                {[
+                  { n: "54", label: "Courses" },
+                  { n: "4", label: "Handbooks" },
+                  { n: "40", label: "Videos" },
+                  { n: "4", label: "Tracks" },
+                ].map(({ n, label }) => (
+                  <div key={label} className="rounded-xl p-4 border" style={{ borderColor: "#d9d0c4", background: "#fff" }}>
+                    <div style={{ fontFamily: "'Cabinet Grotesk',sans-serif", fontSize: "1.8rem", fontWeight: 900, color: "#8a5a00", lineHeight: 1 }}>{n}</div>
+                    <div style={{ fontSize: 12, color: "#4a4238", marginTop: 2, textTransform: "uppercase", letterSpacing: "0.1em" }}>{label}</div>
+                  </div>
+                ))}
+              </div>
             </div>
 
             <div className="rounded-2xl overflow-hidden border" style={{ borderColor: "#d9d0c4", background: "#fff", boxShadow: "0 20px 60px rgba(0,0,0,0.08)" }}>

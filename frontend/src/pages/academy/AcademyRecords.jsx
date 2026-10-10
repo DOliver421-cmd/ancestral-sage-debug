@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { api } from "../../lib/api";
 import AppShell from "../../components/AppShell";
-import { TrackTag, errorMessage } from "./academyKit";
+import { TrackTag } from "./academyKit";
 import { ArrowLeft, FileText, Printer, AlertCircle, RefreshCw } from "lucide-react";
 import { WAI_LOGO } from "../../lib/brand";
 
@@ -10,44 +10,19 @@ import { WAI_LOGO } from "../../lib/brand";
    progress documentation. Explicitly not a legal transcript. */
 
 export default function AcademyRecords() {
-  const [params, setParams] = useSearchParams();
+  const [params] = useSearchParams();
   const studentId = params.get("student");
-  const [students, setStudents] = useState([]);
-  const [loadError, setLoadError] = useState("");
   const [rec, setRec] = useState(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Always load the student list so a missing ?student= is a chooser, not a
-    // dead end.
-    api.get("/academy/students")
-      .then((r) => setStudents((r.data?.students || []).filter((s) => s.status === "active")))
-      .catch((e) => setLoadError(errorMessage(e, "Could not load your students.")));
-    if (!studentId) { setError(""); setLoading(false); return; }
+    if (!studentId) { setError("Choose a student to view records."); setLoading(false); return; }
     api.get(`/academy/students/${studentId}/records`)
       .then((r) => setRec(r.data))
-      .catch((e) => setError(errorMessage(e, "Could not load records.")))
+      .catch((e) => setError(e?.response?.data?.detail || "Could not load records."))
       .finally(() => setLoading(false));
   }, [studentId]);
-
-  const chooseStudent = (id) => {
-    setRec(null);
-    setError("");
-    const next = new URLSearchParams(params);
-    if (id) next.set("student", id); else next.delete("student");
-    setParams(next, { replace: true });
-  };
-
-  const retry = () => {
-    if (!studentId) return;
-    setLoading(true);
-    setError("");
-    api.get(`/academy/students/${studentId}/records`)
-      .then((r) => setRec(r.data))
-      .catch((e) => setError(errorMessage(e, "Could not load records.")))
-      .finally(() => setLoading(false));
-  };
 
   const s = rec?.student;
   const fmt = (iso) => {
@@ -71,40 +46,7 @@ export default function AcademyRecords() {
         {loading && <p className="max-w-4xl py-12 flex items-center gap-2 text-ink/45"><RefreshCw className="w-4 h-4 animate-spin" /> Loading records…</p>}
         {error && (
           <div className="max-w-4xl py-12">
-            <div className="card-flat p-8 flex items-start gap-3 border-destructive/30 bg-destructive/5 text-destructive">
-              <AlertCircle className="w-5 h-5 shrink-0" />
-              <div className="flex-1">{error}</div>
-              {studentId && <button onClick={retry} className="underline font-bold">Retry</button>}
-            </div>
-          </div>
-        )}
-
-        {/* Student chooser — rendered whenever no student is selected (or after a
-            failed load), so the page can always be driven from here. */}
-        {!studentId && !loading && (
-          <div className="max-w-4xl mt-6 card-flat bg-white border border-ink/10 p-6">
-            <label className="block text-sm font-bold text-ink mb-1" htmlFor="records-student">
-              Which student&apos;s records?
-            </label>
-            <select
-              id="records-student"
-              className="w-full border-2 border-ink/15 rounded-lg px-3 py-2.5 text-sm bg-white"
-              value=""
-              onChange={(e) => chooseStudent(e.target.value)}
-              data-testid="records-student-select"
-            >
-              <option value="">Choose a student…</option>
-              {students.map((st) => (
-                <option key={st.id} value={st.id}>{st.name}</option>
-              ))}
-            </select>
-            {students.length === 0 && !loadError && (
-              <p className="text-sm text-ink/55 mt-3">
-                No student profiles yet.{" "}
-                <Link to="/academy/parent" className="font-bold text-copper underline">Add one from the Family Dashboard</Link>.
-              </p>
-            )}
-            {loadError && <p className="text-sm font-bold text-destructive mt-3">{loadError}</p>}
+            <div className="card-flat p-8 flex items-start gap-3 border-destructive/30 bg-destructive/5 text-destructive"><AlertCircle className="w-5 h-5 shrink-0" /> {error}</div>
           </div>
         )}
 

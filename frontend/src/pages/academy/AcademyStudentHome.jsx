@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { api } from "../../lib/api";
 import AppShell from "../../components/AppShell";
-import { TrackTag, ProgressBar, errorMessage } from "./academyKit";
+import { TrackTag, ProgressBar } from "./academyKit";
 import { ArrowRight, BookOpen, CheckCircle2, FileText, PlayCircle, RefreshCw, Sparkles, Target } from "lucide-react";
 
 /* /academy/student/:studentId — the learner's view.
@@ -29,7 +29,7 @@ export default function AcademyStudentHome() {
         }
         api.get(`/academy/students/${chosen.id}/dashboard`)
           .then((d) => setDash(d.data))
-          .catch((e) => setError(errorMessage(e, "Could not load this student.")))
+          .catch((e) => setError(e?.response?.data?.detail || "Could not load this student."))
           .finally(() => setLoading(false));
       })
       .catch(() => { setError("auth"); setLoading(false); });
