@@ -16,16 +16,16 @@ from tests.test_academy_api import _auth, _add_student, client  # noqa: E402
 PROJECT_KINDS = {"family_history", "research", "creative", "performance", "build", "business"}
 
 
-def test_kinds_endpoint_is_open_to_members():
+def test_kinds_endpoint_is_open_to_members(client):
     r = client.get("/api/academy/projects/kinds")
     assert r.status_code == 200
     kinds = {k["id"] for k in r.json()["kinds"]}
     assert PROJECT_KINDS <= kinds, f"missing kinds: {PROJECT_KINDS - kinds}"
     assert len(r.json()["family_history_steps"]) >= 5
-    assert "Private to this family account" in r.json()["note"]
+    assert "private to the family account" in r.json()["note"].lower()
 
 
-def test_family_history_project_seeds_the_pathway():
+def test_family_history_project_seeds_the_pathway(client):
     sid = _add_student(client, "fh1")
     r = client.post("/api/academy/projects", headers=_auth(),
                     json={"student_id": sid, "title": "Our family's move", "kind": "family_history"})
@@ -38,7 +38,7 @@ def test_family_history_project_seeds_the_pathway():
     assert p["progress_pct"] == 0
 
 
-def test_artifacts_mark_steps_done_and_reopen_when_cleared():
+def test_artifacts_mark_steps_done_and_reopen_when_cleared(client):
     sid = _add_student(client, "fh2")
     pid = client.post("/api/academy/projects", headers=_auth(),
                       json={"student_id": sid, "title": "Pathway", "kind": "family_history"}).json()["project"]["id"]
@@ -56,7 +56,7 @@ def test_artifacts_mark_steps_done_and_reopen_when_cleared():
     assert {s["id"]: s for s in r.json()["project"]["steps"]}["interview"]["done"] is False
 
 
-def test_artifacts_only_accept_steps_of_that_project():
+def test_artifacts_only_accept_steps_of_that_project(client):
     """A project's record can only be written through its own steps: foreign
     keys, non-text values, and oversized values are dropped."""
     sid = _add_student(client, "fh3")
@@ -73,7 +73,7 @@ def test_artifacts_only_accept_steps_of_that_project():
     assert all(s["id"] != "not-a-step" for s in r.json()["project"]["steps"])
 
 
-def test_submit_requires_complete_steps():
+def test_submit_requires_complete_steps(client):
     sid = _add_student(client, "fh4")
     pid = client.post("/api/academy/projects", headers=_auth(),
                       json={"student_id": sid, "title": "Incomplete", "kind": "family_history"}).json()["project"]["id"]
@@ -82,7 +82,7 @@ def test_submit_requires_complete_steps():
     assert "Add the missing work first" in r.json()["detail"]
 
 
-def test_submit_moves_the_project_into_the_portfolio():
+def test_submit_moves_the_project_into_the_portfolio(client):
     sid = _add_student(client, "fh5")
     pid = client.post("/api/academy/projects", headers=_auth(),
                       json={"student_id": sid, "title": "Complete", "kind": "family_history",
@@ -102,7 +102,7 @@ def test_submit_moves_the_project_into_the_portfolio():
     assert "Private to this family account" in port.json()["privacy"]
 
 
-def test_portfolio_excludes_unsubmitted_projects():
+def test_portfolio_excludes_unsubmitted_projects(client):
     sid = _add_student(client, "fh6")
     client.post("/api/academy/projects", headers=_auth(),
                 json={"student_id": sid, "title": "Still in progress", "kind": "family_history"})
@@ -110,7 +110,7 @@ def test_portfolio_excludes_unsubmitted_projects():
     assert port.json()["entries"] == []
 
 
-def test_non_family_history_projects_have_no_steps():
+def test_non_family_history_projects_have_no_steps(client):
     sid = _add_student(client, "pb1")
     r = client.post("/api/academy/projects", headers=_auth(),
                     json={"student_id": sid, "title": "A business concept", "kind": "business",
@@ -124,7 +124,7 @@ def test_non_family_history_projects_have_no_steps():
     assert client.post(f"/api/academy/projects/{p['id']}/submit", headers=_auth()).status_code == 200
 
 
-def test_project_create_rejects_unknown_kind():
+def test_project_create_rejects_unknown_kind(client):
     sid = _add_student(client, "uk1")
     r = client.post("/api/academy/projects", headers=_auth(),
                     json={"student_id": sid, "title": "x", "kind": "not-a-kind"})
@@ -132,7 +132,7 @@ def test_project_create_rejects_unknown_kind():
     assert "kind must be one of" in r.json()["detail"]
 
 
-def test_projects_are_scoped_to_the_owning_account():
+def test_projects_are_scoped_to_the_owning_account(client):
     sid = _add_student(client, "own1", parent="u1")
     pid = client.post("/api/academy/projects", headers=_auth(),
                       json={"student_id": sid, "title": "Mine", "kind": "research"}).json()["project"]["id"]
@@ -142,14 +142,14 @@ def test_projects_are_scoped_to_the_owning_account():
     assert pid  # created fine for its owner
     # Another account cannot read, write, delete, or submit this project.
     for verb, method in (("get", "get"), ("patch", "patch"), ("delete", "delete")):
-        resp = getattr(client, method)(f"/api/academy/projects/{pid}", headers=_auth("someone_else"),
-                                       json={} if method != "get" else None)
+        kwargs = {"json": {"notes": "not yours"}} if method == "patch" else {}
+        resp = getattr(client, method)(f"/api/academy/projects/{pid}", headers=_auth("someone_else"), **kwargs)
         assert resp.status_code in (403, 404), f"{verb} leaked across accounts"
     assert client.post(f"/api/academy/projects/{pid}/submit", headers=_auth("someone_else")).status_code in (403, 404)
     # The owner still can.
     assert client.get(f"/api/academy/projects/{pid}", headers=_auth()).status_code == 200
 
 
-def test_projects_require_authentication():
+def test_projects_require_authentication(client):
     sid = _add_student(client, "anon1")
     assert client.post("/api/academy/projects", json={"student_id": sid, "title": "x", "kind": "research"}).status_code == 401

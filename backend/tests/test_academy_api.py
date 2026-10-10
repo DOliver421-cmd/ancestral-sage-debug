@@ -179,6 +179,9 @@ def _fake_db():
         _course("elec-9", grades=["9", "10"], tracks=["builder"], subject="trade", track="builder"),
         _course("bio-9", grades=["9"], tracks=["scholar", "foundations"], subject="science", track="scholar", lessons=2),
         _course("planned-course", status="planned", grades=["7"], tracks=["foundations"], lessons=0),
+        # An adult-track course, so adult learner creation is proven to enroll.
+        _course("adult-ed-ela", grades=["adult"], tracks=["adult_ed"], subject="ela",
+                track="adult_ed", title="Adult Ed ELA"),
     ]
     return SimpleNamespace(
         academy_courses=_FakeCollection(courses),
@@ -231,7 +234,7 @@ def test_public_catalog_metadata_only(client):
     r = client.get("/api/academy/courses")
     assert r.status_code == 200
     payload = r.json()
-    assert payload["count"] == 5
+    assert payload["count"] == 6
     meta = payload["courses"]
     # Planned courses visible but labelled; lesson counts never leak content.
     planned = next(c for c in meta if c["slug"] == "planned-course")
@@ -521,3 +524,34 @@ def test_records_shape(client):
     assert row["status"] == "in_progress"
     assert row["passed_lessons"][0]["title"] == "Lesson 1"
     assert "disclaimer" in body
+
+
+# ── Adult learners ────────────────────────────────────────────────────────────
+# Regression: `grade` was capped at 2 characters while GRADES contains "adult",
+# so POST /api/academy/students returned a pydantic 422 for every adult learner
+# and none of the adult-track courses could ever be enrolled.
+def test_create_student_accepts_the_adult_grade(client):
+    r = client.post("/api/academy/students", headers=_auth(),
+                    json={"name": "Grown", "grade": "adult", "track": "adult_ed"})
+    assert r.status_code == 200, r.text
+    student = r.json()["student"]
+    assert student["grade"] == "adult"
+    assert student["track"] == "adult_ed"
+    # ...and the adult courses actually enroll.
+    assert r.json()["auto_enrolled"], "adult student enrolled in no courses"
+
+
+def test_update_student_to_the_adult_grade(client):
+    sid = _add_student(client, "adult2")
+    r = client.patch(f"/api/academy/students/{sid}", headers=_auth(),
+                     json={"grade": "adult", "track": "adult_ed"})
+    assert r.status_code == 200, r.text
+    assert r.json()["student"]["grade"] == "adult"
+
+
+def test_create_student_rejects_an_unknown_grade_with_string_detail(client):
+    r = client.post("/api/academy/students", headers=_auth(),
+                    json={"name": "X", "grade": "13", "track": "foundations"})
+    assert r.status_code == 400
+    assert isinstance(r.json()["detail"], str)
+    assert "grade must be one of" in r.json()["detail"]
