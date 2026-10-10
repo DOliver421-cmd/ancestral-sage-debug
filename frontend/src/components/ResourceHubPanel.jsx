@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../lib/api";
+import LegalWorkflows from "../pages/LegalWorkflows";
 import { canAccess } from "../lib/tiers";
 import {
   Loader2, DollarSign, Heart, Briefcase, Bot, Search, Filter,
@@ -424,6 +425,11 @@ function ResourcesTab() {
               <span className="px-2 py-0.5 rounded text-xs font-bold bg-ink/5 text-ink/60">{r.category}</span>
             </div>
             <div className="font-bold text-ink text-sm">{r.title}</div>
+            {r.category === "templates" && (
+              <span className="inline-block mt-1 px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/10 text-amber-700 border border-amber-500/30">
+                Read-only guide · no workflow
+              </span>
+            )}
             <p className="text-xs text-ink/60 mt-1 line-clamp-3">{r.description}</p>
             {r.tags?.length > 0 && (
               <div className="flex gap-1 mt-2 flex-wrap">
@@ -433,7 +439,7 @@ function ResourcesTab() {
               </div>
             )}
             {r.url && (
-              <a href={r.url} target="_blank" rel="noopener noreferrer" className="text-xs text-copper font-bold mt-3 inline-flex items-center gap-1 hover:underline">
+              <a href={r.url} target="_blank" rel="noopener noreferrer" title={r.category === "templates" ? "Opens this reference on its own site" : "Opens on its own site"} className="text-xs text-copper font-bold mt-3 inline-flex items-center gap-1 hover:underline">
                 Visit resource <ExternalLink className="w-3 h-3" />
               </a>
             )}
@@ -485,24 +491,19 @@ function ResourceForm({ onCreated }) {
 }
 
 // ── Legal Workflow Tab ──────────────────────────────────────────────────
-
+// The engine runs right here in the workspace. It used to be a link out to
+// /legal, which took a member out of the Resource Hub to do one job and back —
+// and its state lived in localStorage only, so nothing followed their account.
+// It now embeds the real tool and syncs its state to their account.
 function LegalWorkflowTab() {
   return (
-    <div className="space-y-6">
-      <h2 className="font-heading text-xl font-bold text-ink flex items-center gap-2">
-        <Scale className="w-5 h-5 text-copper" /> Legal Workflow Engine
-      </h2>
+    <div className="space-y-4" data-testid="legal-workflows-embedded">
       <p className="text-sm text-ink/60">
         Case analysis, evidence checklists, damage calculators, contract review, grant legal readiness,
-        IP protection, dispute preparation, attorney consultation packets, and document generation.
+        IP protection, dispute preparation, attorney consultation packets, and document generation —
+        12 workflows, 9 document types, all in this workspace, saved to your account.
       </p>
-      <Link to="/legal" className="card-flat p-6 hover:border-copper/60 transition-all block text-center group">
-        <Scale className="w-10 h-10 text-copper mx-auto mb-3" />
-        <div className="font-bold text-ink group-hover:text-copper transition-colors text-lg">Open Legal Workflows</div>
-        <p className="text-sm text-ink/60 mt-1">
-          12 workflows · 9 document types · Case analysis · Strategy tree · Nuclear options
-        </p>
-      </Link>
+      <LegalWorkflows />
     </div>
   );
 }
