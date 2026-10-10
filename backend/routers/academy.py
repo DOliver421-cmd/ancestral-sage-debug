@@ -143,6 +143,9 @@ class StudentUpdate(BaseModel):
     track: Optional[str] = Field(default=None, min_length=1, max_length=40)
     notes: Optional[str] = Field(default=None, max_length=500)
     status: Optional[Literal["active", "archived"]] = None
+    # Parent control over the AI Coach. The parent decides whether their child
+    # uses it at all; the default is on, and no lesson or mastery check needs it.
+    coach_enabled: Optional[bool] = None
 
 
 class EnrollmentChange(BaseModel):
@@ -537,6 +540,8 @@ async def create_student(body: StudentCreate, user=Depends(_dep_current_user)):
         "notes": body.notes,
         "course_slugs": enrolled,
         "status": "active",
+        # Parent's AI-Coach switch; on by default, and no lesson needs it.
+        "coach_enabled": True,
         "created_at": now,
         "updated_at": now,
     }
@@ -548,6 +553,7 @@ async def create_student(body: StudentCreate, user=Depends(_dep_current_user)):
         except Exception:
             logger.exception("academy.student.create audit failed")
     doc.pop("_id", None)
+    doc["coach_enabled"] = True
     return {"student": doc, "auto_enrolled": enrolled}
 
 
@@ -559,6 +565,8 @@ async def update_student(student_id: str, body: StudentUpdate, user=Depends(_dep
         update["name"] = body.name.strip()
     if body.notes is not None:
         update["notes"] = body.notes
+    if body.coach_enabled is not None:
+        update["coach_enabled"] = body.coach_enabled
     if body.status is not None:
         update["status"] = body.status
     if body.grade is not None and body.grade != student.get("grade"):
@@ -582,6 +590,9 @@ async def update_student(student_id: str, body: StudentUpdate, user=Depends(_dep
         update["course_slugs"] = sorted(auto | still_fit)
     await db.academy_students.update_one({"id": student_id}, {"$set": update})
     updated = await db.academy_students.find_one({"id": student_id}, {"_id": 0})
+    # Normalise so a student created before the switch existed still reports a
+    # boolean the parent UI can render.
+    updated["coach_enabled"] = bool(updated.get("coach_enabled", True))
     if audit is not None:
         try:
             await audit(user.id, "academy.student.update", target=student_id,
@@ -711,6 +722,9 @@ async def course_learn(slug: str, student: Optional[str] = None, user=Depends(_d
     current = unlock["current"]
     payload = {
         "student_id": student_id,
+        # The parent's AI-Coach switch for this student, so the lesson player
+        # honours it without a second request.
+        "coach_enabled": bool(student_doc.get("coach_enabled", True)),
         "course": {
             "slug": course["slug"],
             "title": course["title"],
@@ -1565,3 +1579,63 @@ def _portfolio_entry(p: dict) -> dict:
         "steps": [{"title": s["title"], "artifact": s["artifact"]} for s in steps if s.get("done")],
         "notes": p.get("notes"),
     }
+
+
+# ── Coach log / parent controls ───────────────────────────────────────────────
+# Trust in the AI Coach is a control, not a promise: the parent decides whether
+# their child uses it, and can read every question and answer afterwards. The
+# log is scoped to the family account and never shared.
+
+
+class CoachLogEntry(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    student_id: str = Field(min_length=1)
+    course_slug: str = Field(min_length=1, max_length=80)
+    lesson_slug: str = Field(min_length=1, max_length=80)
+    lesson_title: str = Field(default="", max_length=160)
+    question: str = Field(min_length=1, max_length=4000)
+    answer: str = Field(default="", max_length=20000)
+    grounded: bool = False   # answered from the lesson itself, no provider
+
+
+@router.post("/academy/coach/log")
+async def coach_log_write(entry: CoachLogEntry, user: dict = Depends(_dep_current_user)):
+    """Record one Coach exchange for the parent's review. The student's lesson
+    never depends on this write succeeding."""
+    await _owned_student(entry.student_id, user)
+    record = {
+        "id": str(uuid.uuid4()),
+        "parent_user_id": user.id,
+        "student_id": entry.student_id,
+        "course_slug": entry.course_slug,
+        "lesson_slug": entry.lesson_slug,
+        "lesson_title": entry.lesson_title,
+        "question": entry.question,
+        "answer": entry.answer,
+        "grounded": entry.grounded,
+        "created_at": _now(),
+    }
+    await db.academy_coach_log.insert_one(record)
+    record.pop("_id", None)
+    return {"entry": record}
+
+
+@router.get("/academy/coach/log")
+async def coach_log(user: dict = Depends(_dep_current_user), student_id: Optional[str] = None, limit: int = 100):
+    """Every Coach exchange for the family (or one student), newest first."""
+    q = {"parent_user_id": user.id}
+    if student_id:
+        await _owned_student(student_id, user)
+        q["student_id"] = student_id
+    rows = await db.academy_coach_log.find(q, {"_id": 0}).sort("created_at", -1).to_list(min(limit, 300))
+    return {"entries": rows, "count": len(rows)}
+
+
+@router.delete("/academy/coach/log")
+async def coach_log_clear(user: dict = Depends(_dep_current_user), student_id: Optional[str] = None):
+    q = {"parent_user_id": user.id}
+    if student_id:
+        await _owned_student(student_id, user)
+        q["student_id"] = student_id
+    await db.academy_coach_log.delete_many(q)
+    return {"ok": True}

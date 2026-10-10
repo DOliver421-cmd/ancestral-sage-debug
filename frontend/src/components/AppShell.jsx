@@ -2,7 +2,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { API } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { ROLE_RANK } from "../lib/roles";
-import { tierRank, tierLabel, TIER_FOR_FEATURE } from "../lib/tiers";
+import { tierRank, tierLabel, TIER_FOR_FEATURE, canAccess } from "../lib/tiers";
 import { WAI_LOGO, BRAND } from "../lib/brand";
 import {
   LayoutDashboard, BookOpen, Award, Users, Settings, Sparkles, LogOut,
@@ -137,7 +137,7 @@ const CUSTOMER_TIERS = [
   },
   {
     tier: "plus", label: "Plus", price: "$15",
-    features: "Studio · Courses · Ghost · Band · Sanctuary · Learning Path · Earnings",
+    features: "Resource Hub — grants · fundraising · business · Studio · Courses · Ghost · Band · Sanctuary · Learning Path · Earnings",
     items: [
       { to: "/studio/music", label: "Music Studio", icon: Music4, testid: "nav-music-studio" },
       { to: "/creator/courses", label: "Course Manager", icon: Video, testid: "nav-creator-courses" },
@@ -147,7 +147,6 @@ const CUSTOMER_TIERS = [
       { to: "/sanctuary", label: "Sanctuary", icon: ShieldCheck, testid: "nav-sanctuary" },
       { to: "/creator/earnings", label: "My Earnings", icon: DollarSign, testid: "nav-creator-earnings" },
       { to: "/creator/payouts", label: "Payout Dashboard", icon: Receipt, testid: "nav-creator-payouts" },
-      { to: "/resources", label: "Resource Hub", icon: Briefcase, testid: "nav-resource-hub" },
     ],
   },
   {
@@ -455,6 +454,29 @@ export default function AppShell({ children }) {
                 {nl("/personas", "AI Team", BrainCircuit, "nav-personas")}
                 {nl("/premium", "WAI Institute Premium Services", Crown, "nav-premium-customer")}
               </NavSection>
+
+              {canAccess(user, "resource_hub") ? (
+                <NavSection key="resource-hub" label="Resource Hub" collapsed={collapsed} defaultOpen={true}>
+                  {nl("/resources", "Grants · Fundraising · Business", Briefcase, "nav-resource-hub")}
+                </NavSection>
+              ) : (
+                <div className="mb-1" data-testid="nav-resource-hub-locked">
+                  {collapsed ? (
+                    <Link to="/plans" className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-white/60 hover:text-white hover:bg-white/5 transition-colors" title="Resource Hub — grants, fundraising and business resources">
+                      <Lock className="w-[18px] h-[18px]" />
+                    </Link>
+                  ) : (
+                    <Link to="/plans" className="block rounded-xl border border-white/10 bg-white/5 p-3 hover:border-copper transition-colors">
+                      <div className="flex items-center gap-2 text-sm font-bold text-white">
+                        <Lock className="w-4 h-4" /> Resource Hub
+                      </div>
+                      <p className="text-xs text-white/50 mt-1 leading-relaxed">
+                        Grants, fundraising, and business resources with real workflows — not a link collection.
+                      </p>
+                    </Link>
+                  )}
+                </div>
+              )}
 
               {/* Tier sections: expanded for current tier, locked card for next, hidden above */}
               {CUSTOMER_TIERS.map((section, idx) => {
