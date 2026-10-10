@@ -32,3 +32,17 @@ components), not by reading the code. Statuses are live.
 - Co-op (shared view across two families) — the design is in the scope audit.
 - Weekly parent report (email/SMS).
 - Afro-Latin and Portuguese/Spanish strands — named in the original spec, still thin relative to Caribbean content.
+
+## Runtime audit 2026-10-10 (all found by execution — see docs/RUNTIME_AUDIT_2026-10-10.md)
+
+| # | Issue | Found by | Status | PR |
+|---|---|---|---|---|
+| 19 | Legal Workflow Engine "sync to account" is dead: GET returns a bare array (frontend reads `.workflows`), POST demands query params (frontend sends JSON → 422); both swallowed by `.catch(() => {})` | Live probe + jsdom render of the real component | Open | — |
+| 20 | Race: concurrent course enrollment loses 1–2 of 3 enrollments, all returning 200 (read-modify-write on `course_slugs`) | 8-round concurrency loop | Open | — |
+| 21 | Race: concurrent artifact saves drop earlier artifacts (4/6 rounds) and can resurrect stale values | 6-round concurrency loop | Open | — |
+| 22 | Hybrid NAM knowledge seed fails 31/31 on any real DB (`if _db` truth-tests a motor Database); `nam_knowledge` empty in production; standalone "success" is the in-memory fallback | Fresh-DB cold boot + Mongo count | Open | — |
+| 23 | Creator money surface ungated: free member POST `/api/creator/courses` → 201; courses/payout-profile/enrollments/me open (missing from `FEATURE_API_PATHS`) | Live probes with a free test account | Open | — |
+| 24 | Tier drift: `ai_chat` frontend=member/backend=free (student got a 200 AI reply); `courses` plus/free; `resource_hub` plus/handler-member | Live probes + constants diff | Open | — |
+| 25 | `PipelineManager` init fails every boot (`No module named 'src'`) — keyword fallback only | Boot log | Open | — |
+| 26 | Resource Hub guides are inert rows (`in_product`/`steps` absent, `url: ""`); the "Read-only guide · no workflow" badge the owner rejected still renders | Live probe + real-component render | Open | — |
+| 27 | Production masks API 404/405 with the SPA catch-all (200 HTML where local returns JSON) — probes lie | Prod-vs-local side-by-side probes | Open | — |
