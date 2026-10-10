@@ -61,7 +61,8 @@
     "build": "craco build",
     "test": "craco test",
     "test:routes": "node scripts/route-integrity.js",
-    "test:nav": "node scripts/nav-integrity.js"
+    "test:nav": "node scripts/nav-integrity.js",
+    "test:academy-access": "node scripts/academy-open-access.js"
   },
   "browserslist": {
     "production": [

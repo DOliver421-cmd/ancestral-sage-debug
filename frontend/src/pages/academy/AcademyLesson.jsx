@@ -11,8 +11,9 @@ import {
 
 const DEFAULT_COACH_HINT = (
   <>
-    <strong>Coach unavailable right now.</strong> Live AI tutoring runs through the same gateway as the{" "}
-    <Link to="/ai" className="underline">AI Tutor</Link> — it needs an active AI configuration (member tier or BYOK key).
+    <strong>Coach unavailable right now.</strong> The Coach runs through your own AI key, so the
+    Academy stays free for every family — connect one at{" "}
+    <Link to="/byok" className="underline">Bring Your Own Key</Link> and it works on every lesson.
     Your lesson and mastery checks always work without it.
   </>
 );
@@ -437,6 +438,8 @@ export default function AcademyLesson() {
                       <p className="text-xs text-ink/45 leading-relaxed">
                         Stuck on the idea but don't want the answer? Ask the Coach for an explanation,
                         a different example, or a practice question. It knows which lesson you're on.
+                        The Coach runs on your own AI key, which you add free at{" "}
+                        <Link to="/byok" className="underline">Bring Your Own Key</Link>.
                       </p>
                     )}
                     {coachMsgs.map((m, i) => m.role === "user" ? (
