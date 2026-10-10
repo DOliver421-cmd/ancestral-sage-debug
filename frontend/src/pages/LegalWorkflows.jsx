@@ -22,6 +22,7 @@
 
 import { useState, useCallback, useMemo, useRef, useEffect } from "react";
 import { Link } from "react-router-dom";
+import { api } from "../lib/api";
 import {
   Scale, Shield, Target, FileText, Calculator, Zap, Swords,
   ChevronRight, ChevronDown, ChevronUp, CheckCircle2, Circle,
@@ -130,6 +131,13 @@ function HelpCircle(props) {
    HELPER — localStorage persistence
    ═══════════════════════════════════════════════════════════════════════════ */
 
+/* The state used to live only in this browser's localStorage, so a member lost
+   their case work the moment they changed device — and nothing was "real" about
+   it. It now mirrors to their account through the Resource Hub workflows API
+   (one well-known workflow whose step carries the state as JSON), with the
+   localStorage copy kept as an offline fallback. */
+const LEGAL_STATE_WORKFLOW = "legal-workflow-engine-state";
+
 function useLegalSave(key, initial) {
   const [state, setState] = useState(() => {
     try {
@@ -137,9 +145,41 @@ function useLegalSave(key, initial) {
       return saved ? JSON.parse(saved) : initial;
     } catch { return initial; }
   });
+
+  // Restore from the account once, when the browser has no copy.
+  useEffect(() => {
+    let alive = true;
+    if (localStorage.getItem(`hl_${key}`)) return;   // browser already authoritative
+    api.get("/api/hub/workflows")
+      .then((r) => {
+        const mine = (r.data?.workflows || []).find((w) => w.title === LEGAL_STATE_WORKFLOW && w.area === key);
+        const raw = mine?.steps?.[0]?.description;
+        if (!raw) return;
+        try { if (alive) setState(JSON.parse(raw)); } catch { /* ignore a bad blob */ }
+      })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, [key]);
+
+  // Mirror every change to the account and to the browser.
   useEffect(() => {
     try { localStorage.setItem(`hl_${key}`, JSON.stringify(state)); } catch {}
+    const payload = {
+      title: LEGAL_STATE_WORKFLOW,
+      area: key,
+      steps: [{ title: LEGAL_STATE_WORKFLOW, description: JSON.stringify(state), completed: false }],
+    };
+    const sync = () => api.get("/api/hub/workflows")
+      .then((r) => {
+        const existing = (r.data?.workflows || []).find((w) => w.title === LEGAL_STATE_WORKFLOW && w.area === key);
+        if (existing?.id) return api.patch(`/api/hub/workflows/${existing.id}`, { steps: payload.steps });
+        return api.post("/api/hub/workflows", payload);
+      })
+      .catch(() => {});
+    const t = setTimeout(sync, 700);   // debounce while the member works
+    return () => clearTimeout(t);
   }, [key, state]);
+
   return [state, setState];
 }
 
