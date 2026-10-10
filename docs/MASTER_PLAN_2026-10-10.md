@@ -1,4 +1,7 @@
-# MASTER PLAN — MoreHelp Center, 2026-10-10
+# MASTER PLAN — MoreHelp Center, 2026-10-10 — SUPERSEDED
+
+> **Content integrated into `docs/WORKING_PLAN.md`.** Work from the working plan; this file is history.
+
 
 **Supersedes the track-scoped sequencing.** This is the single delivery plan. The API Key Gateway
 (`docs/API_KEY_GATEWAY_PLAN.md`) and the audit-derived queue (`docs/PLAN_FROM_RUNTIME_AUDIT_2026-10-10.md`)

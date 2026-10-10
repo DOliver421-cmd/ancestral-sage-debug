@@ -1,7 +1,7 @@
-# API KEY GATEWAY — BUILD & FIX PLAN (`/admin/providers`) — **Annex to `MASTER_PLAN_2026-10-10.md`, Track B**
+# API KEY GATEWAY — BUILD & FIX PLAN — SUPERSEDED
 
-> This document is the engineering detail for one track. The sequencing, dependencies, and owner decisions
-> that govern it live in the master plan; nothing here overrides that plan.
+> **Content integrated into `docs/WORKING_PLAN.md` (Phase 2, G0–G7, plus D1–D21 in §3).** Work from the
+> working plan; this file is history.
 
 **Supersedes the first draft.** This version is grounded in a second, deeper verification pass over the
 gateway internals (`ai/llm_gateway.py`, `ai/key_pool.py`, `ai/team_monitor.py`, `routers/provider_gateway.py`,

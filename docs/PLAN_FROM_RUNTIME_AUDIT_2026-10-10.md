@@ -1,7 +1,7 @@
-# PLAN FROM RUNTIME AUDIT — 2026-10-10 — **Annex to `MASTER_PLAN_2026-10-10.md`, Track A**
+# PLAN FROM RUNTIME AUDIT — 2026-10-10 — SUPERSEDED
 
-> This document is the engineering detail for one track. The sequencing, dependencies, and owner decisions
-> that govern it live in the master plan; nothing here overrides that plan.
+> **Content integrated into `docs/WORKING_PLAN.md` (R1–R17 across Phases 0–5).** Work from the working plan;
+> this file is history. Evidence: `docs/RUNTIME_AUDIT_2026-10-10.md`.
 
 
 Derived strictly from `docs/RUNTIME_AUDIT_2026-10-10.md`. Every task below is ordered by **user-visible
