@@ -1,4 +1,8 @@
-# PLAN FROM RUNTIME AUDIT — 2026-10-10
+# PLAN FROM RUNTIME AUDIT — 2026-10-10 — **Annex to `MASTER_PLAN_2026-10-10.md`, Track A**
+
+> This document is the engineering detail for one track. The sequencing, dependencies, and owner decisions
+> that govern it live in the master plan; nothing here overrides that plan.
+
 
 Derived strictly from `docs/RUNTIME_AUDIT_2026-10-10.md`. Every task below is ordered by **user-visible
 impact proven by execution**, each with a definition-of-done that requires running the thing — not reading it.
