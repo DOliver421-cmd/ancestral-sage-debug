@@ -92,6 +92,11 @@ class _FakeCollection:
         self.docs.append(dict(doc))
         return SimpleNamespace(inserted_id="x")
 
+    async def delete_one(self, q, **kw):
+        before = len(self.docs)
+        self.docs[:] = [d for d in self.docs if not self._match(d, q or {})]
+        return SimpleNamespace(deleted_count=before - len(self.docs))
+
     async def update_one(self, q, update, upsert=False):
         target = next((d for d in self.docs if self._match(d, q)), None)
         if target is None:
@@ -179,13 +184,16 @@ def _fake_db():
         academy_courses=_FakeCollection(courses),
         academy_students=_FakeCollection([]),
         academy_progress=_FakeCollection([]),
+        academy_projects=_FakeCollection([]),
     )
 
 
 async def _fake_current_user(authorization=None):
     if not authorization:
         raise HTTPException(401, "Not authenticated")
-    return SimpleNamespace(id="u1", email="p@example.com", full_name="Parent",
+    token = (authorization or "").replace("Bearer ", "").strip() or "t"
+    uid = "u1" if token == "t" else token
+    return SimpleNamespace(id=uid, email=f"{uid}@example.com", full_name="Parent",
                            role="student", feature_tier="free")
 
 
@@ -200,8 +208,10 @@ def client():
     return c
 
 
-def _auth():
-    return {"Authorization": "Bearer t"}
+def _auth(user_id=None):
+    """Headers for the fixture's parent. Pass a user_id to impersonate another
+    account — the fixture's fake auth maps any token other than 't' to that id."""
+    return {"Authorization": "Bearer " + (user_id or "t")}
 
 
 def _add_student(client, sid, **kw):

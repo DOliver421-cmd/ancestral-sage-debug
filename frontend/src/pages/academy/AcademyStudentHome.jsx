@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { api } from "../../lib/api";
 import AppShell from "../../components/AppShell";
 import { TrackTag, ProgressBar, errorMessage } from "./academyKit";
-import { ArrowRight, BookOpen, CheckCircle2, FileText, PlayCircle, RefreshCw, Sparkles, Target } from "lucide-react";
+import { ArrowRight, BookOpen, CheckCircle2, FileText, Folder, PlayCircle, RefreshCw, Sparkles, Target } from "lucide-react";
 
 /* /academy/student/:studentId — the learner's view.
    Answer the question: "What do I do next?" */
@@ -94,6 +94,9 @@ export default function AcademyStudentHome() {
             <Link to="/academy/parent" className="text-sm font-bold text-copper hover:text-ink underline underline-offset-2">Family dashboard</Link>
             <Link to={`/academy/records?student=${student.id}`} className="inline-flex items-center gap-1.5 text-sm font-bold text-ink border-2 border-ink/15 hover:border-copper rounded-lg px-3 py-2 transition-colors">
               <FileText className="w-4 h-4" /> Records
+            </Link>
+            <Link to={`/academy/projects?student=${student.id}`} data-testid="classroom-projects-link" className="inline-flex items-center gap-1.5 text-sm font-bold text-ink border-2 border-ink/15 hover:border-copper rounded-lg px-3 py-2 transition-colors">
+              <Folder className="w-4 h-4" /> Projects
             </Link>
           </div>
         </div>

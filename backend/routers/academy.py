@@ -1218,3 +1218,284 @@ async def list_compliance_docs(user: dict = Depends(_dep_current_user), student_
         q["student_id"] = student_id
     docs = await db.academy_compliance_docs.find(q, {"_id": 0}).sort("generated_at", -1).to_list(200)
     return {"docs": docs, "disclaimer": _COMPLIANCE_DISCLAIMER}
+
+
+# ── Projects: family history, portfolios, and creation-to-earning ─────────────
+# A project is a student's own work, owned by the parent account. Projects are
+# private to the family by default (the owner's requirement: family
+# participation is optional and children's work is never exposed). A submitted
+# project becomes a portfolio entry — the evidence half of a transcript.
+
+PROJECT_KINDS = [
+    {"id": "family_history", "label": "Family history", "desc": "Oral-history interviews, a family tree, a migration story, recipes, and records."},
+    {"id": "research", "label": "Research", "desc": "A primary-source investigation written up for an audience."},
+    {"id": "creative", "label": "Creative", "desc": "Poetry, music, visual art, film, or performance."},
+    {"id": "performance", "label": "Performance", "desc": "A rehearsed piece performed and recorded."},
+    {"id": "build", "label": "Build", "desc": "A physical or digital artifact you made and documented."},
+    {"id": "business", "label": "Business concept", "desc": "A plan for a cooperative, a product, or a service."},
+]
+_PROJECT_STATUSES = ["planning", "in_progress", "review", "submitted"]
+
+# The family-history pathway: a set of concrete steps a student completes to
+# build the project. Steps carry their own prompt so a family can run the whole
+# project from the page without another document.
+FAMILY_HISTORY_STEPS = [
+    {
+        "id": "interview",
+        "title": "Interview an elder",
+        "prompt": "Ask three open questions of a parent, grandparent, or elder. Record names, places, and dates exactly as they are said. Ask permission first, and stop whenever they wish.",
+        "artifact": "Interview notes or a recording",
+    },
+    {
+        "id": "records",
+        "title": "Gather records",
+        "prompt": "Collect three documents that exist: birth certificate, deed, photograph, letter, newspaper clipping, military or school record. Note what is missing and why.",
+        "artifact": "A copy or a note describing each record",
+    },
+    {
+        "id": "tree",
+        "title": "Build the family tree",
+        "prompt": "Write down three generations of names, relationships, and places. Mark anything you are unsure of clearly as uncertain rather than guessing.",
+        "artifact": "A drawn or typed family tree",
+    },
+    {
+        "id": "migration",
+        "title": "Map the migration",
+        "prompt": "Draw the route your family took to reach where you live now. Note the push and the pull — why they left, and what they found.",
+        "artifact": "A map with labelled moves",
+    },
+    {
+        "id": "story",
+        "title": "Write the account",
+        "prompt": "Write one page on one person from your research. Use the sources you gathered, and say what is documented and what is uncertain.",
+        "artifact": "A one-page written account",
+    },
+    {
+        "id": "submit",
+        "title": "Submit for the portfolio",
+        "prompt": "Check that every step has an artifact, then submit the project for the parent's review and add it to the portfolio.",
+        "artifact": "The completed portfolio entry",
+    },
+]
+
+
+class ProjectCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    student_id: str = Field(min_length=1)
+    title: str = Field(min_length=1, max_length=160)
+    kind: str = Field(min_length=1, max_length=40)
+    summary: Optional[str] = Field(default=None, max_length=600)
+    course_slug: Optional[str] = Field(default=None, max_length=80)
+    status: Optional[Literal["planning", "in_progress", "review", "submitted"]] = None
+    # Family-history projects store step artifacts as {step_id: text}
+    artifacts: Optional[dict] = None
+    notes: Optional[str] = Field(default=None, max_length=4000)
+
+
+class ProjectUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    title: Optional[str] = Field(default=None, min_length=1, max_length=160)
+    summary: Optional[str] = Field(default=None, max_length=600)
+    status: Optional[Literal["planning", "in_progress", "review", "submitted"]] = None
+    artifacts: Optional[dict] = None
+    notes: Optional[str] = Field(default=None, max_length=4000)
+
+
+def _project_out(p: dict) -> dict:
+    """Client shape for a project: plain fields plus derived steps/complete."""
+    out = {k: v for k, v in p.items() if not k.startswith("_")}
+    out.pop("parent_user_id", None)
+    steps = out.get("steps") or []
+    out["steps_completed"] = sum(1 for s in steps if s.get("done"))
+    out["kind_label"] = next(
+        (k["label"] for k in PROJECT_KINDS if k["id"] == out.get("kind")), out.get("kind")
+    )
+    out["progress_pct"] = round(100 * out["steps_completed"] / len(steps)) if steps else 0
+    return out
+
+
+@router.get("/academy/projects/kinds")
+async def list_project_kinds():
+    """Public-to-members catalogue of project types. Free by design."""
+    return {
+        "kinds": PROJECT_KINDS,
+        "family_history_steps": FAMILY_HISTORY_STEPS,
+        "note": (
+            "Projects are private to the family account by default. Nothing is published "
+            "or shared unless a parent chooses to share it. Participation by family members "
+            "is always optional."
+        ),
+    }
+
+
+@router.post("/academy/projects")
+async def create_project(body: ProjectCreate, user: dict = Depends(_dep_current_user)):
+    if body.kind not in {k["id"] for k in PROJECT_KINDS}:
+        raise HTTPException(400, f"kind must be one of {', '.join(k['id'] for k in PROJECT_KINDS)}")
+    await _owned_student(body.student_id, user)
+    kind = body.kind
+    steps = []
+    if kind == "family_history":
+        # Seed the family-history pathway with the standard steps.
+        steps = [{"id": s["id"], "title": s["title"], "artifact": s["artifact"],
+                  "prompt": s["prompt"], "done": False} for s in FAMILY_HISTORY_STEPS]
+    record = {
+        "id": str(uuid.uuid4()),
+        "student_id": body.student_id,
+        "parent_user_id": user.id,
+        "title": body.title,
+        "kind": kind,
+        "summary": body.summary,
+        "course_slug": body.course_slug,
+        "status": body.status or "planning",
+        "steps": steps,
+        "artifacts": body.artifacts or {},
+        "notes": body.notes,
+        "created_at": _now(),
+        "updated_at": _now(),
+        "submitted_at": None,
+        "visibility": "family",   # never public without an explicit parent action
+    }
+    await db.academy_projects.insert_one(record)
+    if audit:
+        try:
+            await audit(user.id, "academy.project.create", target=body.student_id, meta={"kind": kind})
+        except Exception:
+            logger.exception("audit failed")
+    return {"project": _project_out(record)}
+
+
+@router.get("/academy/projects")
+async def list_projects(user: dict = Depends(_dep_current_user), student_id: Optional[str] = None):
+    if student_id:
+        # Same ownership rule as every other Academy surface.
+        await _owned_student(student_id, user)
+        q = {"student_id": student_id, "parent_user_id": user.id}
+    else:
+        q = {"parent_user_id": user.id}
+    projects = await db.academy_projects.find(q, {"_id": 0}).sort("updated_at", -1).to_list(300)
+    return {"projects": [_project_out(p) for p in projects]}
+
+
+@router.get("/academy/projects/{project_id}")
+async def get_project(project_id: str, user: dict = Depends(_dep_current_user)):
+    p = await _owned_project(project_id, user)
+    return {"project": _project_out(p)}
+
+
+@router.patch("/academy/projects/{project_id}")
+async def update_project(project_id: str, body: ProjectUpdate, user: dict = Depends(_dep_current_user)):
+    p = await _owned_project(project_id, user)
+    update = {"updated_at": _now()}
+    if body.title is not None:
+        update["title"] = body.title
+    if body.summary is not None:
+        update["summary"] = body.summary
+    if body.status is not None:
+        update["status"] = body.status
+    if body.notes is not None:
+        update["notes"] = body.notes
+    if body.artifacts is not None:
+        # Store only artifacts for steps that exist on THIS project. Anything
+        # else — arbitrary keys, non-text values, oversized values — is dropped,
+        # so no unexpected structure can be written into a student's record.
+        valid_steps = {s["id"] for s in (p.get("steps") or []) if isinstance(s.get("id"), str)}
+        safe = {}
+        for k, v in dict(body.artifacts).items():
+            if (
+                isinstance(k, str) and k in valid_steps
+                and isinstance(v, str) and len(v) <= 20000
+            ):
+                safe[k] = v
+        update["artifacts"] = safe
+        steps = p.get("steps") or []
+        if steps:
+            # A step with an artifact is complete; clearing it reopens the step.
+            update["steps"] = [
+                {**s, "done": bool(safe.get(s["id"]))} for s in steps
+            ]
+    if update and len(update) > 1:
+        await db.academy_projects.update_one({"id": project_id}, {"$set": update})
+        p = await _owned_project(project_id, user)
+    return {"project": _project_out(p)}
+
+
+@router.post("/academy/projects/{project_id}/submit")
+async def submit_project(project_id: str, user: dict = Depends(_dep_current_user)):
+    """Move a project to the parent's review, and to the portfolio on their word."""
+    p = await _owned_project(project_id, user)
+    steps = p.get("steps") or []
+    missing = [s["title"] for s in steps if not s.get("done")]
+    if missing:
+        raise HTTPException(400, f"Add the missing work first: {', '.join(missing)}")
+    now = _now()
+    await db.academy_projects.update_one(
+        {"id": project_id}, {"$set": {"status": "submitted", "submitted_at": now, "updated_at": now}}
+    )
+    p = await _owned_project(project_id, user)
+    if audit:
+        try:
+            await audit(user.id, "academy.project.submit", target=project_id)
+        except Exception:
+            logger.exception("audit failed")
+    return {"project": _project_out(p), "portfolio_entry": _portfolio_entry(p)}
+
+
+@router.delete("/academy/projects/{project_id}")
+async def delete_project(project_id: str, user: dict = Depends(_dep_current_user)):
+    await _owned_project(project_id, user)
+    await db.academy_projects.delete_one({"id": project_id})
+    if audit:
+        try:
+            await audit(user.id, "academy.project.delete", target=project_id)
+        except Exception:
+            logger.exception("audit failed")
+    return {"ok": True}
+
+
+@router.get("/academy/portfolio")
+async def get_portfolio(user: dict = Depends(_dep_current_user), student_id: Optional[str] = None):
+    """The portfolio half of the record: submitted projects, ready to print."""
+    if student_id:
+        await _owned_student(student_id, user)
+        q = {"student_id": student_id, "parent_user_id": user.id}
+    else:
+        q = {"parent_user_id": user.id}
+    submitted = await db.academy_projects.find(
+        {**q, "status": "submitted"}, {"_id": 0}
+    ).sort("submitted_at", -1).to_list(300)
+    student = await _owned_student(student_id, user) if student_id else None
+    return {
+        "student": student,
+        "entries": [_portfolio_entry(p) for p in submitted],
+        "privacy": (
+            "Private to this family account. Nothing here is public, shared, or published "
+            "unless the parent chooses to share it. Family members take part only if they "
+            "want to, and may stop at any time."
+        ),
+    }
+
+
+async def _owned_project(project_id: str, user) -> dict:
+    doc = await db.academy_projects.find_one({"id": project_id}, {"_id": 0})
+    if not doc:
+        raise HTTPException(404, "Project not found")
+    if doc.get("parent_user_id") != user.id:
+        raise HTTPException(403, "This project belongs to another account")
+    return doc
+
+
+def _portfolio_entry(p: dict) -> dict:
+    """What a submitted project contributes to a portfolio page."""
+    steps = p.get("steps") or []
+    return {
+        "id": p["id"],
+        "title": p.get("title"),
+        "kind": p.get("kind"),
+        "kind_label": _project_out(p)["kind_label"],
+        "summary": p.get("summary"),
+        "course_slug": p.get("course_slug"),
+        "submitted_at": p.get("submitted_at"),
+        "steps": [{"title": s["title"], "artifact": s["artifact"]} for s in steps if s.get("done")],
+        "notes": p.get("notes"),
+    }

@@ -257,6 +257,17 @@ PLANNED_COURSES = [
 
 ACADEMY_COURSES = PUBLISHED_COURSES + PLANNED_COURSES
 
+# ── Cultural integration layer ───────────────────────────────────────────────
+# Culture belongs in every subject, not in a separate track. Each integration
+# unit below is attached to its published course here, once and idempotently,
+# so a redeploy can never duplicate units.
+from .cultural_integration import (  # noqa: E402
+    CULTURAL_INTEGRATION_UNITS,
+    attach_cultural_integration,
+)
+
+_CULTURAL_INTEGRATED = attach_cultural_integration(ACADEMY_COURSES)
+
 TRACKS = [
     {
         "key": "foundations",
