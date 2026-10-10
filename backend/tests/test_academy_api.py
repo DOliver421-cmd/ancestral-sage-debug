@@ -280,6 +280,59 @@ def test_create_student_rejects_bad_grade(client):
     assert r.status_code == 400
 
 
+def test_create_student_accepts_every_catalog_track(client):
+    """Regression: the frontend offers all 9 tracks (adult, life skills,
+    leadership, career, entrepreneurship included). The API used to reject five
+    of them with a pydantic 422 whose `detail` is an array — which crashed the
+    parent dashboard instead of showing a message."""
+    for track in ["foundations", "builder", "artist", "scholar",
+                  "adult_ed", "life_skills", "leadership", "career", "entrepreneurship"]:
+        r = client.post("/api/academy/students", headers=_auth(),
+                        json={"name": "Learner", "grade": "adult", "track": track})
+        assert r.status_code == 200, f"{track} was rejected: {r.text}"
+        assert r.json()["student"]["track"] == track
+
+
+def test_create_student_rejects_unknown_track_with_string_detail(client):
+    """An unknown track must be a readable 400 string, never a 422 detail
+    array (the client cannot render the latter)."""
+    r = client.post("/api/academy/students", headers=_auth(),
+                    json={"name": "A", "grade": "7", "track": "not-a-track"})
+    assert r.status_code == 400
+    assert isinstance(r.json()["detail"], str)
+    assert "track must be one of" in r.json()["detail"]
+
+
+def test_every_track_has_enrollable_courses(client):
+    """No track may be a dead end: each one must have at least one published
+    course a student of the matching grade can be enrolled in."""
+    from academy_content import ACADEMY_COURSES
+    published = [c for c in ACADEMY_COURSES if c.get("status") == "published"]
+    for track in ["foundations", "builder", "artist", "scholar",
+                  "adult_ed", "life_skills", "leadership", "career", "entrepreneurship"]:
+        grade = "adult" if track in ("adult_ed", "life_skills", "leadership", "career", "entrepreneurship") else "7"
+        hits = [c for c in published if grade in c.get("grades", []) and track in c.get("tracks", [])]
+        assert hits, f"no published course enrollable for {track} at grade {grade}"
+
+
+def test_no_published_course_is_unreachable(client):
+    """Regression: handbook-adult and ascension-protocols carried grade
+    'Adult' (capital A) while GRADES uses lowercase, so course_applies could
+    never match them and no student could ever enroll."""
+    from academy_content import ACADEMY_COURSES
+    from routers.academy import GRADES, TRACK_KEYS, course_applies
+    published = [c for c in ACADEMY_COURSES if c.get("status") == "published"]
+    unreachable = [
+        c["slug"] for c in published
+        if not any(course_applies(c, g, t) for g in GRADES for t in TRACK_KEYS)
+    ]
+    assert unreachable == [], f"published courses no student can enroll: {unreachable}"
+    # Grades must use the canonical lowercase token the API accepts.
+    for c in ACADEMY_COURSES:
+        for g in c.get("grades", []):
+            assert g in GRADES, f"{c['slug']} has non-canonical grade {g!r}"
+
+
 def test_student_ownership_enforced(client):
     _add_student(client, "s1", course_slugs=["math-7"])
     r = client.get("/api/academy/students/s1/dashboard", headers=_auth())
@@ -301,6 +354,26 @@ def test_grade_change_recomputes_enrollment(client):
     slugs = r.json()["student"]["course_slugs"]
     assert "math-7" in slugs
     assert "ela-1" not in slugs  # no longer fits grade 7
+
+
+def test_grade_change_to_adult_track_recomputes_enrollment(client):
+    """Regression: adult tracks are real. Moving a student to grade Adult on
+    an adult track must enroll the adult courses, which used to be rejected."""
+    r = client.post("/api/academy/students", headers=_auth(),
+                    json={"name": "Grown", "grade": "7", "track": "foundations"})
+    sid = r.json()["student"]["id"]
+    r = client.patch(f"/api/academy/students/{sid}", headers=_auth(),
+                     json={"grade": "adult", "track": "adult_ed"})
+    assert r.status_code == 200
+    assert r.json()["student"]["track"] == "adult_ed"
+
+
+def test_update_student_rejects_unknown_track_with_string_detail(client):
+    sid = _add_student(client, "su1")
+    r = client.patch(f"/api/academy/students/{sid}", headers=_auth(),
+                     json={"track": "not-a-track"})
+    assert r.status_code == 400
+    assert isinstance(r.json()["detail"], str)
 
 
 def test_manual_enrollment_rules(client):

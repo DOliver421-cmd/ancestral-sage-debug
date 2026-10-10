@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams, useSearchParams, useNavigate, useBeforeUnload } from "react-router-dom";
 import { api } from "../../lib/api";
 import AppShell from "../../components/AppShell";
-import { ProgressBar } from "./academyKit";
+import { ProgressBar, errorMessage } from "./academyKit";
 import LessonVideo from "./LessonVideo";
 import {
   ArrowRight, ArrowLeft, BookOpen, CheckCircle2, Lightbulb, Lock, PlayCircle,
@@ -53,7 +53,7 @@ export default function AcademyLesson() {
         setData(r.data);
         setLoading(false);
       })
-      .catch((e) => { setError(e?.response?.data?.detail || "Could not open this lesson."); setLoading(false); });
+      .catch((e) => { setError(errorMessage(e, "Could not open this lesson.")); setLoading(false); });
   };
 
   useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [courseSlug, lessonSlug, studentId]);
@@ -139,7 +139,7 @@ export default function AcademyLesson() {
       setResult({ ok: true, data: r.data });
       setPhase("done");
     } catch (e) {
-      const detail = e?.response?.data?.detail || "Could not submit. Try again.";
+      const detail = errorMessage(e, "Could not submit. Try again.");
       setResult({ error: detail });
       if (e?.response?.status === 409 || e?.response?.status === 403) load();
     } finally { setBusy(false); }

@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../../lib/api";
+import { useAuth } from "../../lib/auth";
 import AppShell from "../../components/AppShell";
-import { ProgressBar, LiveChip } from "./academyKit";
+import { ProgressBar, LiveChip, errorMessage } from "./academyKit";
 import {
   ArrowLeft, Film, Link2, AlertTriangle, RefreshCw, CheckCircle2, Circle, GraduationCap,
 } from "lucide-react";
@@ -40,14 +41,22 @@ const BUILD_CHECKLIST = [
 ];
 
 export default function AcademyBuildTracker() {
+  const { user } = useAuth();
   const [courses, setCourses] = useState(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
 
+  // Staff below `admin` cannot open /admin (it is admin-only and bounces them
+  // to their dashboard), so their "Admin" link points at their own workspace
+  // instead of a route that will silently redirect them.
+  const isAdmin = ["admin", "executive_admin"].includes(user?.role);
+  const adminTo = isAdmin ? "/admin" : "/profile";
+  const adminLabel = isAdmin ? "Admin" : "My workspace";
+
   useEffect(() => {
     api.get("/academy/courses")
       .then((r) => setCourses(r.data.courses || []))
-      .catch((e) => setError(e?.response?.data?.detail || "Could not load the catalog."))
+      .catch((e) => setError(errorMessage(e, "Could not load the catalog.")))
       .finally(() => setLoading(false));
   }, []);
 
@@ -73,8 +82,8 @@ export default function AcademyBuildTracker() {
         <div className="px-10 py-16 max-w-2xl">
           <AlertTriangle className="w-10 h-10 text-destructive" />
           <h1 className="font-heading text-2xl font-bold text-ink mt-3">{error}</h1>
-          <Link to="/admin" className="btn-copper inline-flex items-center gap-2 mt-6">
-            <ArrowLeft className="w-4 h-4" /> Back to admin
+          <Link to={adminTo} className="btn-copper inline-flex items-center gap-2 mt-6">
+            <ArrowLeft className="w-4 h-4" /> Back to {adminLabel}
           </Link>
         </div>
       </AppShell>
@@ -86,8 +95,8 @@ export default function AcademyBuildTracker() {
       <div className="px-10 py-10 max-w-6xl" data-testid="academy-build-tracker">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <Link to="/admin" className="inline-flex items-center gap-1.5 text-sm font-bold text-copper hover:text-ink transition-colors">
-              <ArrowLeft className="w-4 h-4" /> Admin
+            <Link to={adminTo} className="inline-flex items-center gap-1.5 text-sm font-bold text-copper hover:text-ink transition-colors">
+              <ArrowLeft className="w-4 h-4" /> {adminLabel}
             </Link>
             <h1 className="font-heading text-3xl font-bold text-ink mt-2">Homeschool Build Tracker</h1>
             <p className="text-ink/55 mt-1">Staff-only view of the live catalog, lesson coverage, and video enrichment status.</p>
