@@ -90,6 +90,8 @@ import AcademyParentHome from "./pages/academy/AcademyParentHome";
 import AcademyStudentHome from "./pages/academy/AcademyStudentHome";
 import AcademyLesson from "./pages/academy/AcademyLesson";
 import AcademyRecords from "./pages/academy/AcademyRecords";
+import AcademyProjects from "./pages/academy/AcademyProjects";
+import AcademyPortfolio from "./pages/academy/AcademyPortfolio";
 import AcademyCompliance from "./pages/academy/AcademyCompliance";
 import AcademyBuildTracker from "./pages/academy/AcademyBuildTracker";
 import SimulationDashboard from "./pages/simulation/SimulationDashboard";
@@ -350,6 +352,8 @@ function App() {
           <Route path="/academy/student/:studentId" element={<Protected><AcademyStudentHome /></Protected>} />
           <Route path="/academy/learn/:courseSlug/:lessonSlug" element={<Protected><AcademyLesson /></Protected>} />
           <Route path="/academy/records" element={<Protected><AcademyRecords /></Protected>} />
+          <Route path="/academy/projects" element={<Protected><AcademyProjects /></Protected>} />
+          <Route path="/academy/portfolio" element={<Protected><AcademyPortfolio /></Protected>} />
           <Route path="/academy/compliance" element={<Protected><AcademyCompliance /></Protected>} />
           <Route path="/academy/build" element={<Protected roles={["instructor", "support_staff", "oversight", "admin", "executive_admin"]}><AcademyBuildTracker /></Protected>} />
           <Route path="/simulation" element={<Protected><SimulationDashboard /></Protected>} />

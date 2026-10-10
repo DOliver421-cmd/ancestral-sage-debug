@@ -28,6 +28,7 @@ const SRC = path.join(ROOT, "src");
 const BACKEND = path.resolve(ROOT, "..", "backend");
 
 let failures = 0;
+let academyLike = [];
 const ok = (label) => console.log(`  ✓ ${label}`);
 const fail = (label, detail) => {
   failures += 1;
@@ -76,26 +77,41 @@ for (const staffRoute of ACADEMY_STAFF_ROUTES) {
 }
 ok("staff-only Academy routes still carry an explicit role requirement");
 
-// ── 2. No Academy surface links into a gated route ─────────────────────────
+// ── 2. No Academy surface links into a paywalled route ─────────────────────
+// A route is paywalled when its TierGate's feature has a minimum tier above
+// "free" in the real frontend tier map (src/lib/tiers.js). Derived, not
+// hardcoded: when the tier table changes, this guard changes with it.
 section("Academy outbound links");
 const academyDir = path.join(SRC, "pages", "academy");
 const academyFiles = fs.readdirSync(academyDir).filter((f) => f.endsWith(".jsx"));
-const GATED_HREFS = new Set(["/ai", "/adaptive", "/band", "/studio", "/social/publish"]);
-const GATED_PREFIXES = ["/creator/courses", "/creator/earnings", "/creator/payouts", "/creator-lounge", "/my-projects", "/ghost-producer", "/studio/music"];
-const inNav = read(path.join(SRC, "components", "AppShell.jsx"));
-const navTargets = new Set([...inNav.matchAll(/to="([^"]+)"/g)].map((x) => x[1]));
+
+const tiersSrc = read(path.join(SRC, "lib", "tiers.js"));
+const tierBlock = (tiersSrc.split("export const TIER_FOR_FEATURE = {")[1] || "").split("\n};")[0];
+const featureMinTier = {};
+for (const m of tierBlock.matchAll(/([a-z_]+):\s*"([a-z]+)"/g)) featureMinTier[m[1]] = m[2];
+
+const paywalledRoutes = [];
+for (const tag of routeTags) {
+  const feature = (tag.match(/TierGate feature="([^"]+)"/) || [])[1];
+  if (!feature) continue;
+  const minTier = featureMinTier[feature];
+  if (minTier && minTier !== "free") paywalledRoutes.push({ route: pathOf(tag), feature, minTier });
+}
+ok(`paywalled routes (min tier above free): ${paywalledRoutes.map((p) => `${p.route} [${p.feature}=${p.minTier}]`).join(", ")}`);
+if (paywalledRoutes.length === 0) fail("no paywalled routes derived — tier parser may be stale");
 
 let linkCount = 0;
 for (const file of academyFiles) {
   const src = read(path.join(academyDir, file));
-  const hrefs = [...src.matchAll(/to="([^"]+)"/g)].map((x) => x[1]);
-  for (const href of hrefs) {
+  for (const m of src.matchAll(/to="([^"]+)"/g)) {
+    const href = m[1];
     linkCount += 1;
-    const gated = GATED_HREFS.has(href) || GATED_PREFIXES.some((p) => href.startsWith(p));
-    if (gated) fail(`${file} links to a tier-gated route`, href);
+    if (paywalledRoutes.some((p) => p.route === href)) {
+      fail(`${file} links to a paywalled route`, `${href} [${(paywalledRoutes.find((p) => p.route === href) || {}).feature}]`);
+    }
   }
 }
-ok(`${linkCount} Academy links checked — none lead to a paywalled route`);
+ok(`${linkCount} Academy links checked across ${academyFiles.length} pages — none lead to a paywalled route`);
 
 // ── 3. Backend: Academy API must not map to a paid feature tier ─────────────
 section("Backend access contract");
@@ -149,6 +165,42 @@ if (/current_user\(\).*subscription|require_subscription\(/.test(academySrc)) {
   fail("academy router requires a subscription");
 }
 ok("academy router has no subscription requirement");
+
+// ── 5. The rest of the site KEEPS its paywalls ────────────────────────────
+// The owner's standing rule: the Homeschool Academy is free to every
+// registered member, but the platform's paid surfaces stay paid. "Make the
+// Academy free" must never be read as "free the site", so assert the paid
+// tiers are still recorded and still enforced on their routes.
+section("Platform paywalls stay in place");
+const paidFeatures = Object.entries(featureMinTier).filter(([, t]) => t !== "free");
+ok(`${paidFeatures.length} paid features still carry a tier: ${paidFeatures.map(([f, t]) => `${f}=${t}`).join(", ")}`);
+// The Academy must not appear in the paid map under any name.
+academyLike = Object.keys(featureMinTier).filter((f) => /academ|homeschool|curriculum-.*(course|lesson)/.test(f));
+if (academyLike.length) fail("Academy-shaped keys appear in the tier map", academyLike.join(", "));
+else ok("no Academy-shaped key carries a platform tier");
+for (const { route, feature, minTier } of paywalledRoutes) {
+  const tag = routeTags.find((t) => pathOf(t) === route);
+  if (!tag || !/TierGate/.test(tag)) fail(`${route} lost its TierGate`, `${feature} (${minTier})`);
+}
+ok(`${paywalledRoutes.length} paid routes still carry their TierGate`);
+// Every destination the Academy links to must be a free route. The feature
+// keys are not the same as routes (/courses is a free catalog page; selling
+// creator courses at /creator/courses is the paid feature), so check the
+// routes the Academy actually points at.
+const academyDestinations = new Set();
+for (const file of academyFiles) {
+  for (const m of read(path.join(academyDir, file)).matchAll(/to="([^"]+)"/g)) {
+    if (m[1].startsWith("/")) academyDestinations.add(m[1]);
+  }
+}
+const paywalledDestinations = [...academyDestinations].filter((d) => paywalledRoutes.some((p) => p.route === d));
+if (paywalledDestinations.length) fail("the Academy links to paid routes", paywalledDestinations.join(", "));
+else ok(`${academyDestinations.size} Academy destinations, all free (${[...academyDestinations].sort().join(", ")})`);
+// Sanity: the paid catalog of creator courses must still be paid — the Academy
+// is free, the creator marketplace is not.
+const creatorCourses = paywalledRoutes.find((p) => p.route === "/creator/courses");
+if (creatorCourses) ok(`/creator/courses is still paid (${creatorCourses.feature}=${creatorCourses.minTier}) — the Academy is free, the marketplace is not`);
+else fail("/creator/courses lost its TierGate — a platform paywall was removed");
 
 console.log(`\n${failures === 0 ? "PASS" : `FAIL (${failures})`} — Academy open-access guard rail\n`);
 process.exit(failures ? 1 : 0);

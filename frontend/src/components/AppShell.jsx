@@ -14,7 +14,7 @@ import {
   Gamepad2, Star, Radio, Globe, ChevronLeft, ChevronRight, Share2,
   Map, BrainCircuit, CreditCard, BarChart3, Wrench, ExternalLink,
   Lock, Search, HeartPulse, Landmark, TicketPercent, Menu, Swords,
-  ArrowLeft, Home, GraduationCap,
+  ArrowLeft, Home, GraduationCap, Folder,
 } from "lucide-react";
 import { isWaiDoor, MORE_HOME } from "../lib/domain";
 import NotificationBell from "./NotificationBell";
@@ -449,6 +449,7 @@ export default function AppShell({ children }) {
               <NavSection label="Home" collapsed={collapsed} defaultOpen={true}>
                 {nl("/", "Home / Landing", Globe, "nav-home")}
                 {nl("/academy/parent", "Homeschool Academy", GraduationCap, "nav-academy")}
+                {nl("/academy/projects", "Projects & Portfolio", Folder, "nav-academy-projects")}
                 {nl("/profile", "My Profile", UserCircle, "nav-profile")}
                 {nl("/settings", "Settings", KeyRound, "nav-settings")}
                 {nl("/personas", "AI Team", BrainCircuit, "nav-personas")}
