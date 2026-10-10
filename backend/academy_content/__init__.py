@@ -24,6 +24,23 @@ Rules honored:
     so a misplaced option can never silently shift the correct answer.
 """
 
+from .oral_histories_ancestral_foundations import ORAL_HISTORIES_ANCESTRAL_FOUNDATIONS
+from .pan_african_diasporic_literature import PAN_AFRICAN_DIASPORIC_LITERATURE
+from .black_political_thought import BLACK_POLITICAL_THOUGHT
+from .afrofuturism_sustainable_architecture import AFROFUTURISM_SUSTAINABLE_ARCHITECTURE
+from .visual_arts_black_diaspora import VISUAL_ARTS_BLACK_DIASPORA
+from .ethnomusicology_roots_black_music import ETHNOMUSICOLOGY_ROOTS_BLACK_MUSIC
+from .health_equity_food_sovereignty import HEALTH_EQUITY_FOOD_SOVEREIGNTY
+from .indigenous_astronomy_maritime_navigation import INDIGENOUS_ASTRONOMY_MARITIME_NAVIGATION
+from .prose_of_liberation import PROSE_OF_LIBERATION
+from .african_indigenous_governance import AFRICAN_INDIGENOUS_GOVERNANCE
+from .data_analysis_algorithmic_bias import DATA_ANALYSIS_ALGORITHMIC_BIAS
+from .tek_african_botanical_medicine import TEK_AFRICAN_BOTANICAL_MEDICINE
+from .cradles_of_civilization import CRADLES_OF_CIVILIZATION
+from .maroon_societies_alliances import MAROON_SOCIETIES_ALLIANCES
+from .atlantic_world_resistance_reconstruction import ATLANTIC_WORLD_RESISTANCE_RECONSTRUCTION
+from .storytelling_diaspora_k2 import STORYTELLING_DIASPORA_K2
+from .patterns_beadwork_african_math_k2 import PATTERNS_BEADWORK_AFRICAN_MATH_K2
 from .reading_grade1 import READING_GRADE_1
 from .math_grade4 import MATH_GRADE_4
 from .math_grade7 import MATH_GRADE_7
@@ -104,6 +121,23 @@ from .resistance_rebellion_counter_narrative import RESISTANCE_REBELLION_COUNTER
 from .economics_of_extraction import ECONOMICS_OF_EXTRACTION
 
 PUBLISHED_COURSES = [
+    AFROFUTURISM_SUSTAINABLE_ARCHITECTURE,
+    VISUAL_ARTS_BLACK_DIASPORA,
+    ETHNOMUSICOLOGY_ROOTS_BLACK_MUSIC,
+    HEALTH_EQUITY_FOOD_SOVEREIGNTY,
+    INDIGENOUS_ASTRONOMY_MARITIME_NAVIGATION,
+    PAN_AFRICAN_DIASPORIC_LITERATURE,
+    PROSE_OF_LIBERATION,
+    AFRICAN_INDIGENOUS_GOVERNANCE,
+    BLACK_POLITICAL_THOUGHT,
+    DATA_ANALYSIS_ALGORITHMIC_BIAS,
+    TEK_AFRICAN_BOTANICAL_MEDICINE,
+    CRADLES_OF_CIVILIZATION,
+    MAROON_SOCIETIES_ALLIANCES,
+    ATLANTIC_WORLD_RESISTANCE_RECONSTRUCTION,
+    ORAL_HISTORIES_ANCESTRAL_FOUNDATIONS,
+    STORYTELLING_DIASPORA_K2,
+    PATTERNS_BEADWORK_AFRICAN_MATH_K2,
     READING_GRADE_1,
     MATH_GRADE_4,
     MATH_GRADE_7,
