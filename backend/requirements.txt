@@ -5,7 +5,15 @@ starlette>=0.37.2
 python-multipart==0.0.27
 # Database
 motor==3.3.1
-pymongo==4.18.2
+# motor and pymongo are released in lockstep: motor imports pymongo internals
+# (pymongo.cursor._QUERY_OPTIONS, RawBatchCursor) that newer pymongo releases
+# remove. Bumping pymongo past 4.5.x WITHOUT bumping motor breaks
+# `from motor.motor_asyncio import AsyncIOMotorClient` at import time, which
+# kills startup and fails the /api/health healthcheck — a deploy that builds
+# green and never becomes healthy (PR #473 did exactly this, after two earlier
+# pins in May 2026 were undone by the same dependabot bump). To upgrade, bump
+# BOTH motor and pymongo together and run tests/test_dependency_compatibility.py.
+pymongo>=4.5,<4.6
 dnspython==2.8.0
 # Auth & Security
 bcrypt==4.0.1

@@ -124,7 +124,8 @@ def _require_rank(*roles):
 class StudentCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
     name: str = Field(min_length=1, max_length=120)
-    grade: str = Field(min_length=1, max_length=2)
+    # "adult" is a valid grade alongside K-12, so this must not be capped at 2.
+    grade: str = Field(min_length=1, max_length=10)
     # Every track the catalog actually ships (TRACK_KEYS). Kept as `str` with
     # an explicit check in the handler so an unknown track returns a readable
     # 400 string — not a pydantic 422 detail array, which the client cannot
@@ -136,7 +137,7 @@ class StudentCreate(BaseModel):
 class StudentUpdate(BaseModel):
     model_config = ConfigDict(extra="forbid")
     name: Optional[str] = Field(default=None, min_length=1, max_length=120)
-    grade: Optional[str] = Field(default=None, min_length=1, max_length=2)
+    grade: Optional[str] = Field(default=None, min_length=1, max_length=10)
     track: Optional[str] = Field(default=None, min_length=1, max_length=40)
     notes: Optional[str] = Field(default=None, max_length=500)
     status: Optional[Literal["active", "archived"]] = None
@@ -1339,6 +1340,10 @@ async def create_project(body: ProjectCreate, user: dict = Depends(_dep_current_
         # Seed the family-history pathway with the standard steps.
         steps = [{"id": s["id"], "title": s["title"], "artifact": s["artifact"],
                   "prompt": s["prompt"], "done": False} for s in FAMILY_HISTORY_STEPS]
+    artifacts = {
+        k: v for k, v in dict(body.artifacts or {}).items()
+        if k in {s["id"] for s in steps} and isinstance(v, str) and len(v) <= 20000
+    }
     record = {
         "id": str(uuid.uuid4()),
         "student_id": body.student_id,
@@ -1348,7 +1353,7 @@ async def create_project(body: ProjectCreate, user: dict = Depends(_dep_current_
         "summary": body.summary,
         "course_slug": body.course_slug,
         "status": body.status or "planning",
-        "steps": steps,
+        "steps": [{**s, "done": bool(artifacts.get(s["id"]))} for s in steps],
         "artifacts": body.artifacts or {},
         "notes": body.notes,
         "created_at": _now(),
