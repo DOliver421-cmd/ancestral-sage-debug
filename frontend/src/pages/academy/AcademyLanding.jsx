@@ -210,12 +210,13 @@ export default function AcademyLanding() {
             <Bot className="w-8 h-8 text-copper mb-3" />
             <div className="font-heading text-xl font-bold text-ink">Learning support is built in</div>
             <p className="text-sm text-ink/60 mt-2 leading-relaxed">
-              Stuck on a concept? The lesson Coach connects to the same AI tutoring gateway as the
-              MoreHelp AI Tutor — it explains, gives examples, and guides practice. It won't hand over
-              answers to your mastery checks.
+              Stuck on a concept? The lesson Coach runs on your own AI key — it explains, gives
+              examples, and guides practice, and it won't hand over answers to your mastery
+              checks. Connect a key free and it works on every lesson. Every course, lesson, record,
+              and transcript stays free for every registered family either way.
             </p>
-            <Link to="/ai" className="mt-5 inline-flex items-center gap-2 text-copper font-black uppercase tracking-widest text-sm hover:text-ink transition-colors">
-              Meet the AI Tutor <ArrowRight className="w-4 h-4" />
+            <Link to="/byok" className="mt-5 inline-flex items-center gap-2 text-copper font-black uppercase tracking-widest text-sm hover:text-ink transition-colors">
+              Connect your AI key (free) <ArrowRight className="w-4 h-4" />
             </Link>
           </div>
         </div>
