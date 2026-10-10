@@ -1998,7 +1998,7 @@ async def register(body: RegisterReq, request: Request):
         raise HTTPException(400, "You must be at least 13 years old to create an account. If you are under 13, please ask a parent or guardian to contact us.")
 
     if await db.users.find_one({"email": body.email}):
-        raise HTTPException(400, "Email already registered")
+        raise HTTPException(409, "Email already registered")
 
     # ── Age verification / minor-protection ─────────────────────────────────
     # The site is not open to minors. Users 17 and older may create their own
@@ -2767,16 +2767,54 @@ async def gdpr_delete_account(user: User = Depends(current_user)):
     )
     # C-7: Remove user data from all collections that hold user-linked records.
     # Errors are collected and reported rather than silently swallowed.
+    _gdpr_pre_errors: list[str] = []
+    # FDBR / COPPA: the Homeschool Academy holds the platform's most sensitive
+    # records about minors — student names and grades, lesson progress and
+    # scores, compliance documents containing a child's date of birth and home
+    # address, and family-history project artifacts. Those live under
+    # parent_user_id, not user_id, so resolve them before the user-keyed sweep.
+    _academy_student_ids: list[str] = []
+    try:
+        _academy_student_ids = [s["id"] for s in await db.academy_students.find(
+            {"parent_user_id": user.id}, {"_id": 0, "id": 1}
+        ).to_list(1000)]
+    except Exception as _e:
+        _gdpr_pre_errors.append(f"academy_students(lookup): {_e}")
+        logger.error("GDPR academy student lookup failed (user %s): %s", user.id, _e)
+
     _gdpr_collections = [
         "progress", "lab_submissions", "portfolio", "ai_consents",
         "auth_sessions", "notifications", "chat_history", "certificates",
         "tts_usage", "password_reset_tokens",
     ]
-    _gdpr_errors: list[str] = []   # detail — server-side logs/audit only
-    _gdpr_failed: list[str] = []   # collection names — safe for the client
+    # Academy records owned by the parent, keyed by parent_user_id (not
+    # user_id) — the parent's id and the user id are the same value here, but
+    # the FIELD differs, so these are swept separately.
+    _gdpr_parent_collections = [
+        "academy_students", "academy_projects", "academy_compliance_docs",
+        "academy_interventions",
+    ]
+    _gdpr_errors: list[str] = list(_gdpr_pre_errors)   # detail — logs/audit only
+    _gdpr_failed: list[str] = [c.split("(")[0] for c in _gdpr_pre_errors]  # safe for the client
     for _coll in _gdpr_collections:
         try:
             await db[_coll].delete_many({"user_id": user.id})
+        except Exception as _e:
+            _gdpr_errors.append(f"{_coll}: {_e}")
+            _gdpr_failed.append(_coll)
+            logger.error("GDPR deletion failed for collection %s (user %s): %s", _coll, user.id, _e)
+    for _coll in _gdpr_parent_collections:
+        try:
+            await db[_coll].delete_many({"parent_user_id": user.id})
+        except Exception as _e:
+            _gdpr_errors.append(f"{_coll}: {_e}")
+            _gdpr_failed.append(_coll)
+            logger.error("GDPR deletion failed for collection %s (user %s): %s", _coll, user.id, _e)
+    # Academy records keyed by student id rather than by the parent's user id
+    # (progress and best scores). Instructor messages keyed by student.
+    for _coll, _key in (("academy_progress", "student_id"), ("academy_messages", "academy_student_id")):
+        try:
+            await db[_coll].delete_many({_key: {"$in": _academy_student_ids}})
         except Exception as _e:
             _gdpr_errors.append(f"{_coll}: {_e}")
             _gdpr_failed.append(_coll)
@@ -2849,6 +2887,23 @@ async def gdpr_export_data(user: User = Depends(current_user)):
         _rows = await db[_coll].find({"user_id": user.id}, {"_id": 0}).to_list(length=9999)
         if _rows:
             export[_coll] = _rows
+
+    # FDBR portability: everything the Homeschool Academy holds about a family's
+    # students, keyed by the parent's account, plus the student-keyed progress
+    # and score records behind it.
+    _ac = {}
+    for _coll in ("academy_students", "academy_projects", "academy_compliance_docs"):
+        _rows = await db[_coll].find({"parent_user_id": user.id}, {"_id": 0}).to_list(length=9999)
+        if _rows:
+            _ac[_coll] = _rows
+    _student_ids = [s["id"] for s in _ac.get("academy_students", [])]
+    if _student_ids:
+        for _coll, _key in (("academy_progress", "student_id"), ("academy_messages", "academy_student_id")):
+            _rows = await db[_coll].find({_key: {"$in": _student_ids}}, {"_id": 0}).to_list(length=9999)
+            if _rows:
+                _ac[_coll] = _rows
+    if _ac:
+        export["academy"] = _ac
 
     # Audit trail (limited)
     audit_log = await db.audit_log.find({"actor_id": user.id}, {"_id": 0}).sort("at", -1).to_list(length=100)

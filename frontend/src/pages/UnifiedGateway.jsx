@@ -220,10 +220,10 @@ export default function UnifiedGateway() {
               </p>
 
               <div className="flex flex-wrap gap-3 mb-10">
-                <Link to="/academy/parent"
+                <Link to="/HomeschoolAcademy"
                   className="inline-flex items-center gap-2 font-black text-sm px-8 py-4 rounded-xl"
                   style={{ background: "#8a5a00", color: "#fff", fontSize: 15 }}>
-                  Explore the Academy <ArrowRight size={16} />
+                  Homeschool Academy <ArrowRight size={16} />
                 </Link>
                 <Link to="/academy/curriculum"
                   className="inline-flex items-center gap-2 font-bold text-sm px-6 py-4 rounded-xl border"
@@ -640,6 +640,11 @@ export default function UnifiedGateway() {
           </div>
           <div className="flex flex-col sm:flex-row items-center justify-between gap-2 text-xs">
             <p>© {new Date().getFullYear()} {BRAND.legal}. All rights reserved.</p>
+            <p className="mt-1 flex items-center gap-2">
+              <Link to="/terms">Terms</Link><span aria-hidden="true">·</span>
+              <Link to="/privacy">Privacy</Link><span aria-hidden="true">·</span>
+              <Link to="/dmca">DMCA</Link>
+            </p>
             <p style={{ color: "#5a5045" }}>{BRAND.mission}</p>
           </div>
         </div>

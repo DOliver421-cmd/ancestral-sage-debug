@@ -102,7 +102,7 @@ async def _dep_current_user(authorization: Optional[str] = Header(None)):
     return await current_user(authorization)
 
 
-async def _dep_optional_user(authorization: Optional[str] = Header(None)):
+async def _dep_optional_current_user(authorization: Optional[str] = Header(None)):
     """Optional auth: anonymous callers browse public course pages; a provided
     (valid) token is resolved so enrolled owners can see full content."""
     if not authorization:
@@ -426,7 +426,7 @@ async def list_courses(grade: Optional[str] = None, track: Optional[str] = None,
 
 
 @router.get("/academy/courses/{slug}")
-async def course_detail(slug: str, user=Depends(_dep_optional_user)):
+async def course_detail(slug: str, user=Depends(_dep_optional_current_user)):
     """Course page data.
 
     Public for browsing, but full lesson MATERIAL + knowledge-check keys are
@@ -1431,13 +1431,20 @@ async def update_project(project_id: str, body: ProjectUpdate, user: dict = Depe
         # else — arbitrary keys, non-text values, oversized values — is dropped,
         # so no unexpected structure can be written into a student's record.
         valid_steps = {s["id"] for s in (p.get("steps") or []) if isinstance(s.get("id"), str)}
-        safe = {}
+        # MERGE with what is already saved: a parent filling the pathway in
+        # step order saves one artifact at a time, and replacing the whole map
+        # on every save silently discarded the earlier steps (1 of 6
+        # completed). Sending a step's artifact as an empty string clears it.
+        safe = dict(p.get("artifacts") or {})
         for k, v in dict(body.artifacts).items():
             if (
                 isinstance(k, str) and k in valid_steps
                 and isinstance(v, str) and len(v) <= 20000
             ):
-                safe[k] = v
+                if v.strip():
+                    safe[k] = v
+                else:
+                    safe.pop(k, None)
         update["artifacts"] = safe
         steps = p.get("steps") or []
         if steps:

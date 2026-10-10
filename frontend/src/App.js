@@ -79,6 +79,7 @@ import KnowledgeFinder from "./pages/KnowledgeFinder";
 import SeshatsHub from "./pages/SeshatsHub";
 import SeshatsHubPublic from "./pages/SeshatsHubPublic";
 import TermsOfService from "./pages/TermsOfService";
+import Dmca from "./pages/Dmca";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import RefundPolicy from "./pages/RefundPolicy";
 import MoreHelpCenter from "./pages/MoreHelpCenter";
@@ -343,7 +344,12 @@ function App() {
           {/* WAI Institute — accredited-track portal (also the redirect target for wai-institute.org) */}
           {/* WAI Institute Homeschool Academy — gateway + learning routes */}
           <Route path="/wai-institute" element={<WAIInstitute />} />
-          <Route path="/academy" element={<AcademyLanding />} />
+          {/* Public front door: www.morehelp.center/HomeschoolAcademy.
+              Case-insensitive alias + the short /academy path canonicalise onto
+              it so a link shared once always resolves to one URL. */}
+          <Route path="/HomeschoolAcademy" element={<AcademyLanding />} />
+          <Route path="/homeschoolacademy" element={<Navigate to="/HomeschoolAcademy" replace />} />
+          <Route path="/academy" element={<Navigate to="/HomeschoolAcademy" replace />} />
           <Route path="/academy/curriculum" element={<CurriculumExplorer />} />
           <Route path="/academy/courses" element={<Navigate to="/academy/curriculum" replace />} />
           <Route path="/academy/courses/:slug" element={<CourseDetail />} />
@@ -366,6 +372,7 @@ function App() {
           <Route path="/supervisor" element={<SupervisorProtected><SeshatsHub /></SupervisorProtected>} />
           <Route path="/auth/cross-site" element={<CrossSiteLogin />} />
           <Route path="/terms" element={<TermsOfService />} />
+          <Route path="/dmca" element={<Dmca />} />
           <Route path="/privacy" element={<PrivacyPolicy />} />
           <Route path="/refund-policy" element={<RefundPolicy />} />
           <Route path="/courses" element={<Courses />} />
