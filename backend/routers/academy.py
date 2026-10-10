@@ -23,6 +23,8 @@ from typing import List, Literal, Optional
 from fastapi import APIRouter, Depends, Header, HTTPException
 from pydantic import BaseModel, ConfigDict, Field
 
+from academy_content.enrichment import all_resources
+
 logger = logging.getLogger("lcewai")
 router = APIRouter(tags=["academy"])
 
@@ -406,7 +408,21 @@ async def list_courses(grade: Optional[str] = None, track: Optional[str] = None,
             "lesson_count": lesson_count,
             "objectives": c.get("learning_objectives", []),
         })
-    return {"courses": cards, "count": len(cards)}
+    # Real enrichment coverage per course, so the staff tracker reads the
+    # content module instead of a hand-maintained copy of it.
+    video_coverage = {}
+    for c in docs:
+        vids = c.get("enrichment_videos", []) or []
+        ready = [v for v in vids if v.get("status") == "ready"]
+        video_coverage[c["slug"]] = {
+            # "ready" videos are embedded on the course page regardless of
+            # whether their ID has been confirmed — the unverified ones carry a
+            # note. Counting them separately here would under-report coverage.
+            "embedded": len(ready),
+            "unverified": sum(1 for v in ready if v.get("suspect")),
+            "pending_ids": sum(1 for v in vids if v.get("status") == "no_id"),
+        }
+    return {"courses": cards, "count": len(cards), "video_coverage": video_coverage}
 
 
 @router.get("/academy/courses/{slug}")
@@ -470,9 +486,19 @@ async def course_detail(slug: str, user=Depends(_dep_optional_user)):
         "units": units_out,
         "content_visible": include_content,
         "enrichment_videos": [
-            v for v in course.get("enrichment_videos", [])
+            {**v, "unverified": bool(v.get("suspect"))}
+            for v in course.get("enrichment_videos", [])
             if v.get("status") == "ready"
         ],
+        # Videos with no ID are staff-visible only (the staff tracker shows
+        # NEEDS VIDEO ID); there is nothing to embed for a family to see.
+        "enrichment_pending_ids": len([
+            v for v in course.get("enrichment_videos", []) if v.get("status") == "no_id"
+        ]),
+        # The curated creator directory documented in enrichment.py as
+        # "Educators & Resources" link cards. Defined in the content module but
+        # previously never exposed to any endpoint, so no page could show it.
+        "educator_resources": all_resources(),
         "enrichment_note": (
             "Curated, publicly accessible educational resources from their creators — not MoreHelp content. "
             "Videos play on-site and never navigate you away."

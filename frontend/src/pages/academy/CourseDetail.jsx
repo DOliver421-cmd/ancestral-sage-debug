@@ -3,7 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import { api } from "../../lib/api";
 import { useAuth } from "../../lib/auth";
 import { PublicHeader, AcademyFooter, TrackTag, LiveChip, errorMessage } from "./academyKit";
-import { ArrowRight, Lock, BookOpen, Clock, Target, ChevronDown, AlertCircle, GraduationCap } from "lucide-react";
+import { ArrowRight, Lock, BookOpen, Clock, Target, ChevronDown, AlertCircle, GraduationCap, Link2, ExternalLink } from "lucide-react";
 import LessonVideo from "./LessonVideo";
 
 /* /academy/courses/:slug — public course page (full lesson content is gated
@@ -65,7 +65,14 @@ export default function CourseDetail() {
             <span className="text-xs text-white/50 font-bold">{data.grade_label} · {data.subject_label}</span>
           </div>
           <h1 className="font-heading text-4xl font-bold mt-4 leading-tight max-w-3xl">{data.title}</h1>
+          <p className="text-white/80 mt-3 max-w-3xl leading-relaxed font-semibold">{data.summary}</p>
           <p className="text-white/65 mt-3 max-w-3xl leading-relaxed">{data.description}</p>
+          {data.audience && (
+            <p className="text-white/55 mt-3 max-w-3xl text-sm leading-relaxed">
+              <span className="font-bold uppercase tracking-widest text-white/40 text-[11px] block">Who this is for</span>
+              {data.audience}
+            </p>
+          )}
           <div className="flex flex-wrap items-center gap-4 mt-5 text-sm text-white/60 font-bold">
             <span className="flex items-center gap-1.5"><Clock className="w-4 h-4 text-signal" /> ~{data.est_hours} hours</span>
             <span className="flex items-center gap-1.5"><BookOpen className="w-4 h-4 text-signal" /> {totalLessons} lessons</span>
@@ -94,6 +101,13 @@ export default function CourseDetail() {
           <div className="grid lg:grid-cols-3 gap-8">
             {/* Unit / lesson map */}
             <div className="lg:col-span-2 space-y-4">
+              {!!data.enrichment_pending_ids && (
+                <p className="text-xs text-ink/45">
+                  {data.enrichment_pending_ids} curated resource{data.enrichment_pending_ids === 1 ? "" : "s"} for this course
+                  {data.enrichment_pending_ids === 1 ? " is" : " are"} still being pinned down. Nothing here is broken — it
+                  just isn't embedded yet.
+                </p>
+              )}
               {(data.enrichment_videos || []).filter((v) => v.placement === "start").map((v) => (
                 <LessonVideo key={v.video_id} video={v} />
               ))}
@@ -167,6 +181,28 @@ export default function CourseDetail() {
                 next one unlocks. Below {data.passing_score}%? Review the explanations and try again — progress
                 and best scores are saved for your parent dashboard.
               </div>
+              {(data.educator_resources || []).length > 0 && (
+                <div className="card-flat bg-white border border-ink/10 p-6">
+                  <h3 className="font-heading text-lg font-bold text-ink flex items-center gap-2 mb-3">
+                    <Link2 className="w-5 h-5 text-copper" /> Educators &amp; resources
+                  </h3>
+                  <p className="text-xs text-ink/55 leading-relaxed mb-3">
+                    Creators and educators we recommend for this subject. These are their channels, not
+                    MoreHelp content — links open on their own site.
+                  </p>
+                  <ul className="space-y-2.5">
+                    {(data.educator_resources || []).slice(0, 6).map((r) => (
+                      <li key={r.url} className="text-sm">
+                        <a href={r.url} target="_blank" rel="noopener noreferrer"
+                          className="font-bold text-copper hover:text-ink inline-flex items-center gap-1">
+                          {r.name} <ExternalLink className="w-3 h-3" />
+                        </a>
+                        <span className="text-ink/50 text-xs block">{r.role}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </aside>
           </div>
         )}

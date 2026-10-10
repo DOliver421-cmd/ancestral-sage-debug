@@ -35,6 +35,12 @@ export default function LessonVideo({ video, compact = false }) {
               Created by <span className="font-bold text-ink/70">{video.creator}</span> · a publicly accessible
               educational resource — not MoreHelp content. Plays right here on MoreHelp.
             </p>
+            {video.unverified && (
+              <p className="text-[11px] font-bold text-amber-700 mt-1.5" data-testid="video-unverified">
+                This one hasn&apos;t been confirmed to play yet — if the player stays blank, use the
+                Source link or ask your instructor.
+              </p>
+            )}
           </div>
           <a
             href={watchUrl}
