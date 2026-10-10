@@ -85,14 +85,27 @@ const ROUTES = [
     },
   },
   {
-    match: "/academy",
+    // The public front door: www.morehelp.center/HomeschoolAcademy
+    match: "/HomeschoolAcademy",
     wai: {
-      title: "Homeschool Academy — Florida K-12 & Adult Education",
-      desc: "54 free courses, 4 student handbooks, embedded educational videos, and homeschool compliance tools. K–12 curriculum, cultural counter-narratives, and adult education.",
+      title: "Homeschool Academy — Free K-12, Trades & Adult Curriculum",
+      desc: "95 free courses, 4 student handbooks and 480+ lessons for K-12, trades, career, entrepreneurship and adult learners. Mastery checks, transcripts, portfolio, family-history projects and Florida home-education compliance tools — free for every family.",
     },
     more: {
-      title: "Homeschool Academy — Free K-12 & Adult Courses",
-      desc: "54 free courses across 4 tracks: Cultural & Counter-Narrative, K-8 Foundations, Entrepreneurship, and Adult Education. Homeschool compliance tools, transcripts, and on-site video enrichment.",
+      title: "Homeschool Academy — Free K-12, Trades & Adult Curriculum",
+      desc: "95 free courses, 4 student handbooks and 480+ lessons for K-12, trades, career, entrepreneurship and adult learners. Mastery checks, transcripts, portfolio, family-history projects and Florida home-education compliance tools — free for every family.",
+    },
+    canonical: "/HomeschoolAcademy",
+  },
+  {
+    match: "/academy",
+    wai: {
+      title: "Homeschool Academy — Free K-12, Trades & Adult Curriculum",
+      desc: "The WAI Institute Homeschool Academy: free curriculum, mastery-based learning, family-history projects, transcripts and Florida home-education compliance tools.",
+    },
+    more: {
+      title: "Homeschool Academy — Free K-12, Trades & Adult Curriculum",
+      desc: "The WAI Institute Homeschool Academy: free curriculum, mastery-based learning, family-history projects, transcripts and Florida home-education compliance tools.",
     },
   },
   {
@@ -198,6 +211,16 @@ const DEFAULT = {
   },
 };
 
+function setCanonicalLink(url) {
+  let el = document.querySelector("link[rel=canonical]");
+  if (!el) {
+    el = document.createElement("link");
+    el.setAttribute("rel", "canonical");
+    document.head.appendChild(el);
+  }
+  el.setAttribute("href", url);
+}
+
 function setMeta(attr, name, content) {
   let el = document.head.querySelector(`meta[${attr}="${name}"]`);
   if (!el) {
@@ -225,13 +248,14 @@ export function useSeoManager() {
     const entry = (hit && hit[waiDoor ? "wai" : "more"]) || DEFAULT[waiDoor ? "wai" : "more"];
     const title = entry.title;
     const desc = entry.desc;
-    const url = `${window.location.origin}${path}`;
+    const url = `${window.location.origin}${hit && hit.canonical ? hit.canonical : path}`;
     // Door-branded share preview image — the logo card that social platforms
     // display when a link is shared (WAI door vs. M.O.R.E. door).
     const ogImage = waiDoor
       ? "https://www.wai-institute.org/wai-og-1200x630.png"
       : "https://www.morehelp.center/logo-og-1200x630.png";
 
+    setCanonicalLink(url);
     document.title = title;
     setMeta("name", "description", desc);
     setMeta("property", "og:title", title);

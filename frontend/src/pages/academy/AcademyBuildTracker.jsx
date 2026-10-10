@@ -43,6 +43,7 @@ const BUILD_CHECKLIST = [
 export default function AcademyBuildTracker() {
   const { user } = useAuth();
   const [courses, setCourses] = useState(null);
+  const [coverage, setCoverage] = useState({});
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
 
@@ -55,7 +56,12 @@ export default function AcademyBuildTracker() {
 
   useEffect(() => {
     api.get("/academy/courses")
-      .then((r) => setCourses(r.data.courses || []))
+      .then((r) => {
+        setCourses(r.data.courses || []);
+        // Live enrichment coverage from the same catalog response — the staff
+        // view mirrors the content module instead of a hand-kept copy of it.
+        setCoverage(r.data.video_coverage || {});
+      })
       .catch((e) => setError(errorMessage(e, "Could not load the catalog.")))
       .finally(() => setLoading(false));
   }, []);
@@ -151,7 +157,7 @@ export default function AcademyBuildTracker() {
                     <td className="px-4 py-3 text-center font-bold text-ink/70">{c.lesson_count}</td>
                     <td className="px-4 py-3"><LiveChip status={c.status} /></td>
                     <td className="px-4 py-3">
-                      <VideoChip slug={c.slug} />
+                      <VideoChip slug={c.slug} coverage={coverage} />
                     </td>
                   </tr>
                 ))}
@@ -188,43 +194,30 @@ export default function AcademyBuildTracker() {
     </AppShell>
   );
 }
+function VideoChip({ slug, coverage }) {
+  const info = coverage[slug] || {};
+  const embedded = info.embedded || 0;
+  const unverified = info.unverified || 0;
+  const pending = info.pending_ids || 0;
 
-/* Video status per course slug — mirror of enrichment mapping coverage.
-   (The mapping lives in the seed; the staff-facing summary is kept in sync
-   manually until a dedicated tracker endpoint ships in Phase V2.) */
-const VIDEO_COVERAGE = {
-  ready: new Set([
-    "african-kingdoms-empires", "ethnomathematics-black-pioneers", "global-african-diaspora",
-    "diaspora-mathematics-algorithms-astronomy", "african-philosophy-ethics",
-    "african-american-literature-foundations", "reading-foundations-kindergarten",
-    "reading-foundations-grade-2", "reading-foundations-grade-1", "math-grade-1", "math-grade-2",
-    "multiplication-division-fractions-grade-4", "math-grade-3", "math-grade-5", "math-grade-6",
-    "math-grade-8", "science-grade-2", "science-grade-5", "science-grade-8",
-    "social-studies-grade-5", "social-studies-grade-7", "visual-arts-foundations",
-    "digital-art-grade-9", "applied-electrical-year-1", "electrical-year-2", "trade-math-grade-8",
-    "adult-ed-hse-social-studies", "entrepreneurship-foundations",
-  ]),
-  noId: new Set(["adult-ed-hse-ela", "adult-ed-hse-math", "adult-ed-hse-science"]),
-};
-
-function VideoChip({ slug }) {
-  if (VIDEO_COVERAGE.ready.has(slug)) {
+  if (embedded > 0) {
     return (
       <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-700 bg-emerald-600/10 border border-emerald-600/30 rounded-full px-2.5 py-1">
-        <Film className="w-3 h-3" /> Embedded
+        <Film className="w-3 h-3" /> Embedded{embedded > 1 ? ` (${embedded})` : ""}
+        {unverified > 0 && <span className="text-amber-700">· {unverified} unverified</span>}
       </span>
     );
   }
-  if (VIDEO_COVERAGE.noId.has(slug)) {
+  if (pending > 0) {
     return (
       <span className="inline-flex items-center gap-1 text-xs font-bold text-amber-700 bg-amber-500/10 border border-amber-500/30 rounded-full px-2.5 py-1">
-        <AlertTriangle className="w-3 h-3" /> Needs video ID
+        <AlertTriangle className="w-3 h-3" /> Needs video ID ({pending})
       </span>
     );
   }
   return (
     <span className="inline-flex items-center gap-1 text-xs font-bold text-ink/40 bg-ink/5 border border-ink/10 rounded-full px-2.5 py-1">
-      <Link2 className="w-3 h-3" /> Resource link
+      <Link2 className="w-3 h-3" /> No enrichment yet
     </span>
   );
 }

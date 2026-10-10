@@ -74,7 +74,12 @@ def _route_has_auth_dep(dependant, _seen=None) -> bool:
             # user only when credentials are supplied — the route is
             # intentionally public (store catalog, public puzzle). Matching the
             # bare "current_user" marker must not gate these.
-            if "optional_current_user" in q:
+            # Any "optional" auth dependency resolves a user only when
+            # credentials are supplied — the route is intentionally public
+            # (catalog browse, public puzzle). The Academy's is named
+            # _dep_optional_current_user; matching on the bare marker gated
+            # /academy/courses/{slug} for anonymous visitors.
+            if "optional" in q:
                 continue
             return True
         sub = getattr(d, "dependencies", None)

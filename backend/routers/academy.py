@@ -23,6 +23,8 @@ from typing import List, Literal, Optional
 from fastapi import APIRouter, Depends, Header, HTTPException
 from pydantic import BaseModel, ConfigDict, Field
 
+from academy_content.enrichment import all_resources
+
 logger = logging.getLogger("lcewai")
 router = APIRouter(tags=["academy"])
 
@@ -100,7 +102,7 @@ async def _dep_current_user(authorization: Optional[str] = Header(None)):
     return await current_user(authorization)
 
 
-async def _dep_optional_user(authorization: Optional[str] = Header(None)):
+async def _dep_optional_current_user(authorization: Optional[str] = Header(None)):
     """Optional auth: anonymous callers browse public course pages; a provided
     (valid) token is resolved so enrolled owners can see full content."""
     if not authorization:
@@ -406,11 +408,25 @@ async def list_courses(grade: Optional[str] = None, track: Optional[str] = None,
             "lesson_count": lesson_count,
             "objectives": c.get("learning_objectives", []),
         })
-    return {"courses": cards, "count": len(cards)}
+    # Real enrichment coverage per course, so the staff tracker reads the
+    # content module instead of a hand-maintained copy of it.
+    video_coverage = {}
+    for c in docs:
+        vids = c.get("enrichment_videos", []) or []
+        ready = [v for v in vids if v.get("status") == "ready"]
+        video_coverage[c["slug"]] = {
+            # "ready" videos are embedded on the course page regardless of
+            # whether their ID has been confirmed — the unverified ones carry a
+            # note. Counting them separately here would under-report coverage.
+            "embedded": len(ready),
+            "unverified": sum(1 for v in ready if v.get("suspect")),
+            "pending_ids": sum(1 for v in vids if v.get("status") == "no_id"),
+        }
+    return {"courses": cards, "count": len(cards), "video_coverage": video_coverage}
 
 
 @router.get("/academy/courses/{slug}")
-async def course_detail(slug: str, user=Depends(_dep_optional_user)):
+async def course_detail(slug: str, user=Depends(_dep_optional_current_user)):
     """Course page data.
 
     Public for browsing, but full lesson MATERIAL + knowledge-check keys are
@@ -470,9 +486,19 @@ async def course_detail(slug: str, user=Depends(_dep_optional_user)):
         "units": units_out,
         "content_visible": include_content,
         "enrichment_videos": [
-            v for v in course.get("enrichment_videos", [])
+            {**v, "unverified": bool(v.get("suspect"))}
+            for v in course.get("enrichment_videos", [])
             if v.get("status") == "ready"
         ],
+        # Videos with no ID are staff-visible only (the staff tracker shows
+        # NEEDS VIDEO ID); there is nothing to embed for a family to see.
+        "enrichment_pending_ids": len([
+            v for v in course.get("enrichment_videos", []) if v.get("status") == "no_id"
+        ]),
+        # The curated creator directory documented in enrichment.py as
+        # "Educators & Resources" link cards. Defined in the content module but
+        # previously never exposed to any endpoint, so no page could show it.
+        "educator_resources": all_resources(),
         "enrichment_note": (
             "Curated, publicly accessible educational resources from their creators — not MoreHelp content. "
             "Videos play on-site and never navigate you away."
@@ -1405,13 +1431,20 @@ async def update_project(project_id: str, body: ProjectUpdate, user: dict = Depe
         # else — arbitrary keys, non-text values, oversized values — is dropped,
         # so no unexpected structure can be written into a student's record.
         valid_steps = {s["id"] for s in (p.get("steps") or []) if isinstance(s.get("id"), str)}
-        safe = {}
+        # MERGE with what is already saved: a parent filling the pathway in
+        # step order saves one artifact at a time, and replacing the whole map
+        # on every save silently discarded the earlier steps (1 of 6
+        # completed). Sending a step's artifact as an empty string clears it.
+        safe = dict(p.get("artifacts") or {})
         for k, v in dict(body.artifacts).items():
             if (
                 isinstance(k, str) and k in valid_steps
                 and isinstance(v, str) and len(v) <= 20000
             ):
-                safe[k] = v
+                if v.strip():
+                    safe[k] = v
+                else:
+                    safe.pop(k, None)
         update["artifacts"] = safe
         steps = p.get("steps") or []
         if steps:

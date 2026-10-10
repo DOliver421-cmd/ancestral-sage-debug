@@ -12,7 +12,7 @@ export default function PrivacyPolicy() {
 
       <div className="max-w-3xl mx-auto px-6 py-12 prose prose-ink max-w-none">
         <h1>Privacy Policy</h1>
-        <p className="text-sm text-ink/60">Last updated: May 2026</p>
+        <p className="text-sm text-ink/60">Last updated: October 2026</p>
 
         <h2>1. Information We Collect</h2>
         <p>When you register for an account, we collect your name and email address. We also collect course progress, lab submissions, and certificate data necessary to provide our educational services.</p>
@@ -41,6 +41,22 @@ export default function PrivacyPolicy() {
           <li><strong>Right to erasure</strong> — delete your account via Account Settings → Delete Account.</li>
           <li><strong>Right to data portability</strong> — your data export is in JSON format.</li>
         </ul>
+
+        <h2>5a. Homeschool Academy Records and Minors' Data</h2>
+        <p>
+          If you use the Homeschool Academy, we create a student profile for each child you add:
+          the child's name, grade level, and learning track; their course enrollments; and their
+          lesson progress, scores, and best results. If you use a compliance document, we store the
+          details you enter for it — which can include a child's date of birth and your home
+          address — because that is what the document requires. If you use projects, we store the
+          work your student writes, including family-history notes and artifacts.
+        </p>
+        <p>
+          These records are tied to your adult account, not to the child. A child does not create
+          an account and does not sign in. Only you (and platform staff acting in a support role)
+          can see them. They are never used for advertising and never sold. You can export them
+          from Account Settings → Export Data, and deleting your account deletes them.
+        </p>
 
         <h2>6. Children's Privacy (COPPA)</h2>
         <p>You must be at least 13 years old to create an account. This platform is not open to minors under 17. Users 17 and older may create their own accounts. Users under 17 must have a parent or guardian create and supervise their account. The parent or guardian — not the platform — is solely responsible for the minor's use of the platform.</p>

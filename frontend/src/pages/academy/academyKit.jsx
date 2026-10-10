@@ -137,11 +137,16 @@ export function AcademyFooter() {
     <footer className="bg-ink text-white/40 text-xs text-center py-8 px-6">
       <p className="font-bold text-white/60 mb-1">WAI Institute Homeschool Academy — part of {BRAND.name}</p>
       <p>
-        © {new Date().getFullYear()} {BRAND.name} · {BRAND.legal} ·{" "}
-        <a href="https://www.morehelp.center" className="hover:text-white">www.morehelp.center</a> ·{" "}
+        © {new Date().getFullYear()} {BRAND.legal}. All rights reserved. ·{" "}
+        <a href="/HomeschoolAcademy" className="hover:text-white">morehelp.center/HomeschoolAcademy</a> ·{" "}
         <a href={WAI_INSTITUTE_URL} className="hover:text-white">www.wai-institute.org</a>
       </p>
       <p className="mt-2 text-white/30">Homeschool records are educational progress documentation, not state credentials.</p>
+      <p className="mt-1">
+        <a href="/terms" className="hover:text-white">Terms</a> ·{" "}
+        <a href="/privacy" className="hover:text-white">Privacy</a> ·{" "}
+        <a href="/dmca" className="hover:text-white">DMCA</a>
+      </p>
     </footer>
   );
 }
