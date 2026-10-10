@@ -15,7 +15,7 @@ ROWS = [
         "subject_label": "Entrepreneurship",
         "grade_label": "Adult",
         "passing_score": 80,
-        "stats": {"lessons_passed": 8, "lessons_total": 10, "completed": False},
+        "stats": {"lessons_passed": 8, "lessons_total": 10, "completed": False, "avg_score": 82},
         "status": "in_progress",
     },
     {
@@ -25,7 +25,7 @@ ROWS = [
         "subject_label": "Reading",
         "grade_label": "Grade 1",
         "passing_score": 80,
-        "stats": {"lessons_passed": 12, "lessons_total": 12, "completed": True},
+        "stats": {"lessons_passed": 12, "lessons_total": 12, "completed": True, "avg_score": 95},
         "status": "completed",
     },
 ]
@@ -92,8 +92,17 @@ def test_transcript_computes_progress_and_gpa():
     graded = {g["course_title"]: g for g in p["graded_courses"]}
     assert graded["Reading Foundations — Grade 1"]["progress_pct"] == 100
     assert graded["Entrepreneurship Foundations"]["progress_pct"] == 80
+    # GPA is computed from real mastery scores on a stated scale, not a flat
+    # 4.0 for anything marked complete.
+    reading = graded["Reading Foundations — Grade 1"]      # completed, avg 95 -> A
+    entre = graded["Entrepreneurship Foundations"]          # in progress, avg 82 -> B
+    assert reading["grade_letter"] == "A" and reading["grade_points"] == 4.0
+    assert entre["grade_letter"] == "B" and entre["grade_points"] == 3.0
+    # Only completed courses count toward the GPA: (4.0) / 1 = 4.0.
     assert p["unweighted_gpa_completed_only"] == 4.0
-    assert "signature_line" in p
+    # The scale travels with the document so a reader can check the arithmetic.
+    assert "A 90-100 = 4.0" in p["gpa_scale"]
+    assert p["how_gpa_is_computed"]
 
 
 def test_quarterly_report_and_ihip_shapes():

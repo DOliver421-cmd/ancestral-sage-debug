@@ -138,6 +138,52 @@ HANDBOOK_ELEMENTARY = {
                     },
                 },
                 {
+                    "slug": "reading-like-a-scholar",
+                    "title": "Chapter 6: Read Like a Scholar",
+                    "order": 6,
+                    "minutes": 12,
+                    "summary": "Three moves that turn a page into understanding.",
+                    "learn": [
+                        {"type": "p", "text": "Reading for school is different from reading for fun, and the difference is a few habits. Before you read, look at the headings and ask what the chapter is probably about. While you read, stop at the end of each section and say the main idea in one short sentence. When you meet a word you do not know, keep reading and come back to it — most of the time the sentence itself tells you what it means."},
+                        {"type": "list", "items": [
+                            "Preview: headings, pictures, and the first sentence tell you what is coming.",
+                            "Summarize: one sentence per section, in your own words.",
+                            "Return: unfamiliar words often explain themselves in the next sentence.",
+                        ]},
+                        {"type": "tip", "text": "For parents: reading aloud together still builds vocabulary in grade 3, 4, and 5 — it is not only for little kids."},
+                    ],
+                    "check": {
+                        "prompt": "Check your reading moves.",
+                        "questions": [
+                            {"q": "A good preview looks at…", "options": ["headings and the first sentence", "only the pictures", "the last page"], "answer": "headings and the first sentence", "explain": "These tell you what the material will cover."},
+                            {"q": "When you meet an unknown word, first…", "options": ["keep reading and come back to it", "stop the whole page", "skip the chapter"], "answer": "keep reading and come back to it", "explain": "Context usually explains the word, and stopping breaks the thread."},
+                        ],
+                    },
+                },
+                {
+                    "slug": "numbers-in-the-real-world",
+                    "title": "Chapter 7: Numbers in the Real World",
+                    "order": 7,
+                    "minutes": 12,
+                    "summary": "How to practice math outside the workbook.",
+                    "learn": [
+                        {"type": "p", "text": "Math is a tool, and tools get sharp with use. Cooking teaches fractions and measurement. A road trip teaches distance, time, and estimation. A pocket-money decision teaches addition, subtraction, and the beginning of budgeting. None of these feel like schoolwork, and all of them are the same skills."},
+                        {"type": "list", "items": [
+                            "Cooking: double a recipe and you have practiced doubling fractions.",
+                            "Shopping: estimate the total before you reach the register.",
+                            "Games: card games, board games, and Ayo (Oware) practice counting and probability.",
+                        ]},
+                        {"type": "example", "title": "A real-world problem", "text": "A recipe needs 3/4 cup of flour and you want to make half. How much? Half of 3/4 is 3/8 — and you can check it by measuring. That is the whole method: try it, check it, try again."},
+                    ],
+                    "check": {
+                        "prompt": "Check your number sense.",
+                        "questions": [
+                            {"q": "Half of 3/4 cup is…", "options": ["3/8", "1/2", "1/4"], "answer": "3/8", "explain": "Half of 3/4 means half of three quarters, which is three eighths."},
+                            {"q": "Estimating the grocery total before the register is practice in…", "options": ["adding and rounding", "spelling", "grammar"], "answer": "adding and rounding", "explain": "A running estimate is arithmetic you actually use."},
+                        ],
+                    },
+                },
+                {
                     "slug": "your-progress-your-pride",
                     "title": "Chapter 5: Your Progress, Your Pride",
                     "order": 5,

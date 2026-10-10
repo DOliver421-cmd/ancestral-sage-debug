@@ -162,7 +162,11 @@ export default function AcademyLesson() {
     setCoachText("");
     setCoachBusy(true);
     try {
-      const r = await api.post("/ai/chat", { session_id: sessionId, message: `${context}\n\nStudent asks: ${text}`, mode: "tutor" });
+      // mode "academy_coach": the Homeschool Academy persona. It teaches the
+      // lesson in any subject and does not hand over knowledge-check answers —
+      // the promise the student handbooks make. (The old "tutor" mode was an
+      // electrical-apprentice persona for the WAI apprenticeship program.)
+      const r = await api.post("/ai/chat", { session_id: sessionId, message: `${context}\n\nStudent asks: ${text}`, mode: "academy_coach" });
       setCoachMsgs((m) => [...m, { role: "coach", text: r.data.reply || "…" }]);
     } catch {
       setCoachMsgs((m) => [...m, { role: "coach", text: "", unavailable: true }]);

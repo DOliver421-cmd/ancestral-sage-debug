@@ -85,6 +85,7 @@ from .diaspora_mathematics import DIASPORA_MATHEMATICS
 from .african_philosophy_ethics import AFRICAN_PHILOSOPHY_ETHICS
 from .architecture_of_omission import ARCHITECTURE_OF_OMISSION
 from .handbook_elementary import HANDBOOK_ELEMENTARY
+from .parent_handbook import PARENT_HANDBOOK
 from .handbook_middle import HANDBOOK_MIDDLE
 from .handbook_high import HANDBOOK_HIGH
 from .handbook_adult import HANDBOOK_ADULT
@@ -214,6 +215,7 @@ PUBLISHED_COURSES = [
     SOCIAL_STUDIES_GRADE_12,
     ASCENSION_PROTOCOLS,
     # Free student handbooks (ebook-style guides, catalog placement)
+    PARENT_HANDBOOK,
     HANDBOOK_ELEMENTARY,
     HANDBOOK_MIDDLE,
     HANDBOOK_HIGH,
