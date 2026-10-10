@@ -137,6 +137,53 @@ HANDBOOK_MIDDLE = {
                     },
                 },
                 {
+                    "slug": "the-scientific-habit",
+                    "title": "Chapter 6: The Scientific Habit",
+                    "order": 6,
+                    "minutes": 12,
+                    "summary": "Observation, hypothesis, test, conclusion — in your kitchen.",
+                    "learn": [
+                        {"type": "p", "text": "Science is a habit of mind, and you already use it. Something happens, you guess why, you check, and you keep or change your guess. A scientist calls those steps observation, hypothesis, experiment, and conclusion. The important part is the last one: keeping a guess because you like it, after the test says otherwise, is not science."},
+                        {"type": "list", "items": [
+                            "Observation: what actually happened, in numbers if you can.",
+                            "Hypothesis: a guess you can prove wrong.",
+                            "Experiment: one thing changed, everything else held constant.",
+                            "Conclusion: what the test showed, not what you wanted.",
+                        ]},
+                        {"type": "example", "title": "A kitchen experiment", "text": "Hypothesis: ice melts faster in a metal cup than a plastic cup. Change only the cup, keep the water, the ice, and the room the same, and time it. If you change two things, you cannot tell which one mattered."},
+                    ],
+                    "check": {
+                        "prompt": "Check your understanding of the scientific method.",
+                        "questions": [
+                            {"q": "In a fair experiment you change…", "options": ["only one thing", "as many things as you like", "nothing"], "answer": "only one thing", "explain": "One variable at a time is what makes a result interpretable."},
+                            {"q": "Science requires that you…", "options": ["keep the guess only if the test supports it", "never form a guess", "prefer the guess you like"], "answer": "keep the guess only if the test supports it", "explain": "Evidence, not preference, is the standard."},
+                        ],
+                    },
+                },
+                {
+                    "slug": "asking-better-questions",
+                    "title": "Chapter 7: Questions That Get Real Answers",
+                    "order": 7,
+                    "minutes": 12,
+                    "summary": "How to ask a teacher, a parent, or a search engine so the answer helps.",
+                    "learn": [
+                        {"type": "p", "text": "The quality of the answer usually depends on the quality of the question. 'Can you help me with math' is hard to answer. 'I don't understand why we divide both sides of the equation' gets an explanation. Name the exact spot where you are stuck, and the person helping you knows where to start."},
+                        {"type": "list", "items": [
+                            "Name the part: which sentence, which step, which word.",
+                            "Say what you tried: then nobody repeats it.",
+                            "Say what you want: an explanation, an example, or a check.",
+                        ]},
+                        {"type": "tip", "text": "Your Academy Coach answers better when you ask this way — and it will explain the method rather than handing you the answer."},
+                    ],
+                    "check": {
+                        "prompt": "Check your question skills.",
+                        "questions": [
+                            {"q": "The clearest question includes…", "options": ["the exact place you got stuck", "only the subject name", "the whole page copied"], "answer": "the exact place you got stuck", "explain": "Precision tells the helper where to begin."},
+                            {"q": "Telling someone what you already tried helps because…", "options": ["it prevents repeating the same thing", "it is polite", "it lets them skip the work"], "answer": "it prevents repeating the same thing", "explain": "It saves time and points at what did not work."},
+                        ],
+                    },
+                },
+                {
                     "slug": "speak-up-speak-specific",
                     "title": "Chapter 5: Speak Up, Speak Specific",
                     "order": 5,

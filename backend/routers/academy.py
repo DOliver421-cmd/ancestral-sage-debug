@@ -18,7 +18,7 @@ and auto-bound by _bind_router_dependencies().
 import logging
 import uuid
 from datetime import datetime, timezone
-from typing import List, Literal, Optional
+from typing import List, Literal, Optional, Tuple
 
 from fastapi import APIRouter, Depends, Header, HTTPException
 from pydantic import BaseModel, ConfigDict, Field
@@ -1061,6 +1061,20 @@ class ComplianceDoc(BaseModel):
     address_line: Optional[str] = Field(default=None, max_length=200)
 
 
+def _letter_grade(pct) -> Tuple[str, float]:
+    """Standard unweighted letter grade from a percentage, for parent-issued
+    transcripts. The scale is printed with the document so a reader can check
+    the arithmetic rather than take the GPA on trust."""
+    try:
+        p = float(pct)
+    except (TypeError, ValueError):
+        return ("—", 0.0)
+    for floor, letter, points in ((90, "A", 4.0), (80, "B", 3.0), (70, "C", 2.0), (60, "D", 1.0)):
+        if p >= floor:
+            return (letter, points)
+    return ("F", 0.0)
+
+
 _COMPLIANCE_DISCLAIMER = (
     "MoreHelp Center is an educational resource provider helping parents manage "
     "their own home education programs. This document was generated from "
@@ -1154,12 +1168,18 @@ def _compliance_payload(kind: str, student: dict, rows: list, summary: dict, rec
             "subject": r["subject_label"] or r["subject"],
             "grade_label": r["grade_label"],
             "progress_pct": pct,
+            "avg_mastery": r["stats"].get("avg_score"),
             "status": r["status"],
             "passing_score": r["passing_score"],
         })
-    gpa_points = {"completed": 4.0, "in_progress": None, "not_started": None}
+    # GPA from the student's ACTUAL mastery scores, on a stated scale. The
+    # previous behaviour assigned 4.0 to every completed course, which produced
+    # a transcript showing a 4.0 for any student regardless of performance — an
+    # accuracy defect on a document a parent signs and submits.
     completed = [g for g in graded if g["status"] == "completed"]
-    gpa = round(sum(gpa_points["completed"] for _ in completed) / len(completed), 2) if completed else None
+    for g in graded:
+        g["grade_letter"], g["grade_points"] = _letter_grade(g["avg_mastery"])
+    gpa = round(sum(g["grade_points"] for g in completed) / len(completed), 2) if completed else None
     return {
         "title": "Official High School Transcript (Parent-Issued)",
         "statute": "Prepared for Bright Futures / Florida Department of Education submission",
@@ -1170,6 +1190,14 @@ def _compliance_payload(kind: str, student: dict, rows: list, summary: dict, rec
         ),
         "graded_courses": graded,
         "unweighted_gpa_completed_only": gpa,
+        # The scale is part of the document: a reader can reproduce the number.
+        "gpa_scale": "A 90-100 = 4.0 | B 80-89 = 3.0 | C 70-79 = 2.0 | D 60-69 = 1.0 | F below 60 = 0.0 (unweighted)",
+        "how_gpa_is_computed": (
+            "Unweighted GPA is the sum of each completed course's grade points divided by the number of "
+            "completed courses. A course counts as completed when every lesson has been passed at the "
+            "course's mastery threshold (80% unless the course states otherwise). Courses still in "
+            "progress carry no grade points. This is a parent-issued record, not a state credential."
+        ),
         "signature_line": "Parent / School Administrator signature: ______________________  Date: ____________",
     }
 

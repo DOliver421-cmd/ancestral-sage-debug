@@ -179,7 +179,7 @@ HANDBOOK_HIGH = {
                             "Request any needed records (dual-enrollment transcripts, test scores) early — offices run on their own clocks.",
                             "Graduate: the parent issues the diploma. In Florida, a parent-issued homeschool diploma is real — accepted by colleges, employers, and the military, backed by your transcript.",
                         ]},
-                        {"type": "tip", "text": "Print your Records page transcripts each year of high school. Four printed snapshots make the final transcript a 30-minute assembly job instead of a reconstruction project."},
+                        {"type": "tip", "text": "Each year of high school, generate a transcript from the Academy's Compliance page and print it alongside your Records page. Four printed snapshots make the final transcript a 30-minute assembly job instead of a reconstruction project."},
                     ],
                     "check": {
                         "prompt": "A quick review of Chapter 6.",
