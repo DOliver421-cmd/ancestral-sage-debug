@@ -31,8 +31,13 @@ def init_db(db_handle):
 
 
 def _col(name: str):
-    """Return a motor collection, or None if MongoDB is disabled."""
-    return _db[name] if _db else None
+    """Return a motor collection, or None if MongoDB is disabled.
+
+    Must compare with None: a motor Database/Collection raises
+    "Database objects do not implement truth value testing" when truth-tested,
+    which is what made every NAM write fail on a real deployment.
+    """
+    return _db[name] if _db is not None else None
 
 
 # ── Generic helpers ──────────────────────────────────────────────────────────
@@ -44,7 +49,7 @@ def _now() -> str:
 async def insert_one(collection: str, doc: dict) -> dict:
     """Insert a document. Returns the doc with _id added."""
     col = _col(collection)
-    if col:
+    if col is not None:
         doc.setdefault("created_at", _now())
         result = await col.insert_one(doc)
         doc["_id"] = str(result.inserted_id)
@@ -56,7 +61,7 @@ async def insert_one(collection: str, doc: dict) -> dict:
 
 async def find_one(collection: str, query: dict, projection: Optional[dict] = None) -> Optional[dict]:
     col = _col(collection)
-    if col:
+    if col is not None:
         doc = await col.find_one(query, projection or {})
         if doc:
             doc["_id"] = str(doc["_id"])
@@ -67,7 +72,7 @@ async def find_one(collection: str, query: dict, projection: Optional[dict] = No
 async def find_many(collection: str, query: Optional[dict] = None, projection: Optional[dict] = None,
                     sort: Optional[tuple] = None, limit: int = 100) -> list[dict]:
     col = _col(collection)
-    if col:
+    if col is not None:
         cursor = col.find(query or {}, projection or {})
         if sort:
             cursor = cursor.sort(sort[0], sort[1])
@@ -82,7 +87,7 @@ async def find_many(collection: str, query: Optional[dict] = None, projection: O
 
 async def update_one(collection: str, query: dict, update: dict, upsert: bool = False) -> bool:
     col = _col(collection)
-    if col:
+    if col is not None:
         result = await col.update_one(query, {"$set": update}, upsert=upsert)
         return result.modified_count > 0 or result.upserted_id is not None
     return False
@@ -90,7 +95,7 @@ async def update_one(collection: str, query: dict, update: dict, upsert: bool = 
 
 async def count_documents(collection: str, query: Optional[dict] = None) -> int:
     col = _col(collection)
-    if col:
+    if col is not None:
         return await col.count_documents(query or {})
     return 0
 
