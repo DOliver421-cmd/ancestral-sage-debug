@@ -361,6 +361,7 @@ function ResourcesTab() {
   const [category, setCategory] = useState("");
   const [q, setQ] = useState("");
   const [showForm, setShowForm] = useState(false);
+  const [openGuide, setOpenGuide] = useState(null);
 
   useEffect(() => {
     const params = category ? `?category=${category}` : "";
@@ -425,9 +426,9 @@ function ResourcesTab() {
               <span className="px-2 py-0.5 rounded text-xs font-bold bg-ink/5 text-ink/60">{r.category}</span>
             </div>
             <div className="font-bold text-ink text-sm">{r.title}</div>
-            {r.category === "templates" && (
-              <span className="inline-block mt-1 px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/10 text-amber-700 border border-amber-500/30">
-                Read-only guide · no workflow
+            {r.in_product && (
+              <span className="inline-block mt-1 px-2 py-0.5 rounded text-[10px] font-bold bg-copper/10 text-copper border border-copper/30">
+                Workflow · {r.steps?.length || 0} steps
               </span>
             )}
             <p className="text-xs text-ink/60 mt-1 line-clamp-3">{r.description}</p>
@@ -438,13 +439,119 @@ function ResourcesTab() {
                 ))}
               </div>
             )}
-            {r.url && (
-              <a href={r.url} target="_blank" rel="noopener noreferrer" title={r.category === "templates" ? "Opens this reference on its own site" : "Opens on its own site"} className="text-xs text-copper font-bold mt-3 inline-flex items-center gap-1 hover:underline">
-                Visit resource <ExternalLink className="w-3 h-3" />
-              </a>
+            {r.in_product ? (
+              <button
+                onClick={() => setOpenGuide(r)}
+                className="text-xs text-copper font-bold mt-3 inline-flex items-center gap-1 hover:underline"
+              >
+                Open the workflow <ArrowRight className="w-3 h-3" />
+              </button>
+            ) : (
+              r.url && (
+                <a href={r.url} target="_blank" rel="noopener noreferrer" title="Opens on its own site" className="text-xs text-copper font-bold mt-3 inline-flex items-center gap-1 hover:underline">
+                  Visit resource <ExternalLink className="w-3 h-3" />
+                </a>
+              )
             )}
           </div>
         ))}
+      </div>
+
+      {openGuide && (
+        <GuideChecklist resource={openGuide} onClose={() => setOpenGuide(null)} />
+      )}
+    </div>
+  );
+}
+
+/* The two in-product guides are workflows, not links: the checklist works
+   through the same hub workflow endpoints the Legal Workflow Engine uses, so
+   progress lives on the member's account and follows them between devices.
+   The guide's `steps` arrive with the resource row — no new endpoint, no
+   schema change. */
+function GuideChecklist({ resource, onClose }) {
+  const [steps, setSteps] = useState(() =>
+    (resource.steps || []).map(s => ({ ...s, completed: false }))
+  );
+  const [busy, setBusy] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        // One workflow per guide, found by its title.
+        const r = await api.get("/hub/workflows");
+        const list = Array.isArray(r.data) ? r.data : (r.data?.workflows || []);
+        const mine = list.find(w => w.title === resource.title && w.area === "resources");
+        if (mine?.steps?.length && alive) {
+          setSteps(mine.steps.map(s => ({ ...s, completed: !!s.completed })));
+        }
+      } catch (err) {
+        if (alive) setError(explain(err));
+      } finally {
+        if (alive) setBusy(false);
+      }
+    })();
+    return () => { alive = false; };
+  }, [resource.title]);
+
+  const toggle = async (idx) => {
+    const next = steps.map((s, i) => (i === idx ? { ...s, completed: !s.completed } : s));
+    setSteps(next);   // optimistic: the checkbox must answer immediately
+    try {
+      const payload = {
+        title: resource.title,
+        area: "resources",
+        steps: next.map(s => ({ title: s.title, description: s.description || "", completed: !!s.completed })),
+      };
+      const r = await api.get("/hub/workflows");
+      const list = Array.isArray(r.data) ? r.data : (r.data?.workflows || []);
+      const mine = list.find(w => w.title === resource.title && w.area === "resources");
+      if (mine?.id) {
+        await api.patch(`/hub/workflows/${mine.id}`, { steps: payload.steps });
+      } else {
+        await api.post("/hub/workflows", payload);
+      }
+      setError("");
+    } catch (err) {
+      setSteps(steps);   // put back what the member saw
+      setError(explain(err));
+    }
+  };
+
+  const done = steps.filter(s => s.completed).length;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
+      <div className="card-flat max-w-lg w-full p-6 max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+        <div className="flex items-start justify-between gap-3 mb-1">
+          <h3 className="font-heading text-lg font-bold text-ink">{resource.title}</h3>
+          <button onClick={onClose} className="text-ink/40 hover:text-ink text-sm font-bold">Close</button>
+        </div>
+        <p className="text-xs text-ink/60 mb-4">{resource.description}</p>
+        <p className="text-[11px] font-bold text-ink/50 mb-3">
+          {done} of {steps.length} steps complete — saved to your account
+        </p>
+        {busy && <Loader2 className="w-4 h-4 animate-spin text-ink/40" />}
+        {error && <p className="text-xs text-red-600 mb-2">{error}</p>}
+        <ol className="space-y-3">
+          {steps.map((s, i) => (
+            <li key={`${s.title}-${i}`} className="flex gap-3">
+              <input
+                type="checkbox"
+                checked={!!s.completed}
+                onChange={() => toggle(i)}
+                className="mt-1 accent-copper"
+                aria-label={s.title}
+              />
+              <div>
+                <div className={`text-sm font-bold ${s.completed ? "text-ink/40 line-through" : "text-ink"}`}>{s.title}</div>
+                <div className="text-xs text-ink/60">{s.description}</div>
+              </div>
+            </li>
+          ))}
+        </ol>
       </div>
     </div>
   );
