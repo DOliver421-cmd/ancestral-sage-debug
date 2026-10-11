@@ -378,14 +378,34 @@ class AccessGateway:
             return None
         route_key = f"{entry['method']} {entry['path_pattern']}"
         if user is not None:
-            user_policy = await self._db.user_route_access.find_one(
-                {"user_id": user.id, "route_key": route_key}, {"_id": 0}
-            )
+            try:
+                user_policy = await self._db.user_route_access.find_one(
+                    {"user_id": user.id, "route_key": route_key}, {"_id": 0}
+                )
+            except Exception:
+                # A route policy is an *additional* restriction layered on top
+                # of the handler's own dependency. A lookup failure must not
+                # turn every authenticated write into a 503 — that is an
+                # outage, not a control. Fall back to "no override", which is
+                # the documented default for a missing policy, and leave the
+                # handler's own guard in force.
+                logger.exception(
+                    "Route access policy lookup failed for %s %s (continuing with handler defaults)",
+                    method, path,
+                )
+                user_policy = None
             if user_policy:
                 return user_policy
-        return await self._db.route_access.find_one(
-            {"route_key": route_key}, {"_id": 0}
-        )
+        try:
+            return await self._db.route_access.find_one(
+                {"route_key": route_key}, {"_id": 0}
+            )
+        except Exception:
+            logger.exception(
+                "Route access policy lookup failed for %s %s (continuing with handler defaults)",
+                method, path,
+            )
+            return None
 
     async def route_access_snapshot(self) -> list:
         """Return every authenticated route and its live executive policy."""
