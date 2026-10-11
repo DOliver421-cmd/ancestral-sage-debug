@@ -115,3 +115,12 @@ python-docx>=1.0.0
 openpyxl>=3.1.0
 Pillow>=10.0.0
 chardet>=5.2.0
+
+# Test tooling. The suite is ~40% async tests (@pytest.mark.asyncio), so
+# pytest-asyncio is a hard requirement to RUN the tests at all — without it
+# every async test fails with "async def functions are not natively
+# supported" (37 of them, before anything about the code was exercised).
+# pytest itself was likewise undeclared while being the documented runner
+# (AGENTS.md: `cd backend && python -m pytest tests/ -v`).
+pytest>=8.0
+pytest-asyncio>=0.23
