@@ -1481,28 +1481,46 @@ async def update_project(project_id: str, body: ProjectUpdate, user: dict = Depe
         # else — arbitrary keys, non-text values, oversized values — is dropped,
         # so no unexpected structure can be written into a student's record.
         valid_steps = {s["id"] for s in (p.get("steps") or []) if isinstance(s.get("id"), str)}
-        # MERGE with what is already saved: a parent filling the pathway in
-        # step order saves one artifact at a time, and replacing the whole map
-        # on every save silently discarded the earlier steps (1 of 6
-        # completed). Sending a step's artifact as an empty string clears it.
-        safe = dict(p.get("artifacts") or {})
+        # One atomic $set/$unset per artifact key instead of a read-modify-write
+        # of the whole map. The merge existed because a parent filling the
+        # pathway in step order saves one artifact at a time (#9); doing that
+        # merge in Python let two concurrent saves discard each other's work
+        # (audit F3 — 4/6 rounds lost artifacts, and a stale value could be
+        # resurrected over a newer one). Dot-path writes cannot do that: each
+        # key lands independently, and an empty string clears just that step.
+        set_ops = {}
+        unset_ops = {}
         for k, v in dict(body.artifacts).items():
             if (
                 isinstance(k, str) and k in valid_steps
                 and isinstance(v, str) and len(v) <= 20000
             ):
-                if v.strip():
-                    safe[k] = v
+                filled = bool(v.strip())
+                if filled:
+                    set_ops[f"artifacts.{k}"] = v
                 else:
-                    safe.pop(k, None)
-        update["artifacts"] = safe
-        steps = p.get("steps") or []
-        if steps:
-            # A step with an artifact is complete; clearing it reopens the step.
-            update["steps"] = [
-                {**s, "done": bool(safe.get(s["id"]))} for s in steps
-            ]
-    if update and len(update) > 1:
+                    unset_ops[f"artifacts.{k}"] = ""
+                # A step with an artifact is complete; clearing it reopens the
+                # step. Written at the step's own index so concurrent writers
+                # of different steps never touch each other's flag.
+                idx = next(
+                    (i for i, s in enumerate(p.get("steps") or []) if s.get("id") == k),
+                    None,
+                )
+                if idx is not None:
+                    set_ops[f"steps.{idx}.done"] = filled
+        if set_ops or unset_ops:
+            # One document: the artifact dot-paths and any plain fields sent in
+            # the same request (title/summary/status/notes) land together. A
+            # save request always writes (the old path always wrote too, even
+            # when every key was dropped), so `updated_at` comes along.
+            set_ops.update(update)
+            op = {"$set": set_ops}
+            if unset_ops:
+                op["$unset"] = unset_ops
+            await db.academy_projects.update_one({"id": project_id}, op)
+            p = await _owned_project(project_id, user)
+    elif update and len(update) > 1:
         await db.academy_projects.update_one({"id": project_id}, {"$set": update})
         p = await _owned_project(project_id, user)
     return {"project": _project_out(p)}

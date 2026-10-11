@@ -23,6 +23,54 @@ from seed_academy import validate_all
 
 
 # ── Fake Mongo collection ────────────────────────────────────────────────────
+def _set_path(doc, path, value):
+    """Set a dotted path (`artifacts.interview`, `steps.0.done`), creating maps
+    and extending arrays as needed — the two shapes the academy router writes."""
+    parts = path.split(".")
+    cur = doc
+    for i, part in enumerate(parts[:-1]):
+        nxt_part = parts[i + 1]
+        if isinstance(cur, list):
+            idx = int(part)
+            while len(cur) <= idx:
+                cur.append(None)
+            if not isinstance(cur[idx], (dict, list)):
+                cur[idx] = [] if nxt_part.isdigit() else {}
+            cur = cur[idx]
+        else:
+            nxt = cur.get(part)
+            if not isinstance(nxt, (dict, list)):
+                nxt = [] if nxt_part.isdigit() else {}
+                cur[part] = nxt
+            cur = nxt
+    last = parts[-1]
+    if isinstance(cur, list):
+        idx = int(last)
+        while len(cur) <= idx:
+            cur.append(None)
+        cur[idx] = value
+    else:
+        cur[last] = value
+
+
+def _unset_path(doc, path):
+    """Remove a dotted path, leaving the parent map in place."""
+    parts = path.split(".")
+    cur = doc
+    for part in parts[:-1]:
+        nxt = cur.get(part) if isinstance(cur, dict) else None
+        if not isinstance(nxt, (dict, list)):
+            return
+        cur = nxt
+    last = parts[-1]
+    if isinstance(cur, list):
+        idx = int(last)
+        if 0 <= idx < len(cur):
+            cur[idx] = None
+    elif isinstance(cur, dict):
+        cur.pop(last, None)
+
+
 class _FakeCollection:
     def __init__(self, docs=None):
         self.docs = list(docs or [])
@@ -111,7 +159,11 @@ class _FakeCollection:
             self.docs.append(target)
         for op, fields in (update or {}).items():
             if op == "$set":
-                target.update(fields)
+                for k, v in fields.items():
+                    _set_path(target, k, v)
+            elif op == "$unset":
+                for k in fields:
+                    _unset_path(target, k)
             elif op == "$addToSet":
                 for k, v in fields.items():
                     vals = target.setdefault(k, [])
