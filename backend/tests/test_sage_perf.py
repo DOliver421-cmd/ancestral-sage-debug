@@ -17,18 +17,19 @@ EXEC_PW = os.environ.get("TEST_EXEC_PW", "")
 
 
 def _login(email, password, attempts=3):
-    last = None
-    for i in range(attempts):
-        r = requests.post(f"{API}/auth/login", json={"email": email, "password": password}, timeout=20)
-        if r.status_code == 200:
-            return r.json()["access_token"]
-        last = r
-        if r.status_code == 429:
-            time.sleep(2 + i * 2)
-            continue
-        break
-    raise AssertionError(f"login failed: {last.status_code if last else '?'} {last.text if last else ''}")
+    """Session-cached login via the shared helper (see tests/conftest.py).
 
+    Keeping the original signature so call sites are unchanged; the token
+    is cached per account for the whole run, which is what keeps the suite
+    inside the login rate limit."""
+    try:
+        from conftest import login_token
+    except ImportError:      # standalone run: python3 tests/<file>.py
+        r = requests.post(f"{os.environ['REACT_APP_BACKEND_URL'].rstrip('/')}/api/auth/login",
+                          json={"email": email, "password": password}, timeout=20)
+        assert r.status_code == 200, f"login failed for {email}: {r.status_code} {r.text}"
+        return r.json()["access_token"]
+    return login_token(email, password)
 
 def _auth(t):
     return {"Authorization": f"Bearer {t}"}

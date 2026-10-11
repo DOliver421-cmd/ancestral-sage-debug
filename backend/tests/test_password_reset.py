@@ -33,10 +33,19 @@ STUDENT_PW = "Learn@LCE2026"
 
 
 def _login(email, password):
-    r = requests.post(f"{API}/auth/login", json={"email": email, "password": password}, timeout=20)
-    assert r.status_code == 200, f"login failed for {email}: {r.status_code} {r.text}"
-    return r.json()
+    """Session-cached login via the shared helper (see tests/conftest.py).
 
+    Keeping the original signature so call sites are unchanged; the token
+    is cached per account for the whole run, which is what keeps the suite
+    inside the login rate limit."""
+    try:
+        from conftest import login_body
+    except ImportError:      # standalone run: python3 tests/<file>.py
+        r = requests.post(f"{os.environ['REACT_APP_BACKEND_URL'].rstrip('/')}/api/auth/login",
+                          json={"email": email, "password": password}, timeout=20)
+        assert r.status_code == 200, f"login failed for {email}: {r.status_code} {r.text}"
+        return r.json()["access_token"]
+    return login_body(email, password)   # this suite indexes the login body
 
 def _auth(token):
     return {"Authorization": f"Bearer {token}"}

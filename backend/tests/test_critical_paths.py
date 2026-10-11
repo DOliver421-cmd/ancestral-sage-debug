@@ -8,15 +8,31 @@ BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "http://localhost:8001").rstr
 API = f"{BASE_URL}/api"
 
 ADMIN = ("admin@lcewai.org", "Admin@LCE2026")
-EXEC = ("exec@lcewai.org", "Executive@LCE2026")
+# The executive seat the suite authenticates as. `exec@lcewai.org` is seeded
+# nowhere in the product, so the old constant could never log in — these tests
+# use the seat the other suites use (TEST_EXEC_EMAIL/TEST_EXEC_PW, defaulting to
+# the BACKUP_EXEC seat and its seeded password, server.py:437-444).
+EXEC = (
+    os.environ.get("TEST_EXEC_EMAIL", "youpickeddoliver@gmail.com"),
+    os.environ.get("TEST_EXEC_PW", "NamOshun@WAI2026"),
+)
 STUDENT = ("student@lcewai.org", "Learn@LCE2026")
 
 
 def _login(s, email, pw):
-    r = s.post(f"{API}/auth/login", json={"email": email, "password": pw}, timeout=20)
-    assert r.status_code == 200, f"login failed {email}: {r.status_code} {r.text}"
-    return r.json()["access_token"]
+    """Session-cached login via the shared helper (see tests/conftest.py).
 
+    Keeping the original signature so call sites are unchanged; the token
+    is cached per account for the whole run, which is what keeps the suite
+    inside the login rate limit."""
+    try:
+        from conftest import login_token
+    except ImportError:      # standalone run: python3 tests/<file>.py
+        r = requests.post(f"{os.environ['REACT_APP_BACKEND_URL'].rstrip('/')}/api/auth/login",
+                          json={"email": email, "password": pw}, timeout=20)
+        assert r.status_code == 200, f"login failed for {email}: {r.status_code} {r.text}"
+        return r.json()["access_token"]
+    return login_token(email, pw)
 
 def hdr(t):
     return {"Authorization": f"Bearer {t}", "Content-Type": "application/json"}

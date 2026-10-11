@@ -16,7 +16,14 @@ import requests
 BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "http://localhost:8001").rstrip("/")
 API = f"{BASE_URL}/api"
 
-EXEC = ("exec@lcewai.org", "Exec@LCE2026")
+# The executive seat the suite authenticates as. `exec@lcewai.org` is seeded
+# nowhere in the product, so the old constant could never log in — these tests
+# use the seat the other suites use (TEST_EXEC_EMAIL/TEST_EXEC_PW, defaulting to
+# the BACKUP_EXEC seat and its seeded password, server.py:437-444).
+EXEC = (
+    os.environ.get("TEST_EXEC_EMAIL", "youpickeddoliver@gmail.com"),
+    os.environ.get("TEST_EXEC_PW", "NamOshun@WAI2026"),
+)
 
 
 def login(s, email, pw):
@@ -115,7 +122,7 @@ def simulate():
         print(f"\n✓ Authenticated as executive admin\n")
     except Exception as e:
         print(f"\n✗ Cannot authenticate: {e}")
-        print("  Make sure the server is running and seeded with exec@lcewai.org")
+        print("  Make sure the server is running and that TEST_EXEC_EMAIL/TEST_EXEC_PW name a real seat")
         print("  Export REACT_APP_BACKEND_URL if not using localhost:8001\n")
         sys.exit(1)
 

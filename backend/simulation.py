@@ -705,11 +705,23 @@ def _now() -> str:
 
 
 def _flatten_lessons(course: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """Flatten a course's units into its lesson sequence.
+
+    Ordered by unit first, then the lesson's own order and slug: a lesson
+    belonging to a later unit must never be sequenced ahead of an earlier
+    unit's lesson, which is what a global sort on lesson order alone did
+    (a lesson with order 1 in unit 2 ran before order 2 in unit 1).
+    """
     out = []
     for unit in course.get("units", []):
         for lesson in unit.get("lessons", []):
-            out.append({**lesson, "_unit_slug": unit.get("slug"), "_unit_title": unit.get("title")})
-    out.sort(key=lambda l: (l.get("order", 0), l.get("slug", "")))
+            out.append({
+                **lesson,
+                "_unit_slug": unit.get("slug"),
+                "_unit_title": unit.get("title"),
+                "_unit_order": unit.get("order", 0) or 0,
+            })
+    out.sort(key=lambda l: (l.get("_unit_order", 0), l.get("order", 0) or 0, l.get("slug", "")))
     return out
 
 
