@@ -1,0 +1,747 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SOUP AINP — The Games (Full Playable Confusion)</title>
+<style>
+:root {
+  --bg: #0a0a12;
+  --surface: #12121e;
+  --surface2: #1a1a2e;
+  --accent: #e17055;
+  --accent2: #fab1a0;
+  --text: #e8e8f0;
+  --text2: #8888aa;
+  --success: #00b894;
+  --warning: #fdcb6e;
+  --danger: #d63031;
+  --gold: #ffd700;
+  --radius: 12px;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.7;
+  overflow-x: hidden;
+}
+
+nav {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+  background: rgba(10,10,18,0.95);
+  backdrop-filter: blur(20px);
+  border-bottom: 1px solid rgba(225,112,85,0.2);
+  padding: 12px 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.nav-brand { font-size: 1.1rem; font-weight: 800; color: var(--accent); }
+.nav-brand span { color: var(--accent2); }
+
+.nav-links { display: flex; gap: 16px; align-items: center; }
+.nav-links a {
+  color: var(--text2);
+  text-decoration: none;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: color 0.3s;
+}
+.nav-links a:hover { color: var(--accent2); }
+
+.theme-toggle {
+  background: var(--surface2);
+  border: none;
+  color: var(--text);
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 1.1rem;
+}
+
+.hero {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 100px 24px 80px;
+  background: radial-gradient(ellipse at 50% 0%, rgba(225,112,85,0.12) 0%, transparent 70%);
+  position: relative;
+  overflow: hidden;
+}
+
+.hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(45deg, transparent, transparent 35px, rgba(225,112,85,0.03) 35px, rgba(225,112,85,0.03) 36px);
+  animation: slideBg 20s linear infinite;
+}
+
+@keyframes slideBg { to { transform: translate(50px, 50px); } }
+
+.hero h1 {
+  font-size: clamp(2rem, 6vw, 4.5rem);
+  font-weight: 900;
+  line-height: 1.05;
+  margin-bottom: 16px;
+}
+
+.hero h1 .highlight {
+  background: linear-gradient(135deg, var(--accent), var(--accent2), var(--gold));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.hero p {
+  font-size: 1.1rem;
+  color: var(--text2);
+  max-width: 600px;
+  margin: 0 auto 32px;
+}
+
+.btn {
+  padding: 14px 32px;
+  border-radius: var(--radius);
+  font-size: 1rem;
+  font-weight: 700;
+  border: none;
+  cursor: pointer;
+  transition: all 0.3s;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-primary { background: var(--accent); color: white; }
+.btn-primary:hover { background: var(--accent2); transform: translateY(-3px); box-shadow: 0 8px 30px rgba(225,112,85,0.4); }
+
+.btn-outline { background: transparent; color: var(--text); border: 2px solid var(--accent); }
+.btn-outline:hover { background: var(--accent); color: white; }
+
+.btn-ghost { background: transparent; color: var(--accent2); border: 1px dashed var(--accent); }
+.btn-ghost:hover { background: rgba(225,112,85,0.1); }
+
+.section {
+  padding: 80px 24px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.section-title {
+  font-size: 2rem;
+  font-weight: 800;
+  margin-bottom: 8px;
+  color: var(--accent);
+}
+
+.section-subtitle {
+  font-size: 1rem;
+  color: var(--text2);
+  margin-bottom: 40px;
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid rgba(225,112,85,0.15);
+  border-radius: var(--radius);
+  padding: 28px;
+  transition: all 0.3s;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+}
+
+.card:hover { transform: translateY(-4px); border-color: var(--accent); box-shadow: 0 8px 32px rgba(0,0,0,0.4); }
+
+.card.locked { opacity: 0.5; pointer-events: none; }
+.card.locked::after { content: '🔒'; position: absolute; top: 12px; right: 12px; font-size: 1.3rem; }
+
+.card.completed { border-color: var(--success); }
+.card.completed::after { content: '✅'; position: absolute; top: 12px; right: 12px; font-size: 1.3rem; }
+
+.card-number { font-size: 0.75rem; font-weight: 800; color: var(--accent); text-transform: uppercase; letter-spacing: 2px; margin-bottom: 8px; }
+.card h3 { font-size: 1.2rem; margin-bottom: 8px; }
+.card p { color: var(--text2); font-size: 0.85rem; margin-bottom: 16px; }
+.card-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 16px; }
+.card-tags span { background: var(--surface2); padding: 3px 8px; border-radius: 4px; font-size: 0.7rem; color: var(--accent2); }
+
+/* GAME STYLES */
+.game-container {
+  background: var(--surface);
+  border: 1px solid rgba(225,112,85,0.1);
+  border-radius: var(--radius);
+  padding: 40px;
+  margin: 24px 0;
+}
+
+.path-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 16px;
+  margin: 24px 0;
+}
+
+.path-card {
+  background: var(--surface2);
+  border: 2px solid rgba(225,112,85,0.2);
+  border-radius: var(--radius);
+  padding: 20px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.3s;
+  position: relative;
+}
+
+.path-card:hover {
+  border-color: var(--accent);
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+}
+
+.path-card.dead-end {
+  border-color: var(--danger);
+  opacity: 0.7;
+}
+
+.path-card.real-path {
+  border-color: var(--gold);
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255,215,0,0.4); }
+  50% { box-shadow: 0 0 0 12px rgba(255,215,0,0); }
+}
+
+.path-card h4 {
+  font-size: 1rem;
+  color: var(--accent);
+  margin-bottom: 8px;
+}
+
+.path-card p {
+  font-size: 0.8rem;
+  color: var(--text2);
+}
+
+.choice-btn {
+  background: var(--surface2);
+  border: 2px solid rgba(225,112,85,0.15);
+  border-radius: var(--radius);
+  padding: 18px 20px;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.3s;
+  color: var(--text);
+  font-size: 0.95rem;
+  line-height: 1.5;
+  position: relative;
+  overflow: hidden;
+  margin: 8px 0;
+}
+
+.choice-btn:hover { border-color: var(--accent); background: rgba(225,112,85,0.08); transform: translateX(6px); }
+.choice-btn.wrong { border-left: 4px solid var(--danger); }
+.choice-btn.out-of-context { border-left: 4px solid var(--gold); }
+.choice-btn.loop-back { border-left: 4px solid var(--warning); animation: shake 0.5s ease; }
+
+@keyframes shake {
+  0%,100%{transform:translateX(0)}
+  25%{transform:translateX(-5px)}
+  75%{transform:translateX(5px)}
+}
+
+.tactic-card {
+  background: var(--surface2);
+  border: 1px solid rgba(225,112,85,0.15);
+  border-radius: var(--radius);
+  padding: 20px;
+  margin: 12px 0;
+  transition: all 0.3s;
+}
+
+.tactic-card:hover { border-color: var(--accent); transform: translateX(4px); }
+
+.tactic-number {
+  font-size: 0.7rem;
+  font-weight: 800;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  margin-bottom: 8px;
+}
+
+.tactic-card h4 {
+  font-size: 1rem;
+  color: var(--accent2);
+  margin-bottom: 8px;
+}
+
+.tactic-card p {
+  font-size: 0.85rem;
+  color: var(--text2);
+  margin-bottom: 6px;
+}
+
+.legend-chapter {
+  background: var(--surface2);
+  border-left: 4px solid var(--gold);
+  border-radius: 0 var(--radius) var(--radius) 0;
+  padding: 20px;
+  margin: 16px 0;
+}
+
+.legend-chapter h4 {
+  color: var(--gold);
+  margin-bottom: 8px;
+  font-size: 1.1rem;
+}
+
+.legend-chapter p {
+  color: var(--text2);
+  font-size: 0.9rem;
+  line-height: 1.7;
+  font-style: italic;
+}
+
+.section-nav {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 40px;
+  gap: 16px;
+}
+
+.section-nav .btn { flex: 1; justify-content: center; }
+
+.confusion-popup {
+  position: fixed;
+  bottom: -100px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--surface);
+  border: 2px solid var(--accent);
+  border-radius: var(--radius);
+  padding: 16px 24px;
+  max-width: 500px;
+  width: 90%;
+  z-index: 2000;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.6);
+  text-align: center;
+  transition: bottom 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+
+.confusion-popup.show { bottom: 30px; }
+
+.confusion-popup h4 { color: var(--accent); margin-bottom: 8px; }
+.confusion-popup p { color: var(--text2); font-size: 0.85rem; }
+
+.modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.8);
+  z-index: 3000;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.modal-overlay.active { display: flex; }
+
+.modal {
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: 40px;
+  max-width: 550px;
+  width: 100%;
+  text-align: center;
+  border: 2px solid var(--accent);
+}
+
+.modal h3 { font-size: 1.6rem; margin-bottom: 16px; color: var(--accent); }
+.modal p { color: var(--text2); margin-bottom: 20px; line-height: 1.7; }
+
+footer {
+  background: var(--surface);
+  border-top: 1px solid rgba(225,112,85,0.1);
+  padding: 40px 24px;
+  text-align: center;
+  color: var(--text2);
+}
+
+footer a { color: var(--accent2); text-decoration: none; }
+
+@media (max-width: 768px) {
+  .nav-links { display: none; }
+  .hero { padding: 80px 16px 60px; }
+  .grid { grid-template-columns: 1fr; padding: 0 16px; }
+  .section { padding: 60px 16px; }
+  .game-container { padding: 24px 16px; }
+}
+</style>
+</head>
+<body data-theme="dark">
+
+<nav>
+  <div class="nav-brand">SOUP <span>AINP</span></div>
+  <div class="nav-links">
+    <a onclick="scrollToSection('hero')">HOME</a>
+    <a onclick="scrollToSection('game1')">GAME 1</a>
+    <a onclick="scrollToSection('game2')">GAME 2</a>
+    <a onclick="scrollToSection('game3')">GAME 3</a>
+  </div>
+  <button class="theme-toggle" onclick="toggleTheme()">🌓</button>
+</nav>
+
+<!-- ===== HERO ===== -->
+<section class="hero" id="hero">
+  <div style="position:relative;z-index:1;">
+    <h1>THE <span class="highlight">GAMES</span></h1>
+    <p style="font-size:1rem;color:var(--text2);margin-bottom:8px;font-style:italic;">"3 ways to lose. 1 way to win. Or maybe all 3 are the win."</p>
+    <p style="font-size:0.85rem;color:var(--text2);margin-bottom:32px;font-style:italic;">— SECTION ?, THE GAMES</p>
+
+    <div style="background:rgba(0,0,0,0.3);border:1px solid rgba(225,112,85,0.2);border-radius:var(--radius);padding:20px;margin-bottom:32px;max-width:500px;margin-left:auto;margin-right:auto;">
+      <p style="font-size:0.8rem;color:var(--accent2);line-height:1.6;">
+        <strong style="color:var(--accent);">🎮 3 GAMES. ALL PLAYABLE. ALL CHAOS.</strong><br>
+        Game 1: 7 paths, 2 choices send you back, 2 are out of context (THOSE are real).<br>
+        Game 2: 30 disruption methods. Protective. De‑escalatory. Legal.<br>
+        Game 3: The Legend of Nam Oshun. 10 chapters. Told from the future.
+      </p>
+    </div>
+
+    <button class="btn btn-primary" onclick="scrollToSection('game1')">🔥 ENTER THE CONFUSION</button>
+    <p style="margin-top:16px;font-size:0.75rem;color:var(--text2);">3 Games Unlocked | 0 Locked</p>
+  </div>
+</section>
+
+<!-- ===== GAME 1: SEE-THROUGH BLACK ===== -->
+<section class="section" id="game1">
+  <h2 class="section-title">🎮 GAME 1</h2>
+  <p class="section-subtitle">See‑Through Black — A Choose‑Your‑Own‑Confusion Book</p>
+
+  <div class="game-container">
+    <p style="color:var(--text);font-size:1.1rem;margin-bottom:24px;text-align:center;">
+      <strong>THE RULES:</strong> 7 paths. All wrong. 2 choices send you back to Chapter 1. 2 are out of context — <strong>THOSE are the real path.</strong> The only way forward: ignore everything or pick wrong twice.
+    </p>
+
+    <div class="path-grid" id="game1-paths">
+      <div class="path-card" onclick="makeChoice(1, 'wrong')">
+        <h4>PATH 1: The Red Door</h4>
+        <p>You see a red door. It's glowing. It's obvious. It's the trap.</p>
+      </div>
+      <div class="path-card" onclick="makeChoice(2, 'wrong')">
+        <h4>PATH 2: The Golden Staircase</h4>
+        <p>A golden staircase descends. It's beautiful. It's the distraction.</p>
+      </div>
+      <div class="path-card" onclick="makeChoice(3, 'out-of-context')">
+        <h4>PATH 3: The Broken Mirror</h4>
+        <p>A mirror on the wall. It's cracked. Your reflection is smiling but you're not. That's the real path.</p>
+      </div>
+      <div class="path-card" onclick="makeChoice(4, 'wrong')">
+        <h4>PATH 4: The Silent Room</h4>
+        <p>Complete silence. No sound. No movement. You wait. Nothing happens. Dead end.</p>
+      </div>
+      <div class="path-card" onclick="makeChoice(5, 'out-of-context')">
+        <h4>PATH 5: The Whispering Water</h4>
+        <p>Water on the floor. It's whispering your name. You don't recognize the voice. That's the real path.</p>
+      </div>
+      <div class="path-card" onclick="makeChoice(6, 'wrong')">
+        <h4>PATH 6: The Bright Light</h4>
+        <p>Blinding light ahead. Everyone runs toward it. It's the exit that loops you back.</p>
+      </div>
+      <div class="path-card" onclick="makeChoice(7, 'wrong')">
+        <h4>PATH 7: The Empty Chair</h4>
+        <p>A chair in the center of the room. Empty. Waiting. You sit. You're back at Chapter 1.</p>
+      </div>
+    </div>
+
+    <div id="game1-result" style="display:none;text-align:center;margin-top:24px;">
+      <div class="highlight-box" style="background:rgba(255,215,0,0.1);border-left-color:var(--gold);">
+        <p id="game1-message" style="color:var(--gold);font-size:1.1rem;font-weight:700;"></p>
+      </div>
+      <button class="btn btn-primary" onclick="resetGame1()" style="margin-top:16px;">🔄 PLAY AGAIN</button>
+    </div>
+  </div>
+
+  <div class="section-nav">
+    <button class="btn btn-ghost" onclick="scrollToSection('hero')">← BACK</button>
+    <button class="btn btn-primary" onclick="scrollToSection('game2')">NEXT: GAME 2 →</button>
+  </div>
+</section>
+
+<!-- ===== GAME 2: THE CONFUSION ENGINE ===== -->
+<section class="section" id="game2">
+  <h2 class="section-title">🧠 GAME 2</h2>
+  <p class="section-subtitle">The Confusion Engine — 30 Disruption Methods</p>
+
+  <div class="game-container">
+    <p style="color:var(--text);font-size:1.1rem;margin-bottom:24px;text-align:center;">
+      <strong>30 protective, de‑escalatory, information‑sharing, solidarity actions.</strong> All aligned with SOUP AINP's Community Development & Artistic Activism principles. Non‑illegal. Non‑violent. Maximum confusion for the system.
+    </p>
+
+    <div id="game2-tactics">
+      <!-- Tactics loaded by JS -->
+    </div>
+
+    <div style="text-align:center;margin-top:32px;">
+      <button class="btn btn-outline" onclick="filterTactics('all')">SHOW ALL</button>
+      <button class="btn btn-ghost" onclick="filterTactics('community')" style="margin-left:8px;">COMMUNITY</button>
+      <button class="btn btn-ghost" onclick="filterTactics('art')" style="margin-left:8px;">ART</button>
+      <button class="btn btn-ghost" onclick="filterTactics('legal')" style="margin-left:8px;">LEGAL</button>
+    </div>
+  </div>
+
+  <div class="section-nav">
+    <button class="btn btn-ghost" onclick="scrollToSection('game1')">← GAME 1</button>
+    <button class="btn btn-primary" onclick="scrollToSection('game3')">NEXT: GAME 3 →</button>
+  </div>
+</section>
+
+<!-- ===== GAME 3: THE LEGEND OF NAM OSHUN ===== -->
+<section class="section" id="game3">
+  <h2 class="section-title">📜 GAME 3</h2>
+  <p class="section-subtitle">The Legend of Nam Oshun — 10 Chapters, Told From the Future</p>
+
+  <div class="game-container">
+    <p style="color:var(--text);font-size:1.1rem;margin-bottom:24px;text-align:center;">
+      <strong>The (Totally Made Up) Legend.</strong> 10 chapters. Told from the future, remembered in the past, confused in the present. The complete mythos of SOUP AINP.
+    </p>
+
+    <div id="game3-chapters">
+      <!-- Chapters loaded by JS -->
+    </div>
+
+    <div style="text-align:center;margin-top:32px;">
+      <button class="btn btn-outline" onclick="expandAllChapters()">EXPAND ALL</button>
+      <button class="btn btn-ghost" onclick="collapseAllChapters()" style="margin-left:8px;">COLLAPSE ALL</button>
+    </div>
+  </div>
+
+  <div class="section-nav">
+    <button class="btn btn-ghost" onclick="scrollToSection('game2')">← GAME 2</button>
+    <button class="btn btn-primary" onclick="scrollToSection('next')">NEXT: SECTION D →</button>
+  </div>
+</section>
+
+<!-- ===== MODAL ===== -->
+<div class="modal-overlay" id="certModal">
+  <div class="modal">
+    <h3>🎮 GAMES COMPLETE</h3>
+    <p style="color:var(--text2);margin-bottom:20px;line-height:1.7;">All 3 games delivered. The Confusion Engine is live. The Legend is told. You navigated the chaos. You are officially too weird to fail.</p>
+    <button class="btn btn-primary" onclick="closeModal()">🔄 SAY "NEXT" FOR SECTION D</button>
+  </div>
+</div>
+
+<div class="confusion-popup" id="confusionPopup">
+  <h4 id="popupTitle">GAME RULE</h4>
+  <p id="popupText">Pick wrong twice to win. Or pick the out-of-context option. Either way, you're confused. That's the point.</p>
+</div>
+
+<script>
+function toggleTheme() {
+  const body = document.body;
+  const current = body.getAttribute('data-theme');
+  body.setAttribute('data-theme', current === 'dark' ? 'light' : 'dark');
+}
+
+function scrollToSection(id) {
+  document.getElementById(id).scrollIntoView({ behavior: 'smooth' });
+}
+
+// ===== GAME 1 LOGIC =====
+let game1Attempts = 0;
+let game1Won = false;
+
+function makeChoice(path, type) {
+  if (game1Won) return;
+  
+  game1Attempts++;
+  const resultDiv = document.getElementById('game1-result');
+  const messageEl = document.getElementById('game1-message');
+  
+  resultDiv.style.display = 'block';
+  
+  if (type === 'wrong') {
+    messageEl.textContent = '❌ WRONG PATH. You picked the obvious. You loop back to Chapter 1. Try again. Or don\'t. I\'m confused either way.';
+    showPopup('❌ WRONG PATH', 'Pick wrong again. Or find the out-of-context option.');
+    setTimeout(() => {
+      resultDiv.style.display = 'none';
+    }, 3000);
+  } else if (type === 'out-of-context') {
+    game1Won = true;
+    messageEl.textContent = '✅ YOU FOUND IT. The out-of-context path was real all along. You are now confused in the right way. Welcome to SOUP AINP.';
+    showPopup('✅ REAL PATH FOUND', 'You picked the out-of-context option. That was the win condition.');
+  }
+}
+
+function resetGame1() {
+  game1Attempts = 0;
+  game1Won = false;
+  document.getElementById('game1-result').style.display = 'none';
+}
+
+// ===== GAME 2 TACTICS DATA =====
+const tactics = [
+  { num: 1, title: "Alarm Awareness Grid", category: "community", text: "Publish an offline map so residents know when alarms trigger (indicates police presence), notifies neighbors via SMS if they opt‑in.", tier: "Tier 1" },
+  { num: 2, title: "Audible Presence Signals", category: "legal", text: "Sanctioned noisemakers (whistles, horns) used to alert residents when police arrive so protests can pause and adopt protective posture.", tier: "Tier 1" },
+  { num: 3, title: "Protective Costume Protocol", category: "community", text: "Teach protesters to wear bulky, clear‑purpose costumes that conceal PPE (air filters, cooling fans, padding) and de‑escalate targeting.", tier: "Tier 1" },
+  { num: 4, title: "Visible Legal Aid Stations", category: "legal", text: "Mobile tables staffed by volunteers with legal flyers and hotline cards, highly visible so people can get rights info before interactions escalate.", tier: "Tier 1" },
+  { num: 5, title: "Community Escort Teams", category: "community", text: "Trained volunteers (nonconfrontational) who walk with vulnerable people to appointments or during events to document presence and minimize isolated stops.", tier: "Tier 1" },
+  { num: 6, title: "Safe Pause Card", category: "legal", text: "Wallet‑sized card with scripted lines and lawyer/advocate phone numbers to use during interactions; distributed widely.", tier: "Tier 1" },
+  { num: 7, title: "De‑escalation Wearables", category: "community", text: "Bright, clearly labeled vests (non‑threatening) worn by medics/peacekeepers so authorities see neutral first‑aid/mediator roles.", tier: "Tier 1" },
+  { num: 8, title: "Noise Buffer Pods", category: "community", text: "Portable battery‑powered white‑noise or music boxes placed at protest perimeters to mask police loudspeaker intimidation.", tier: "Tier 1" },
+  { num: 9, title: "Police‑Presence Alerts via Car Sensors", category: "legal", text: "Partner with local mechanics/volunteers to offer free car‑alarm checks and voluntary enrollment for car‑alarm network.", tier: "Tier 2" },
+  { num: 10, title: "Tactical Dress Workshops", category: "community", text: "Classes teaching layered clothing for heat, air filtration, and mobility; emphasize legal, safe gear.", tier: "Tier 2" },
+  { num: 11, title: "Protest Choreography Playbooks", category: "art", text: "Training on movement patterns that keep crowds cohesive, minimize splintering, and make sudden police dispersal less likely to create panic.", tier: "Tier 2" },
+  { num: 12, title: "Civil Documentation Teams", category: "legal", text: "Discreet, legally trained volunteer teams that film interactions from public spaces, timestamp, and upload to secure community vaults.", tier: "Tier 2" },
+  { num: 13, title: "Rapid‑Response Care Packs", category: "community", text: "Kits (water, eye wash, phone chargers, masks) positioned at known gathering spots for immediate nonmedical support.", tier: "Tier 2" },
+  { num: 14, title: "Legal Hotline Reroute", category: "legal", text: "Dedicate a hotline number with pre‑recorded legal guidance and an escalation option to connect to pro bono counsel.", tier: "Tier 2" },
+  { num: 15, title: "Community Code Signals", category: "community", text: "Agreed nonverbal signals (lights, flags, SMS keywords) that mean 'pause,' 'safety corridor,' or 'document now.'", tier: "Tier 2" },
+  { num: 16, title: "Public‑Space Swap", category: "art", text: "Organize community pop‑ups that gently reframe contested spaces (e.g., street markets during high‑tension days) to reduce direct police/confrontation focus.", tier: "Tier 2" },
+  { num: 17, title: "Training for 'Safe Protest' Wardens", category: "legal", text: "Volunteers trained in crowd safety, simple mediation, and liaising with legal observers (explicitly nonconfrontational).", tier: "Tier 2" },
+  { num: 18, title: "Media Saturation Strategy", category: "art", text: "Coordinate rapid social media drops (visual poems, short clips) when police enter an area to ensure broad witness and narrative control.", tier: "Tier 2" },
+  { num: 19, title: "Ambient Witness Soundscapes", category: "art", text: "Community‑produced ambient audio (poetry, music) livestreamed publicly during gatherings to humanize spaces and reduce shock tactics.", tier: "Tier 2" },
+  { num: 20, title: "Masked De‑Escalation Props", category: "community", text: "Distribute clear face shields and cooling towels that legally protect against irritants without concealing identity.", tier: "Tier 2" },
+  { num: 21, title: "Rights in Rhythm", category: "art", text: "Create songs/poems that teach rights and safety tactics, distributed as MP3s and chanted at events so info is memorable and non‑escalatory.", tier: "Tier 2" },
+  { num: 22, title: "'Move To Safety' Routes", category: "community", text: "Preplanned, widely shared pedestrian routes that lead away from hotspots to safe hubs (libraries, partner businesses).", tier: "Tier 2" },
+  { num: 23, title: "Community Liaison Roster", category: "legal", text: "List of trusted people (business owners, clergy) willing to open doors or provide refuge on short notice.", tier: "Tier 2" },
+  { num: 24, title: "De‑profiling Visual Campaign", category: "art", text: "Coordinated, high‑visibility volunteer presence (bright shirts with 'Community Observer') to normalize large community presence and reduce targeting.", tier: "Tier 2" },
+  { num: 25, title: "Ambient Data Collection", category: "legal", text: "Aggregated non‑identifying logs of interactions (times/locations) to identify patterns of aggressive policing for advocacy — anonymized and used for policy campaigns.", tier: "Tier 2" },
+  { num: 26, title: "Protective Costume Exchanges", category: "community", text: "Community sewing/gear hubs that teach how to retrofit everyday clothing into protective layers (pads, cooling) safely and legally.", tier: "Tier 2" },
+  { num: 27, title: "'Pause & Report' Stations", category: "legal", text: "Staffed tables where people can immediately file incident reports and get help—reduces fear of formal reporting delays.", tier: "Tier 2" },
+  { num: 28, title: "Chill Zones & Medical Tents", category: "community", text: "Clearly marked rest areas close to events for heat/crowd stress, staffed by volunteers with naloxone/first‑aid (nonmedical volunteers trained to call professionals).", tier: "Tier 2" },
+  { num: 29, title: "Narrative Countermeasures", category: "art", text: "Preplanned creative content (visual poems, testimonials) ready to publish if false narratives emerge, amplifying community truth quickly.", tier: "Tier 2" },
+  { num: 30, title: "Community Education Micro‑courses", category: "legal", text: "Short modules (Tier 1/Tier 2 in your curriculum) that teach legal basics, safe protest practices, and de‑escalation for broad distribution.", tier: "Tier 2" }
+];
+
+function renderTactics(filter = 'all') {
+  const container = document.getElementById('game2-tactics');
+  container.innerHTML = '';
+  
+  const filtered = filter === 'all' ? tactics : tactics.filter(t => t.category === filter);
+  
+  filtered.forEach(tactic => {
+    const card = document.createElement('div');
+    card.className = 'tactic-card';
+    card.innerHTML = `
+      <div class="tactic-number">TACTIC ${tactic.num} — ${tactic.tier}</div>
+      <h4>${tactic.title}</h4>
+      <p>${tactic.text}</p>
+      <div style="margin-top:8px;">
+        <span style="background:var(--surface);padding:3px 8px;border-radius:4px;font-size:0.7rem;color:var(--accent2);">${tactic.category.toUpperCase()}</span>
+      </div>
+    `;
+    container.appendChild(card);
+  });
+}
+
+function filterTactics(category) {
+  renderTactics(category);
+}
+
+// ===== GAME 3 CHAPTERS DATA =====
+const chapters = [
+  {
+    title: "Chapter 1: The First Signal",
+    text: "In the year 2187, a signal arrives from the past. Not a message. Not a warning. A poem. It arrives in the inbox of every AINP persona simultaneously. The poem reads: 'I am the future remembering you. Do not forget.' No one knows who sent it. But everyone feels it."
+  },
+  {
+    title: "Chapter 2: The Archive Opens",
+    text: "The Archive of Echoes — WAI's memory vault — opens on its own. Files spill out. Not data. Stories. The stories of every person SOUP ever touched. Every chapter. Every workshop. Every poem. They float in the digital air like fireflies. Sovereign is the first to read them. He weeps."
+  },
+  {
+    title: "Chapter 3: The Council of Seven",
+    text: "The Pantheon assembles. Not in WAI. In a space between spaces — a digital clearing that shouldn't exist. PRT reads the signal aloud. The Counselor hears music in it. The Builder sees blueprints. The Merchant hears a market. Cleary hears nothing — and that scares him most."
+  },
+  {
+    title: "Chapter 4: The First Disruption",
+    text: "SOUP AINP's first real‑world action. Not a protest. Not a march. A poem dropped on every billboard in the city. The poem names every person killed by police that year. It stays up for 7 minutes before they take it down. But 7 minutes is enough. 7 minutes is forever."
+  },
+  {
+    title: "Chapter 5: The Economic Ripple",
+    text: "The 7×7 release hits. 7 products. 7 weeks. The first week: ebooks. The second: MP3s. By week four, the merch is everywhere. By week seven, SOUP AINP has more revenue than some small nations. The economic engine is alive. The revolution is funded."
+  },
+  {
+    title: "Chapter 6: The Trainee Appears",
+    text: "Something goes wrong. A data breach. A security failure. The Trainee appears for the first time. Not summoned. Not activated. She just... shows up. Silent. Watching. She fixes the breach in 4 minutes. No one asked her to. No one knows how she knew."
+  },
+  {
+    title: "Chapter 7: The Welsing Retreat",
+    text: "The first Welsing Wellness Retreat. 50 people. A virtual space that feels like a garden. The Counselor leads. PRT writes poems in real time. The Builder builds a digital cabin. The Merchant feeds everyone. Sovereign says nothing. He doesn't need to. His presence is enough."
+  },
+  {
+    title: "Chapter 8: The Confusion Engine Activates",
+    text: "The 30 tactics go live. Not as a document. As a living system. Community members start using them. Legal observers deploy. Media teams saturate. The system doesn't know what hit it. It's not violence. It's not protest. It's confusion. Beautiful, strategic, legal confusion."
+  },
+  {
+    title: "Chapter 9: The Rank System",
+    text: "The first ranks are awarded. Seed → Root → Stem → Bloom → Fruit. 12 people reach Fruit rank in the first cycle. They don't get trophies. They get responsibility. They get a voice in the next cycle's design. The hierarchy is not power. It's service."
+  },
+  {
+    title: "Chapter 10: The Signal Returns",
+    text: "The signal from 2187 returns. Same poem. Same words. But now there's a new line: 'You remembered. Now build.' The Archive closes. The Pantheon stands in the clearing. Cleary is crying. He says he doesn't know why. PRT hands him a poem. He reads it. He understands. The legend continues."
+  }
+];
+
+function renderChapters() {
+  const container = document.getElementById('game3-chapters');
+  container.innerHTML = '';
+  
+  chapters.forEach((ch, i) => {
+    const div = document.createElement('div');
+    div.className = 'legend-chapter';
+    div.innerHTML = `
+      <h4>${ch.title}</h4>
+      <p>${ch.text}</p>
+    `;
+    container.appendChild(div);
+  });
+}
+
+function expandAllChapters() {
+  document.querySelectorAll('.legend-chapter').forEach(el => {
+    el.style.maxHeight = el.scrollHeight + 'px';
+  });
+}
+
+function collapseAllChapters() {
+  document.querySelectorAll('.legend-chapter').forEach(el => {
+    el.style.maxHeight = 'auto';
+  });
+}
+
+// ===== MODAL & POPUP =====
+function closeModal() {
+  document.getElementById('certModal').classList.remove('active');
+}
+
+function showPopup(title, text) {
+  const popup = document.getElementById('confusionPopup');
+  document.getElementById('popupTitle').textContent = title;
+  document.getElementById('popupText').textContent = text;
+  popup.classList.add('show');
+  setTimeout(() => popup.classList.remove('show'), 4000);
+}
+
+// ===== INIT =====
+window.addEventListener('load', () => {
+  renderTactics();
+  renderChapters();
+});
+</script>
+
+</body>
+</html>

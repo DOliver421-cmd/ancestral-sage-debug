@@ -12,6 +12,7 @@
 import { Link } from "react-router-dom";
 import AppShell from "../components/AppShell";
 import { ORIGINAL_TOOLS, ORIGINAL_SUITES } from "../lib/originalTools";
+import { TIER_FOR_FEATURE } from "../lib/tiers";
 import { ExternalLink, Archive, ArrowRight, AlertTriangle } from "lucide-react";
 
 const GREEN = "#1B4332";
@@ -52,8 +53,17 @@ export default function ClassicTools() {
                   <div key={t.slug} className="card-flat rounded-2xl p-5 border flex flex-col" style={{ background: "#fff", borderColor: "#eee7d8" }}>
                     <div className="flex items-start justify-between gap-2">
                       <span style={{ fontSize: 30 }}>{t.icon}</span>
-                      <span className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded" style={{ background: "rgba(27,67,50,0.1)", color: GREEN }}>
-                        Original
+                      <span className="flex items-center gap-1.5">
+                        <span className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded" style={{ background: "rgba(27,67,50,0.1)", color: GREEN }}>
+                          Original
+                        </span>
+                        {t.feature && TIER_FOR_FEATURE[t.feature] && TIER_FOR_FEATURE[t.feature] !== "free" && (
+                          <span data-testid={`tier-badge-${t.slug}`}
+                            className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded"
+                            style={{ background: "rgba(184,115,51,0.14)", color: "#8a5a1d" }}>
+                            {TIER_FOR_FEATURE[t.feature] === "member" ? "Member $9" : TIER_FOR_FEATURE[t.feature]}
+                          </span>
+                        )}
                       </span>
                     </div>
                     <div className="font-heading font-bold text-ink mt-3">{t.title}</div>

@@ -1,0 +1,1075 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="Master Suno AI with The Architecture of Sound — a 5-phase workshop from beginner to master producer.">
+<meta property="og:title" content="The Architecture of Sound — Suno AI Masterclass">
+<meta property="og:description" content="Learn to command Suno AI like a professional music producer. Free interactive workshop.">
+<meta property="og:type" content="website">
+<title>The Architecture of Sound — Suno AI Masterclass</title>
+<style>
+:root {
+  --bg: #0a0a0f;
+  --surface: #12121a;
+  --surface2: #1a1a2e;
+  --accent: #6c5ce7;
+  --accent2: #a29bfe;
+  --accent3: #fd79a8;
+  --text: #e0e0e0;
+  --text2: #8888aa;
+  --success: #00b894;
+  --warning: #fdcb6e;
+  --danger: #d63031;
+  --radius: 12px;
+  --shadow: 0 8px 32px rgba(0,0,0,0.4);
+}
+
+[data-theme="light"] {
+  --bg: #f5f5f7;
+  --surface: #ffffff;
+  --surface2: #e8e8ed;
+  --text: #1a1a2e;
+  --text2: #666680;
+  --shadow: 0 8px 32px rgba(0,0,0,0.08);
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.6;
+  overflow-x: hidden;
+  transition: background 0.3s, color 0.3s;
+}
+
+/* ===== NAVBAR ===== */
+nav {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 1000;
+  background: rgba(10,10,15,0.85);
+  backdrop-filter: blur(20px);
+  border-bottom: 1px solid rgba(108,92,231,0.2);
+  padding: 12px 24px;
+  display: flex; justify-content: space-between; align-items: center;
+}
+[data-theme="light"] nav { background: rgba(255,255,255,0.85); border-bottom-color: rgba(108,92,231,0.15); }
+
+.nav-brand { font-size: 1.2rem; font-weight: 800; color: var(--accent); letter-spacing: -0.5px; }
+.nav-brand span { color: var(--accent3); }
+.nav-links { display: flex; gap: 20px; align-items: center; }
+.nav-links a { color: var(--text2); text-decoration: none; font-size: 0.9rem; transition: color 0.2s; cursor: pointer; }
+.nav-links a:hover { color: var(--accent2); }
+
+.theme-toggle {
+  background: var(--surface2); border: none; color: var(--text);
+  width: 40px; height: 40px; border-radius: 50%; cursor: pointer;
+  font-size: 1.2rem; transition: transform 0.2s;
+}
+.theme-toggle:hover { transform: scale(1.1); }
+
+.progress-badge {
+  background: var(--accent); color: white; padding: 4px 12px;
+  border-radius: 20px; font-size: 0.75rem; font-weight: 700;
+}
+
+/* ===== HERO ===== */
+.hero {
+  min-height: 100vh; display: flex; align-items: center; justify-content: center;
+  text-align: center; padding: 120px 24px 80px;
+  background: radial-gradient(ellipse at 50% 0%, rgba(108,92,231,0.15) 0%, transparent 70%);
+}
+.hero h1 { font-size: clamp(2rem, 5vw, 4rem); font-weight: 900; line-height: 1.1; margin-bottom: 20px; }
+.hero h1 .highlight { background: linear-gradient(135deg, var(--accent), var(--accent3)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+.hero p { font-size: 1.2rem; color: var(--text2); max-width: 600px; margin: 0 auto 40px; }
+
+.cta-group { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; }
+.btn {
+  padding: 14px 32px; border-radius: var(--radius); font-size: 1rem; font-weight: 700;
+  border: none; cursor: pointer; transition: all 0.3s; text-decoration: none; display: inline-flex; align-items: center; gap: 8px;
+}
+.btn-primary { background: var(--accent); color: white; }
+.btn-primary:hover { background: var(--accent2); transform: translateY(-2px); box-shadow: 0 8px 24px rgba(108,92,231,0.4); }
+.btn-outline { background: transparent; color: var(--text); border: 2px solid var(--accent); }
+.btn-outline:hover { background: var(--accent); color: white; }
+.btn-success { background: var(--success); color: white; }
+.btn-success:hover { opacity: 0.9; transform: translateY(-2px); }
+
+/* ===== LEVEL CARDS ===== */
+.levels-section { padding: 80px 24px; max-width: 1200px; margin: 0 auto; }
+.section-title { font-size: 2rem; font-weight: 800; text-align: center; margin-bottom: 12px; }
+.section-subtitle { text-align: center; color: var(--text2); margin-bottom: 48px; font-size: 1.1rem; }
+
+.level-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 24px; }
+
+.level-card {
+  background: var(--surface); border: 1px solid rgba(108,92,231,0.15);
+  border-radius: var(--radius); padding: 32px; transition: all 0.3s;
+  cursor: pointer; position: relative; overflow: hidden;
+}
+.level-card:hover { transform: translateY(-4px); border-color: var(--accent); box-shadow: var(--shadow); }
+.level-card.locked { opacity: 0.5; pointer-events: none; }
+.level-card.locked::after {
+  content: '🔒'; position: absolute; top: 16px; right: 16px; font-size: 1.5rem;
+}
+.level-card.completed { border-color: var(--success); }
+.level-card.completed::after { content: '✅'; position: absolute; top: 16px; right: 16px; font-size: 1.5rem; }
+
+.level-number {
+  font-size: 0.8rem; font-weight: 800; color: var(--accent);
+  text-transform: uppercase; letter-spacing: 2px; margin-bottom: 8px;
+}
+.level-card h3 { font-size: 1.3rem; margin-bottom: 8px; }
+.level-card p { color: var(--text2); font-size: 0.9rem; margin-bottom: 20px; }
+.level-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 20px; }
+.level-tags span {
+  background: var(--surface2); padding: 4px 10px; border-radius: 6px;
+  font-size: 0.75rem; color: var(--accent2);
+}
+
+/* ===== WORKSHOP VIEW ===== */
+.workshop-view { display: none; padding: 100px 24px 80px; max-width: 1000px; margin: 0 auto; }
+.workshop-view.active { display: block; }
+
+.back-btn {
+  background: var(--surface2); border: none; color: var(--text);
+  padding: 8px 20px; border-radius: 8px; cursor: pointer; font-size: 0.9rem;
+  margin-bottom: 32px; display: inline-flex; align-items: center; gap: 8px;
+}
+.back-btn:hover { background: var(--accent); color: white; }
+
+.phase-header { margin-bottom: 40px; }
+.phase-header h2 { font-size: 2rem; font-weight: 800; margin-bottom: 8px; }
+.phase-header .phase-meta { color: var(--text2); font-size: 0.9rem; }
+
+.content-block {
+  background: var(--surface); border: 1px solid rgba(108,92,231,0.1);
+  border-radius: var(--radius); padding: 32px; margin-bottom: 24px;
+}
+.content-block h3 { font-size: 1.2rem; margin-bottom: 16px; color: var(--accent2); }
+.content-block p, .content-block li { color: var(--text2); margin-bottom: 12px; }
+.content-block ul { padding-left: 20px; }
+
+/* Code blocks */
+.code-block {
+  background: #0d0d14; border: 1px solid rgba(108,92,231,0.2);
+  border-radius: 8px; padding: 16px; font-family: 'Courier New', monospace;
+  font-size: 0.9rem; color: #a29bfe; overflow-x: auto; margin: 16px 0;
+  position: relative;
+}
+.copy-btn {
+  position: absolute; top: 8px; right: 8px;
+  background: var(--accent); color: white; border: none;
+  padding: 4px 12px; border-radius: 6px; cursor: pointer; font-size: 0.75rem;
+}
+.copy-btn:hover { background: var(--accent2); }
+.copy-btn.copied { background: var(--success); }
+
+/* Exercise boxes */
+.exercise-box {
+  background: linear-gradient(135deg, rgba(108,92,231,0.1), rgba(253,121,168,0.1));
+  border: 2px dashed var(--accent);
+  border-radius: var(--radius); padding: 32px; text-align: center; margin: 24px 0;
+}
+.exercise-box h4 { font-size: 1.3rem; margin-bottom: 12px; }
+.exercise-box p { color: var(--text2); margin-bottom: 20px; }
+
+/* ===== PROMPT BUILDER ===== */
+.prompt-builder {
+  background: var(--surface); border: 1px solid rgba(108,92,231,0.15);
+  border-radius: var(--radius); padding: 32px; margin: 24px 0;
+}
+.prompt-builder h3 { margin-bottom: 24px; color: var(--accent2); }
+.builder-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px; }
+.builder-field label { display: block; font-size: 0.85rem; color: var(--text2); margin-bottom: 6px; font-weight: 600; }
+.builder-field select, .builder-field input {
+  width: 100%; padding: 10px 14px; border-radius: 8px;
+  background: var(--surface2); border: 1px solid rgba(108,92,231,0.2);
+  color: var(--text); font-size: 0.95rem;
+}
+.builder-field select:focus, .builder-field input:focus { outline: none; border-color: var(--accent); }
+
+.generated-prompt {
+  background: #0d0d14; border: 1px solid var(--success);
+  border-radius: 8px; padding: 20px; font-family: 'Courier New', monospace;
+  font-size: 1rem; color: #00b894; margin-top: 16px;
+  word-break: break-all; position: relative;
+}
+
+/* ===== AUDIO PLAYER SECTION ===== */
+.audio-demo {
+  background: var(--surface2); border-radius: var(--radius); padding: 24px; margin: 24px 0;
+}
+.audio-demo h4 { margin-bottom: 12px; }
+.audio-player {
+  display: flex; align-items: center; gap: 12px; background: var(--surface);
+  padding: 12px 16px; border-radius: 8px;
+}
+.play-btn {
+  background: var(--accent); color: white; border: none;
+  width: 40px; height: 40px; border-radius: 50%; cursor: pointer;
+  font-size: 1rem; display: flex; align-items: center; justify-content: center;
+}
+.waveform { flex: 1; height: 40px; background: linear-gradient(90deg, var(--accent), var(--accent3)); border-radius: 4px; opacity: 0.6; }
+
+/* ===== CHEAT SHEET ===== */
+.cheatsheet {
+  background: var(--surface); border: 1px solid rgba(108,92,231,0.15);
+  border-radius: var(--radius); padding: 32px; margin: 24px 0;
+}
+.cheatsheet h3 { margin-bottom: 20px; text-align: center; }
+.tag-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }
+.tag-item {
+  background: var(--surface2); padding: 8px 12px; border-radius: 6px;
+  font-size: 0.8rem; text-align: center; color: var(--accent2);
+  transition: all 0.2s; cursor: pointer;
+}
+.tag-item:hover { background: var(--accent); color: white; }
+
+/* ===== CERTIFICATE ===== */
+.certificate {
+  background: white; color: #1a1a2e; border-radius: var(--radius);
+  padding: 48px; text-align: center; max-width: 600px; margin: 40px auto;
+  border: 4px solid var(--accent); position: relative;
+}
+.certificate h2 { font-size: 2rem; color: var(--accent); margin-bottom: 8px; }
+.certificate .name-field { font-size: 1.8rem; font-weight: 800; border-bottom: 2px solid #333; display: inline-block; padding: 0 20px 8px; margin: 16px 0; }
+.certificate p { color: #666; font-size: 0.9rem; }
+
+/* ===== FOOTER ===== */
+footer {
+  background: var(--surface); border-top: 1px solid rgba(108,92,231,0.1);
+  padding: 40px 24px; text-align: center; color: var(--text2);
+}
+footer a { color: var(--accent2); text-decoration: none; }
+
+/* ===== MOBILE ===== */
+@media (max-width: 768px) {
+  .nav-links { display: none; }
+  .hero { padding: 100px 16px 60px; }
+  .level-grid { grid-template-columns: 1fr; }
+  .builder-grid { grid-template-columns: 1fr; }
+  .workshop-view { padding: 80px 16px 40px; }
+}
+
+/* ===== ANIMATIONS ===== */
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-in { animation: fadeInUp 0.5s ease forwards; }
+
+/* ===== MODAL ===== */
+.modal-overlay {
+  display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7);
+  z-index: 2000; align-items: center; justify-content: center; padding: 24px;
+}
+.modal-overlay.active { display: flex; }
+.modal {
+  background: var(--surface); border-radius: var(--radius); padding: 40px;
+  max-width: 500px; width: 100%; text-align: center;
+}
+.modal h3 { font-size: 1.5rem; margin-bottom: 16px; }
+.modal input {
+  width: 100%; padding: 12px; border-radius: 8px; background: var(--surface2);
+  border: 1px solid rgba(108,92,231,0.2); color: var(--text);
+  font-size: 1rem; margin-bottom: 20px;
+}
+.modal input:focus { outline: none; border-color: var(--accent); }
+</style>
+</head>
+<body data-theme="dark">
+
+<!-- ===== NAVBAR ===== -->
+<nav>
+  <div class="nav-brand">Architecture <span>of</span> Sound</div>
+  <div class="nav-links">
+    <a onclick="scrollToSection('levels')">Levels</a>
+    <a onclick="scrollToSection('builder')">Prompt Builder</a>
+    <a onclick="scrollToSection('cheatsheet')">Cheat Sheet</a>
+    <span class="progress-badge" id="progressBadge">Level 0/4</span>
+    <button class="theme-toggle" onclick="toggleTheme()">🌓</button>
+  </div>
+</nav>
+
+<!-- ===== HERO ===== -->
+<section class="hero" id="hero">
+  <div>
+    <h1>Master <span class="highlight">Suno AI</span><br>Like a Professional Producer</h1>
+    <p>A 5-phase interactive workshop that takes you from "chatting with AI" to commanding a multi-million dollar studio session. No music degree required.</p>
+    <div class="cta-group">
+      <button class="btn btn-primary" onclick="scrollToSection('levels')">🚀 Start Workshop — Free</button>
+      <button class="btn btn-outline" onclick="scrollToSection('builder')">🎛️ Try Prompt Builder</button>
+    </div>
+  </div>
+</section>
+
+<!-- ===== LEVELS ===== -->
+<section class="levels-section" id="levels">
+  <h2 class="section-title">Your Producer's Journey</h2>
+  <p class="section-subtitle">5 Levels. From AI User → AI Master Producer.</p>
+
+  <div class="level-grid" id="levelGrid">
+    <!-- Level 1 -->
+    <div class="level-card" onclick="openLevel(1)" data-level="1">
+      <div class="level-number">Level 1 — The Signal</div>
+      <h3>The AI Composer</h3>
+      <p>Learn the language Suno actually understands. Keywords > Sentences.</p>
+      <div class="level-tags">
+        <span>Style Prompts</span>
+        <span>Four-Pillar Formula</span>
+        <span>Genre Tags</span>
+      </div>
+      <button class="btn btn-primary" style="width:100%">Begin →</button>
+    </div>
+
+    <!-- Level 2 -->
+    <div class="level-card locked" data-level="2" id="level2">
+      <div class="level-number">Level 2 — The Structure</div>
+      <h3>The AI Arranger</h3>
+      <p>Control song architecture with metatags. Intro → Verse → Chorus → Bridge → Outro.</p>
+      <div class="level-tags">
+        <span>Metatags</span>
+        <span>Extend Tool</span>
+        <span>Vocal Cues</span>
+      </div>
+      <button class="btn btn-outline" style="width:100%" disabled>🔒 Complete Level 1</button>
+    </div>
+
+    <!-- Level 3 -->
+    <div class="level-card locked" data-level="3" id="level3">
+      <div class="level-number">Level 3 — The Texture</div>
+      <h3>The AI Producer</h3>
+      <p>Engineer the sound. Room tone, vocal character, sonic space, and atmosphere.</p>
+      <div class="level-tags">
+        <span>Room Tone</span>
+        <span>Vocal Sculpting</span>
+        <span>Dynamic Range</span>
+      </div>
+      <button class="btn btn-outline" style="width:100%" disabled>🔒 Complete Level 2</button>
+    </div>
+
+    <!-- Level 4 -->
+    <div class="level-card locked" data-level="4" id="level4">
+      <div class="level-number">Level 4 — The Hybrid</div>
+      <h3>The Master Producer</h3>
+      <p>Stem splitting, DAW workflows, external mixing, and sonic branding.</p>
+      <div class="level-tags">
+        <span>Stem Splitting</span>
+        <span>DAW Integration</span>
+        <span>Sonic Bible</span>
+      </div>
+      <button class="btn btn-outline" style="width:100%" disabled>🔒 Complete Level 3</button>
+    </div>
+  </div>
+</section>
+
+<!-- ===== WORKSHOP VIEW ===== -->
+<div class="workshop-view" id="workshopView">
+  <button class="back-btn" onclick="closeLevel()">← Back to Levels</button>
+  <div id="workshopContent"></div>
+</div>
+
+<!-- ===== PROMPT BUILDER ===== -->
+<section class="levels-section" id="builder" style="padding-top: 100px;">
+  <h2 class="section-title">🎛️ The Mad-Libs Prompt Builder</h2>
+  <p class="section-subtitle">Pick your ingredients. Get a pro-level Suno prompt instantly.</p>
+
+  <div class="prompt-builder">
+    <h3>Build Your Style Prompt</h3>
+    <div class="builder-grid">
+      <div class="builder-field">
+        <label>🎸 Genre</label>
+        <select id="bgGenre" onchange="generatePrompt()">
+          <option value="">Select...</option>
+          <option>Synthwave</option>
+          <option>Lo-fi Hip Hop</option>
+          <option>Delta Blues</option>
+          <option>Orchestral</option>
+          <option>UK Garage</option>
+          <option>Industrial Metal</option>
+          <option>Bossa Nova</option>
+          <option>Trap</option>
+          <option>Folk</option>
+          <option>Jazz Fusion</option>
+          <option>Dark Techno</option>
+          <option>Reggae</option>
+          <option>Dream Pop</option>
+          <option>Bluegrass</option>
+        </select>
+      </div>
+      <div class="builder-field">
+        <label>📅 Era / Decade</label>
+        <select id="bgEra" onchange="generatePrompt()">
+          <option value="">Select...</option>
+          <option>1950s</option>
+          <option>1960s</option>
+          <option>1970s</option>
+          <option>1980s</option>
+          <option>1990s</option>
+          <option>2000s</option>
+          <option>2020s</option>
+          <option>Vintage</option>
+          <option>Modern</option>
+          <option>Futuristic</option>
+        </select>
+      </div>
+      <div class="builder-field">
+        <label>🎭 Mood</label>
+        <select id="bgMood" onchange="generatePrompt()">
+          <option value="">Select...</option>
+          <option>Melancholic</option>
+          <option>Euphoric</option>
+          <option>Dark</option>
+          <option>Uplifting</option>
+          <option>Ethereal</option>
+          <option>Aggressive</option>
+          <option>Nostalgic</option>
+          <option>Cinematic</option>
+          <option>Playful</option>
+          <option>Hypnotic</option>
+        </select>
+      </div>
+      <div class="builder-field">
+        <label>🎤 Vocals</label>
+        <select id="bgVocal" onchange="generatePrompt()">
+          <option value="">Select...</option>
+          <option>Male, Baritone</option>
+          <option>Female, Soprano</option>
+          <option>Raspy Male</option>
+          <option>Breathy Female</option>
+          <option>Choral</option>
+          <option>Robotic</option>
+          <option>Soulful Crooner</option>
+          <option>Operatic</option>
+          <option>Whispered</option>
+          <option>Children's Choir</option>
+        </select>
+      </div>
+      <div class="builder-field">
+        <label>🎹 Instrumentation</label>
+        <select id="bgInstrument" onchange="generatePrompt()">
+          <option value="">Select...</option>
+          <option>Acoustic Guitar</option>
+          <option>Analog Synths</option>
+          <option>Heavy Distorted Bass</option>
+          <option>Strings Orchestra</option>
+          <option>808 Drums</option>
+          <option>Piano</option>
+          <option>Saxophone</option>
+          <option>Theremin</option>
+          <option>Sitar</option>
+          <option>Choir Pads</option>
+        </select>
+      </div>
+      <div class="builder-field">
+        <label>⚡ Production</label>
+        <select id="bgProduction" onchange="generatePrompt()">
+          <option value="">Select...</option>
+          <option>High Fidelity</option>
+          <option>Lo-fi</option>
+          <option>Dry</option>
+          <option>Wet / Reverb</option>
+          <option>Live Recording</option>
+          <option>Studio Polish</option>
+          <option>Tape Saturation</option>
+          <option>Bitcrushed</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="generated-prompt" id="generatedPrompt">
+      <span style="color: var(--text2)">← Select options above to generate your prompt...</span>
+    </div>
+
+    <div style="margin-top: 16px; display: flex; gap: 12px; flex-wrap: wrap;">
+      <button class="btn btn-success" onclick="copyGenerated()">📋 Copy to Clipboard</button>
+      <button class="btn btn-outline" onclick="openSuno()">🎵 Open Suno to Paste</button>
+    </div>
+  </div>
+</section>
+
+<!-- ===== CHEAT SHEET ===== -->
+<section class="levels-section" id="cheatsheet">
+  <h2 class="section-title">📋 The Super Producer Cheat Sheet</h2>
+  <p class="section-subtitle">Bookmark this. Print it. Tattoo it on your forearm.</p>
+
+  <div class="cheatsheet">
+    <h3>🔥 The Four-Pillar Formula</h3>
+    <div class="code-block">
+[Genre], [Sub-genre/Era], [Mood/Vibe], [Instrumentation], [Vocal Style], [Production]
+    </div>
+
+    <h3 style="margin-top: 32px;">🏗️ Structural Metatags</h3>
+    <div class="tag-grid">
+      <div class="tag-item" onclick="copyTag(this)">[Intro]</div>
+      <div class="tag-item" onclick="copyTag(this)">[Verse 1]</div>
+      <div class="tag-item" onclick="copyTag(this)">[Pre-Chorus]</div>
+      <div class="tag-item" onclick="copyTag(this)">[Chorus]</div>
+      <div class="tag-item" onclick="copyTag(this)">[Bridge]</div>
+      <div class="tag-item" onclick="copyTag(this)">[Outro]</div>
+      <div class="tag-item" onclick="copyTag(this)">[Build-up]</div>
+      <div class="tag-item" onclick="copyTag(this)">[Drop]</div>
+      <div class="tag-item" onclick="copyTag(this)">[Instrumental Break]</div>
+      <div class="tag-item" onclick="copyTag(this)">[Guitar Solo]</div>
+      <div class="tag-item" onclick="copyTag(this)">[Harmonies]</div>
+      <div class="tag-item" onclick="copyTag(this)">[Whispered]</div>
+      <div class="tag-item" onclick="copyTag(this)">[Belting]</div>
+      <div class="tag-item" onclick="copyTag(this)">[Ad-libs]</div>
+      <div class="tag-item" onclick="copyTag(this)">[Spoken Word]</div>
+      <div class="tag-item" onclick="copyTag(this)">[Fade Out]</div>
+    </div>
+
+    <h3 style="margin-top: 32px;">🔊 Production Tags</h3>
+    <div class="tag-grid">
+      <div class="tag-item" onclick="copyTag(this)">Dry</div>
+      <div class="tag-item" onclick="copyTag(this)">Wet</div>
+      <div class="tag-item" onclick="copyTag(this)">Lo-fi</div>
+      <div class="tag-item" onclick="copyTag(this)">High Fidelity</div>
+      <div class="tag-item" onclick="copyTag(this)">Live Recording</div>
+      <div class="tag-item" onclick="copyTag(this)">Studio Polish</div>
+      <div class="tag-item" onclick="copyTag(this)">Tape Saturation</div>
+      <div class="tag-item" onclick="copyTag(this)">Reverb</div>
+      <div class="tag-item" onclick="copyTag(this)">Bitcrushed</div>
+      <div class="tag-item" onclick="copyTag(this)">Warm</div>
+      <div class="tag-item" onclick="copyTag(this)">Bright</div>
+      <div class="tag-item" onclick="copyTag(this)">Vinyl Crackle</div>
+    </div>
+
+    <h3 style="margin-top: 32px;">🚫 Red Flags (Don't Do These)</h3>
+    <ul style="color: var(--text2); padding-left: 20px; margin-top: 12px;">
+      <li>❌ Writing full sentences ("I want a happy song about cats")</li>
+      <li>❌ Using artist names (Suno ignores or blocks them)</li>
+      <li>❌ Being vague ("make it sound good")</li>
+      <li>❌ Forgetting the [End] tag (songs cut off mid-word)</li>
+      <li>❌ Extending from the very last second (audio melts)</li>
+    </ul>
+
+    <div style="margin-top: 32px; text-align: center;">
+      <button class="btn btn-primary" onclick="window.print()">🖨️ Print Cheat Sheet</button>
+      <button class="btn btn-outline" onclick="downloadCheatSheet()">📥 Download PDF</button>
+    </div>
+  </div>
+</section>
+
+<!-- ===== CERTIFICATE MODAL ===== -->
+<div class="modal-overlay" id="certModal">
+  <div class="modal">
+    <h3>🎉 Level Complete!</h3>
+    <p style="color: var(--text2); margin-bottom: 16px;">Enter your name for your certificate:</p>
+    <input type="text" id="certName" placeholder="Your Producer Name" maxlength="30">
+    <button class="btn btn-success" style="width:100%; margin-bottom: 12px;" onclick="generateCertificate()">Generate Certificate</button>
+    <button class="btn btn-outline" style="width:100%;" onclick="closeModal()">Close</button>
+    <div id="certOutput" style="margin-top: 20px;"></div>
+  </div>
+</div>
+
+<!-- ===== FOOTER ===== -->
+<footer>
+  <p><strong>The Architecture of Sound</strong> — A Suno AI Masterclass</p>
+  <p style="margin-top: 8px; font-size: 0.85rem;">Built for producers, by producers. <a href="#">Privacy</a> · <a href="#">Terms</a> · <a href="#">Contact</a></p>
+</footer>
+
+<!-- ===== JAVASCRIPT ===== -->
+<script>
+// ===== STATE =====
+let currentLevel = 0;
+let completedLevels = JSON.parse(localStorage.getItem('suno_completed') || '[]');
+
+// ===== THEME =====
+function toggleTheme() {
+  const body = document.body;
+  const current = body.getAttribute('data-theme');
+  body.setAttribute('data-theme', current === 'dark' ? 'light' : 'dark');
+  localStorage.setItem('suno_theme', body.getAttribute('data-theme'));
+}
+// Load saved theme
+if (localStorage.getItem('suno_theme')) {
+  document.body.setAttribute('data-theme', localStorage.getItem('suno_theme'));
+}
+
+// ===== NAVIGATION =====
+function scrollToSection(id) {
+  document.getElementById(id).scrollIntoView({ behavior: 'smooth' });
+}
+
+function closeLevel() {
+  document.getElementById('workshopView').classList.remove('active');
+  document.getElementById('hero').style.display = 'flex';
+  document.getElementById('levels').style.display = 'block';
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// ===== LEVEL DATA =====
+const levelData = {
+  1: {
+  title: "Level 1: The Signal Phase",
+  subtitle: "Mastering the Style Prompt — The Four-Pillar Formula",
+  content: `
+    <div class="phase-header animate-in">
+      <h2>📡 The Signal Phase</h2>
+      <p class="phase-meta">Duration: ~15 min · Difficulty: Beginner</p>
+    </div>
+
+    <div class="content-block animate-in" style="animation-delay: 0.1s">
+      <h3>🧠 The Core Concept</h3>
+      <p>Suno is NOT a chatbot. It's a <strong>tag-based signal processor.</strong> Every word you type is a "weight" in its neural network. Sentences are noise. <strong>Commas are commands.</strong></p>
+      <div class="code-block">
+❌ BAD: "I want a very fast song with heavy metal guitars and a singer who screams"<br>
+✅ PRO: "Fast, Heavy Metal, Thrash, Aggressive, Screamed Vocals, Double Bass Drum, Distorted"
+      </div>
+    </div>
+
+    <div class="content-block animate-in" style="animation-delay: 0.2s">
+      <h3>🏛️ The Four-Pillar Formula</h3>
+      <p>Every professional Suno prompt follows this architecture:</p>
+      <ul>
+        <li><strong>Pillar 1 — Genre:</strong> Synthwave, Bluegrass, UK Garage, Industrial Techno</li>
+        <li><strong>Pillar 2 — Era/Sub-genre:</strong> 1980s, Vintage, Lo-fi, Modern Radio</li>
+        <li><strong>Pillar 3 — Vocal Description:</strong> Female, Soaring, Gritty Baritone, Choral, Robotic</li>
+        <li><strong>Pillar 4 — Atmosphere/BPM:</strong> Dark, Uplifting, 120 BPM, Cinematic, Reverb-heavy</li>
+      </ul>
+    </div>
+
+    <div class="content-block animate-in" style="animation-delay: 0.3s">
+      <h3>💡 The "Era Hack"</h3>
+      <p>Suno associates specific production styles with decades. This is your secret weapon:</p>
+      <ul>
+        <li><strong>"1950s"</strong> → Mono, warm, vinyl crackle, intimate</li>
+        <li><strong>"1980s"</strong> → Gated reverb, big drums, analog synths</li>
+        <li><strong>"2020s"</strong> → High-compression, loud, digital clarity</li>
+      </ul>
+    </div>
+
+    <div class="content-block animate-in" style="animation-delay: 0.4s">
+      <h3>🧬 The "Hybridization" Technique</h3>
+      <p>Where Suno SHINES is blending genres that shouldn't work but do:</p>
+      <div class="code-block">
+"Bluegrass + Industrial Techno" = ?<br>
+"Jazz Fusion + Dark Ambient" = ?<br>
+"Opera + Trap Beats" = ?
+      </div>
+      <p style="margin-top: 12px;">This is where you find your unique sound. No one else is prompting this.</p>
+    </div>
+
+    <div class="exercise-box animate-in" style="animation-delay: 0.5s">
+      <h4>🏋️ Workshop Exercise: "The Prompt Translation"</h4>
+      <p>Translate these vague descriptions into 10-word tag-based prompts:</p>
+      <ol style="text-align: left; max-width: 400px; margin: 0 auto 16px;">
+        <li>"A spooky song for a haunted house" → ?</li>
+        <li>"A happy song for a beach party" → ?</li>
+        <li>"A sad breakup song in the rain" → ?</li>
+      </ol>
+      <button class="btn btn-primary" onclick="completeLevel(1)">✅ I'm Done — Unlock Level 2</button>
+    </div>
+  `
+},
+
+2: {
+  title: "Level 2: The Structure Phase",
+  subtitle: "Controlling the AI with Metatags — The Conductor's Baton",
+  content: `
+    <div class="phase-header animate-in">
+      <h2>🏗️ The Structure Phase</h2>
+      <p class="phase-meta">Duration: ~20 min · Difficulty: Intermediate</p>
+    </div>
+
+    <div class="content-block animate-in" style="animation-delay: 0.1s">
+      <h3>🥁 The Power of Brackets [ ]</h3>
+      <p><strong>The #1 Rule:</strong> Suno treats EVERYTHING inside brackets as a <em>command</em>, not lyrics. If you want a guitar solo, you don't write "I want a guitar solo now" — you type <code style="background:var(--surface2);padding:2px 6px;border-radius:4px;">[Guitar Solo]</code>.</p>
+    </div>
+
+    <div class="content-block animate-in" style="animation-delay: 0.2s">
+      <h3>📐 Essential Structural Tags</h3>
+      <div class="code-block">
+[Intro]           → Sets the mood<br>
+[Verse 1]         → The narrative<br>
+[Pre-Chorus]      → Builds tension<br>
+[Chorus]          → The hook (AI looks for repetition here)<br>
+[Verse 2]         → Continues the story<br>
+[Chorus]          → Hook again<br>
+[Bridge]          → Shift in melody/energy<br>
+[Final Chorus]    → The big finish<br>
+[Outro]           → Wrap it up<br>
+[End]             → Forces a clean stop (NOT optional!)
+      </div>
+    </div>
+
+    <div class="content-block animate-in" style="animation-delay: 0.3s">
+      <h3>🎤 Vocal Direction Tags</h3>
+      <p>You can change HOW the AI sings mid-song:</p>
+      <div class="tag-grid" style="margin-top: 12px;">
+        <div class="tag-item">[Whispered]</div>
+        <div class="tag-item">[Belting]</div>
+        <div class="tag-item">[Harmonies]</div>
+        <div class="tag-item">[Spoken Word]</div>
+        <div class="tag-item">[Ad-libs]</div>
+        <div class="tag-item">[Breathy]</div>
+        <div class="tag-item">[Shout]</div>
+        <div class="tag-item">[Vocal Break]</div>
+      </div>
+    </div>
+
+    <div class="content-block animate-in" style="animation-delay: 0.4s">
+      <h3>🔧 The "Extend" Tool — The Surgeon's Technique</h3>
+      <p><strong>Never extend from the very end.</strong> Extend from 5-10 seconds BEFORE the audio degrades.</p>
+      <ul>
+        <li>Clear old lyrics from the box — only put NEW lyrics in</li>
+        <li>End Clip A with <code style="background:var(--surface2);padding:2px 6px;border-radius:4px;">[Build-up]</code></li>
+        <li>Start Clip B with <code style="background:var(--surface2);padding:2px 6px;border-radius:4px;">[Explosive Chorus]</code></li>
+        <li>Always end with <code style="background:var(--surface2);padding:2px 6px;border-radius:4px;">[Fade Out] [End]</code></li>
+      </ul>
+    </div>
+
+    <div class="exercise-box animate-in" style="animation-delay: 0.5s">
+      <h4>🏋️ Workshop Exercise: "The Blueprint Challenge"</h4>
+      <p>Take this poem and turn it into a full song structure using at least 6 different metatags:</p>
+      <div class="code-block" style="text-align:left; margin: 12px auto;">
+"The city sleeps but I don't<br>
+Neon lights paint the rain<br>
+Every street a memory<br>
+Every corner holds your name"
+      </div>
+      <button class="btn btn-primary" onclick="completeLevel(2)">✅ I'm Done — Unlock Level 3</button>
+    </div>
+  `
+},
+
+3: {
+  title: "Level 3: The Texture Phase",
+  subtitle: "Advanced Prompt Engineering — The Producer's EQ",
+  content: `
+    <div class="phase-header animate-in">
+      <h2>🎛️ The Texture Phase</h2>
+      <p class="phase-meta">Duration: ~20 min · Difficulty: Advanced</p>
+    </div>
+
+    <div class="content-block animate-in" style="animation-delay: 0.1s">
+      <h3>🔊 Room Tone & Engineering Tags</h3>
+      <p>This is what separates "AI music" from "studio production." You're describing the <em>air</em> the music lives in:</p>
+      <ul>
+        <li><strong>Dry</strong> → No echo, close-up mic (Rap, Folk, Acoustic)</li>
+        <li><strong>Wet / Reverb</strong> → Spacious, stadium sound (Power Ballads, Synthwave)</li>
+        <li><strong>Lo-fi / Muffled</strong> → Sounds like it's coming through a radio</li>
+        <li><strong>Live Recording</strong> → Crowd noise, claps, stage energy</li>
+        <li><strong>Tape Saturation</strong> → Warm, vintage, analog grit</li>
+      </ul>
+    </div>
+
+    <div class="content-block animate-in" style="animation-delay: 0.2s">
+      <h3>🎤 Vocal Character Descriptors</h3>
+      <p>Stop using "Male vocals." Be SPECIFIC:</p>
+      <div class="code-block">
+Instead of "Male vocals" → "Gritty baritone, Soulful crooner, Raspy tenor"<br>
+Instead of "Female vocals" → "Ethereal soprano, Joplin-style gravel, Operatic, 90s R&B diva"
+      </div>
+    </div>
+
+    <div class="content-block animate-in" style="animation-delay: 0.3s">
+      <h3>⚡ Tempo & Rhythm Influence</h3>
+      <p>Suno doesn't strictly follow BPM numbers, but these act as "weight":</p>
+      <div class="tag-grid" style="margin-top: 12px;">
+        <div class="tag-item">Allegro</div>
+        <div class="tag-item">Presto</div>
+        <div class="tag-item">Slow-burn</div>
+        <div class="tag-item">Double-time</div>
+        <div class="tag-item">Swing</div>
+        <div class="tag-item">Shuffle</div>
+        <div class="tag-item">Syncopated</div>
+        <div class="tag-item">Polyrhythm</div>
+      </div>
+    </div>
+
+    <div class="content-block animate-in" style="animation-delay: 0.4s">
+      <h3>🪄 The "Scatting" Trick</h3>
+      <p>Music is great but lyrics are cheesy? Use:</p>
+      <div class="code-block">
+[Vocalizing] or [Scatting] in the lyrics box<br>
+→ The AI treats the voice as an instrument, no forced rhymes.
+      </div>
+    </div>
+
+    <div class="exercise-box animate-in" style="animation-delay: 0.5s">
+      <h4>🏋️ Workshop Exercise: "The Style Swap"</h4>
+      <p>Take the SAME lyrics and create two versions:</p>
+      <ol style="text-align: left; max-width: 400px; margin: 0 auto 16px;">
+        <li><strong>Version A:</strong> "Studio Polish" (High fidelity, dry vocals, modern)</li>
+        <li><strong>Version B:</strong> "Vintage Bootleg" (1970s, live, muffled, tape hiss)</li>
+      </ol>
+      <p>Compare how atmosphere changes the meaning of the same words.</p>
+      <button class="btn btn-primary" onclick="completeLevel(3)">✅ I'm Done — Unlock Level 4</button>
+    </div>
+  `
+},
+
+4: {
+  title: "Level 4: The Hybrid Phase",
+  subtitle: "Master Producer — Stems, DAW, and Sonic Branding",
+  content: `
+    <div class="phase-header animate-in">
+      <h2>🏆 The Hybrid Phase</h2>
+      <p class="phase-meta">Duration: ~25 min · Difficulty: Master</p>
+    </div>
+
+    <div class="content-block animate-in" style="animation-delay: 0.1s">
+      <h3>' The Stem Split</h3>
+      <p>Suno audio is "flat" (pre-mixed). To make it radio-ready, you must UN-FLATTEN it:</p>
+      <ul>
+        <li>Use <strong>LALAL.AI</strong> or <strong>RipX</strong> to split into: Vocals, Drums, Bass, Melody</li>
+        <li>Delete the AI drums (usually the weakest part)</li>
+        <li>Layer YOUR OWN drum loops in a DAW (Ableton, GarageBand, Audacity)</li>
+        <li>Side-chain the melody to YOUR kick drum</li>
+      </ul>
+    </div>
+
+    <div class="content-block animate-in" style="animation-delay: 0.2s">
+      <h3>🧹 EQ-ing the "AI Mud"</h3>
+      <p>AI audio has "fizz" above 15kHz and "mud" in the low-mids. Fix it:</p>
+      <ul>
+        <li><strong>High-pass filter</strong> at 80Hz on everything except bass</li>
+        <li><strong>Cut 200-400Hz</strong> on vocals to remove "boxiness"</li>
+        <li><strong>Surgical EQ</strong> at 15kHz+ to remove "AI fizz"</li>
+        <li><strong>Compression</strong> on vocals to bring them forward in the mix</li>
+      </ul>
+    </div>
+
+    <div class="content-block animate-in" style="animation-delay: 0.3s">
+      <h3>🏷️ Sonic Branding — The "Style Bible"</h3>
+      <p>To sound like the SAME artist across 10 songs, create a locked prompt template:</p>
+      <div class="code-block">
+"Raspy, Mid-range, Soulful, British, Dry, Close Mic, Warm Analog, 110 BPM"
+      </div>
+      <p>Use this EXACT string as your anchor for every track. This is your sonic fingerprint.</p>
+    </div>
+
+    <div class="content-block animate-in" style="animation-delay: 0.4s">
+      <h3>🏗️ The "Frankenstein" Method</h3>
+      <p>Don't build linearly. Harvest the best parts:</p>
+      <ol>
+        <li>Generate 10 versions of just the Chorus</li>
+        <li>Pick the best one</li>
+        <li>Generate the Intro separately</li>
+        <li>Generate a Bridge designed to transition from A to B</li>
+        <li>Stitch in your DAW</li>
+      </ol>
+    </div>
+
+    <div class="exercise-box animate-in" style="animation-delay: 0.5s">
+      <h4>🏋️ Final Capstone: "The 3-Song EP"</h4>
+      <p>Create a 3-song EP where all tracks share the same vocal character and production texture. Export using "Get Whole Song."</p>
+      <button class="btn btn-success" onclick="completeLevel(4)" style="font-size:1.1rem; padding:16px 40px;">🏆 Complete Master Producer — Get Certificate</button>
+    </div>
+  `
+}
+};
+
+// ===== OPEN LEVEL =====
+function openLevel(level) {
+  if (level > 1 && !completedLevels.includes(level - 1)) {
+    alert('🔒 Complete the previous level first!');
+    return;
+  }
+
+  currentLevel = level;
+  document.getElementById('hero').style.display = 'none';
+  document.getElementById('levels').style.display = 'none';
+  document.getElementById('cheatsheet').style.display = 'none';
+  document.getElementById('workshopView').classList.add('active');
+  document.getElementById('workshopContent').innerHTML = levelData[level].content;
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// ===== COMPLETE LEVEL =====
+function completeLevel(level) {
+  if (!completedLevels.includes(level)) {
+    completedLevels.push(level);
+    localStorage.setItem('suno_completed', JSON.stringify(completedLevels));
+  }
+
+  // Update UI
+  const card = document.querySelector(`[data-level="${level}"]`);
+  if (card) {
+    card.classList.remove('locked');
+    card.classList.add('completed');
+    card.querySelector('button').textContent = '✅ Completed';
+    card.querySelector('button').disabled = false;
+    card.querySelector('button').className = 'btn btn-success';
+    card.querySelector('button').onclick = () => openLevel(level);
+  }
+
+  // Unlock next level
+  const nextLevel = level + 1;
+  const nextCard = document.querySelector(`[data-level="${nextLevel}"]`);
+  if (nextCard) {
+    nextCard.classList.remove('locked');
+    nextCard.querySelector('button').textContent = `Begin Level ${nextLevel} →`;
+    nextCard.querySelector('button').disabled = false;
+    nextCard.querySelector('button').className = 'btn btn-primary';
+    nextCard.querySelector('button').onclick = () => openLevel(nextLevel);
+  }
+
+  // Update badge
+  document.getElementById('progressBadge').textContent = `Level ${completedLevels.length}/4`;
+
+  // Show certificate modal for last level
+  if (level === 4) {
+    document.getElementById('certModal').classList.add('active');
+  } else {
+    alert(`🎉 Level ${level} Complete! Next level unlocked.`);
+  }
+}
+
+// ===== PROMPT BUILDER =====
+function generatePrompt() {
+  const genre = document.getElementById('bgGenre').value;
+  const era = document.getElementById('bgEra').value;
+  const mood = document.getElementById('bgMood').value;
+  const vocal = document.getElementById('bgVocal').value;
+  const instrument = document.getElementById('bgInstrument').value;
+  const production = document.getElementById('bgProduction').value;
+
+  const parts = [genre, era, mood, vocal, instrument, production].filter(Boolean);
+
+  if (parts.length === 0) {
+    document.getElementById('generatedPrompt').innerHTML = '<span style="color: var(--text2)">← Select options above to generate your prompt...</span>';
+    return;
+  }
+
+  const prompt = parts.join(', ');
+  document.getElementById('generatedPrompt').textContent = prompt;
+}
+
+function copyGenerated() {
+  const text = document.getElementById('generatedPrompt').textContent;
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = event.target;
+    btn.textContent = '✅ Copied!';
+    btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = '📋 Copy to Clipboard'; btn.classList.remove('copied'); }, 2000);
+  });
+}
+
+function openSuno() {
+  window.open('https://suno.com/create', '_blank');
+}
+
+// ===== CHEAT SHEET =====
+function copyTag(el) {
+  navigator.clipboard.writeText(el.textContent).then(() => {
+    el.style.background = 'var(--success)';
+    el.style.color = 'white';
+    setTimeout(() => { el.style.background = ''; el.style.color = ''; }, 1000);
+  });
+}
+
+function downloadCheatSheet() {
+  alert('📥 In a production version, this would generate a PDF. For now, use your browser Print function (Ctrl+P) → Save as PDF!');
+  window.print();
+}
+
+// ===== CERTIFICATE =====
+function generateCertificate() {
+  const name = document.getElementById('certName').value || 'Anonymous Producer';
+  const output = document.getElementById('certOutput');
+  output.innerHTML = `
+    <div class="certificate" id="printCert">
+      <h2>🏆 Certificate of Completion</h2>
+      <p>This certifies that</p>
+      <div class="name-field">${name}</div>
+      <p>has successfully completed<br><strong>The Architecture of Sound</strong><br>Suno AI Master Producer Workshop</p>
+      <p style="margin-top: 20px; font-size: 0.75rem; color: #999;">${new Date().toLocaleDateString()}</p>
+    </div>
+    <button class="btn btn-outline" style="margin-top: 16px; width: 100%;" onclick="window.print()">🖨️ Print Certificate</button>
+  `;
+}
+
+function closeModal() {
+  document.getElementById('certModal').classList.remove('active');
+}
+
+// ===== INIT =====
+function init() {
+  // Restore completed state
+  completedLevels.forEach(level => {
+    const card = document.querySelector(`[data-level="${level}"]`);
+    if (card) {
+      card.classList.remove('locked');
+      card.classList.add('completed');
+      if (level < 4) {
+        const nextCard = document.querySelector(`[data-level="${level + 1}"]`);
+        if (nextCard) {
+          nextCard.classList.remove('locked');
+          nextCard.querySelector('button').textContent = `Begin Level ${level + 1} →`;
+          nextCard.querySelector('button').disabled = false;
+          nextCard.querySelector('button').className = 'btn btn-primary';
+          nextCard.querySelector('button').onclick = () => openLevel(level + 1);
+        }
+      }
+    }
+  });
+
+<!-- ===== PROOF OF CONCEPT SHOWCASE ===== -->
+<section class="levels-section" id="poc" style="padding-top: 100px; background: var(--surface); border-radius: 24px; margin: 40px 24px; max-width: 1000px; margin-left: auto; margin-right: auto;">
+  <div style="text-align: center; margin-bottom: 40px;">
+    <span style="background: var(--accent3); color: white; padding: 6px 16px; border-radius: 20px; font-size: 0.8rem; font-weight: 700; letter-spacing: 1px;">PROOF OF CONCEPT</span>
+    <h2 class="section-title" style="margin-top: 16px;">"Rule 90,211.67 — Suno, Take My Money!"</h2>
+    <p class="section-subtitle">A slam poem generated entirely with Suno AI using the Architecture of Sound framework.</p>
+  </div>
+
+  <!-- AUDIO PLAYER - Replace the src with your actual file path or Drive embed -->
+  <div class="audio-demo" style="background: var(--bg); border: 1px solid rgba(108,92,231,0.2);">
+    <h4 style="margin-bottom: 12px; color: var(--accent2);">🎧 Listen to the Result</h4>
+    <audio controls style="width: 100%; filter: hue-rotate(280deg);" id="pocAudio">
+      <!-- OPTION A: Local MP3 -->
+      <source src="rule_90211.mp3" type="audio/mpeg">
+      <!-- OPTION B: Google Drive (replace FILE_ID) -->
+      <!-- <source src="https://drive.google.com/uc?export=download&id=1osp8B2iJ2EP05lOx0TfIYAwuhk5sKQqU" type="audio/mpeg"> -->
+      Your browser does not support the audio element.
+    </audio>
+  </div>
+
+  <!-- LYRICS HIGHLIGHT -->
+  <div class="content-block" style="margin-top: 24px;">
+    <h3 style="color: var(--accent2); margin-bottom: 16px;">📜 Annotated — How the Framework Was Used</h3>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+      <div class="code-block" style="font-size: 0.85rem;">
+<strong>[Intro]</strong> — Spoken word, dry, raw<br>
+<strong>[Verse 1]</strong> — Raspy male, lawnmower vocal<br>
+<strong>[Chorus]</strong> — "Saaaay less. Prompt accepted."<br>
+<strong>[Switch]</strong> — Style flip: Autotune → Beyoncé<br>
+<strong>[Verse 2]</strong> — Country, denim jacket energy<br>
+<strong>[Switch]</strong> — K-pop idol, glitter vocal<br>
+<strong>[Switch]</strong> — Jazz legend, clean F-sharp<br>
+<strong>[Bridge]</strong> — "Rule 90,211.67" monologue<br>
+<strong>[Final Chorus]</strong> — Soprano, chandelier vocal<br>
+<strong>[Outro]</strong> — Whispered: "You're welcome."<br>
+<strong>[End]</strong>
+      </div>
+      <div style="color: var(--text2); font-size: 0.9rem; padding: 16px; background: var(--surface2); border-radius: 8px;">
+        <strong>🎓 What this proves:</strong><br><br>
+        ✅ Four-Pillar prompting (vocal character was hyper-specific)<br>
+        ✅ Metatags used as structural commands<br>
+        ✅ Style-flipping via [Switch] = [Extend] technique<br>
+        ✅ Negative prompting ("not allowed to pay")<br>
+        ✅ Vocal direction tags ([Whispered], [Spoken Word])<br>
+        ✅ Proper [End] tag — no mid-word cutoff<br>
+        ✅ Humor as a production choice<br><br>
+        <em>"I didn't know the framework. I just knew Suno."</em>
+      </div>
+    </div>
+  </div>
+
+  <div style="text-align: center; margin-top: 32px;">
+    <button class="btn btn-primary" onclick="scrollToSection('levels')">🚀 Build Your Own — Start Level 1</button>
+  </div>
+</section>
+
+
+  document.getElementById('progressBadge').textContent = `Level ${completedLevels.length}/4`;
+}
+
+init();
+</script>
+</body>
+</html>

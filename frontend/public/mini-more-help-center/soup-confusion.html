@@ -1,0 +1,683 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="The (Totally Made Up) Legend of Nam Oshun — A Create-Your-Own-Confusion Book. Pick wrong. Pick weird. Pick nothing. That's the path.">
+<title>NAM OSHUN — The Confusion Engine</title>
+<style>
+:root {
+  --bg: #0a0a12;
+  --surface: #12121e;
+  --surface2: #1a1a2e;
+  --accent: #e17055;
+  --accent2: #fab1a0;
+  --accent3: #fdcb6e;
+  --text: #e8e8f0;
+  --text2: #8888aa;
+  --success: #00b894;
+  --warning: #fdcb6e;
+  --danger: #d63031;
+  --radius: 12px;
+  --glow: rgba(225,112,85,0.3);
+}
+
+[data-theme="light"] {
+  --bg: #f5f5fa;
+  --surface: #ffffff;
+  --surface2: #e8e8f0;
+  --text: #1a1a2e;
+  --text2: #666680;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.7;
+  overflow-x: hidden;
+  transition: background 0.3s, color 0.3s;
+}
+
+nav {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 1000;
+  background: rgba(10,10,18,0.9);
+  backdrop-filter: blur(20px);
+  border-bottom: 1px solid rgba(225,112,85,0.2);
+  padding: 12px 24px;
+  display: flex; justify-content: space-between; align-items: center;
+}
+[data-theme="light"] nav { background: rgba(245,245,250,0.9); border-bottom-color: rgba(225,112,85,0.15); }
+
+.nav-brand { font-size: 1.1rem; font-weight: 800; color: var(--accent); }
+.nav-brand span { color: var(--accent3); }
+.nav-links { display: flex; gap: 16px; align-items: center; }
+.nav-links a { color: var(--text2); text-decoration: none; font-size: 0.85rem; cursor: pointer; }
+.nav-links a:hover { color: var(--accent2); }
+
+.theme-toggle {
+  background: var(--surface2); border: none; color: var(--text);
+  width: 38px; height: 38px; border-radius: 50%; cursor: pointer; font-size: 1.1rem;
+}
+
+.progress-badge {
+  background: var(--accent); color: white; padding: 4px 14px;
+  border-radius: 20px; font-size: 0.7rem; font-weight: 700; letter-spacing: 1px;
+}
+
+.hero {
+  min-height: 100vh; display: flex; align-items: center; justify-content: center;
+  text-align: center; padding: 100px 24px 80px;
+  background: radial-gradient(ellipse at 50% 0%, rgba(225,112,85,0.12) 0%, transparent 70%);
+  position: relative; overflow: hidden;
+}
+.hero::before {
+  content: ''; position: absolute; inset: 0;
+  background: repeating-linear-gradient(45deg, transparent, transparent 35px, rgba(225,112,85,0.03) 35px, rgba(225,112,85,0.03) 36px);
+  animation: slideBg 20s linear infinite;
+}
+@keyframes slideBg { to { transform: translate(50px, 50px); } }
+
+.hero h1 { font-size: clamp(2rem, 6vw, 4.5rem); font-weight: 900; line-height: 1.05; margin-bottom: 16px; }
+.hero h1 .highlight { background: linear-gradient(135deg, var(--accent), var(--accent3), #a29bfe); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+.hero p { font-size: 1.1rem; color: var(--text2); max-width: 600px; margin: 0 auto 32px; }
+
+.btn {
+  padding: 14px 32px; border-radius: var(--radius); font-size: 1rem; font-weight: 700;
+  border: none; cursor: pointer; transition: all 0.3s; text-decoration: none;
+  display: inline-flex; align-items: center; gap: 8px;
+}
+.btn-primary { background: var(--accent); color: white; }
+.btn-primary:hover { background: var(--accent2); transform: translateY(-3px); box-shadow: 0 8px 30px rgba(225,112,85,0.4); }
+.btn-outline { background: transparent; color: var(--text); border: 2px solid var(--accent); }
+.btn-outline:hover { background: var(--accent); color: white; }
+.btn-ghost { background: transparent; color: var(--accent2); border: 1px dashed var(--accent2); }
+.btn-danger { background: var(--danger); color: white; }
+
+.confusion-meter {
+  width: 100%; max-width: 400px; height: 10px; background: var(--surface2);
+  border-radius: 5px; margin: 20px auto; overflow: hidden; position: relative;
+}
+.confusion-fill {
+  height: 100%; background: linear-gradient(90deg, var(--success), var(--warning), var(--danger), #a29bfe, var(--accent));
+  border-radius: 5px; transition: width 0.8s ease; position: relative;
+}
+.confusion-fill::after {
+  content: ''; position: absolute; inset: 0;
+  background: repeating-linear-gradient(90deg, transparent, transparent 8px, rgba(255,255,255,0.1) 8px, rgba(255,255,255,0.1) 10px);
+  animation: confusionPulse 1s linear infinite;
+}
+@keyframes confusionPulse { to { transform: translateX(10px); } }
+
+.level-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; max-width: 1200px; margin: 0 auto; padding: 0 24px; }
+
+.level-card {
+  background: var(--surface); border: 1px solid rgba(225,112,85,0.15);
+  border-radius: var(--radius); padding: 28px; transition: all 0.3s; cursor: pointer;
+  position: relative; overflow: hidden;
+}
+.level-card:hover { transform: translateY(-4px); border-color: var(--accent); box-shadow: 0 8px 32px rgba(0,0,0,0.4); }
+.level-card.locked { opacity: 0.4; pointer-events: none; }
+.level-card.locked::after { content: '🔒'; position: absolute; top: 12px; right: 12px; font-size: 1.3rem; }
+.level-card.completed { border-color: var(--success); }
+.level-card.completed::after { content: '✅'; position: absolute; top: 12px; right: 12px; font-size: 1.3rem; }
+
+.level-number { font-size: 0.75rem; font-weight: 800; color: var(--accent); text-transform: uppercase; letter-spacing: 2px; margin-bottom: 8px; }
+.level-card h3 { font-size: 1.2rem; margin-bottom: 8px; }
+.level-card p { color: var(--text2); font-size: 0.85rem; margin-bottom: 16px; }
+.level-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 16px; }
+.level-tags span { background: var(--surface2); padding: 3px 8px; border-radius: 4px; font-size: 0.7rem; color: var(--accent2); }
+
+.workshop-view { display: none; padding: 80px 24px; max-width: 900px; margin: 0 auto; }
+.workshop-view.active { display: block; }
+
+.back-btn {
+  background: var(--surface2); border: none; color: var(--text);
+  padding: 8px 20px; border-radius: 8px; cursor: pointer; font-size: 0.85rem;
+  margin-bottom: 24px; display: inline-flex; align-items: center; gap: 6px;
+}
+.back-btn:hover { background: var(--accent); color: white; }
+
+.phase-header { margin-bottom: 32px; }
+.phase-header h2 { font-size: 1.8rem; font-weight: 800; margin-bottom: 6px; }
+.phase-header .meta { color: var(--text2); font-size: 0.85rem; display: flex; gap: 16px; flex-wrap: wrap; }
+
+.content-block {
+  background: var(--surface); border: 1px solid rgba(225,112,85,0.1);
+  border-radius: var(--radius); padding: 28px; margin-bottom: 20px;
+}
+.content-block h3 { font-size: 1.1rem; margin-bottom: 12px; color: var(--accent2); }
+.content-block p, .content-block li { color: var(--text2); margin-bottom: 10px; }
+
+.code-block {
+  background: #0d0d18; border: 1px solid rgba(225,112,85,0.2);
+  border-radius: 8px; padding: 14px; font-family: 'Courier New', monospace;
+  font-size: 0.85rem; color: #fab1a0; overflow-x: auto; margin: 12px 0;
+}
+
+.choice-grid { display: grid; gap: 12px; margin: 24px 0; }
+.choice-btn {
+  background: var(--surface2); border: 2px solid rgba(225,112,85,0.15);
+  border-radius: var(--radius); padding: 18px 20px; text-align: left;
+  cursor: pointer; transition: all 0.3s; color: var(--text);
+  font-size: 0.95rem; line-height: 1.5; position: relative; overflow: hidden;
+}
+.choice-btn:hover { border-color: var(--accent); background: rgba(225,112,85,0.08); transform: translateX(6px); }
+.choice-btn.wrong { border-left: 4px solid var(--danger); }
+.choice-btn.out-of-context { border-left: 4px solid #a29bfe; }
+.choice-btn.loop-back { border-left: 4px solid var(--warning); animation: shake 0.5s ease; }
+@keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-5px)} 75%{transform:translateX(5px)} }
+.choice-btn .hint { font-size: 0.75rem; color: var(--text2); font-style: italic; margin-top: 6px; display: block; }
+.choice-btn .hint.fake { color: var(--accent); }
+
+.out-of-context-msg {
+  background: linear-gradient(135deg, rgba(162,155,254,0.1), rgba(225,112,85,0.1));
+  border: 2px dashed #a29bfe; border-radius: var(--radius);
+  padding: 20px; text-align: center; margin: 16px 0; font-style: italic;
+  color: #a29bfe;
+}
+
+.confusion-popup {
+  position: fixed; bottom: -100px; left: 50%; transform: translateX(-50%);
+  background: var(--surface); border: 2px solid var(--accent);
+  border-radius: var(--radius); padding: 16px 24px;
+  max-width: 500px; width: 90%; z-index: 2000;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.6); text-align: center;
+  transition: bottom 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+.confusion-popup.show { bottom: 30px; }
+.confusion-popup h4 { color: var(--accent); margin-bottom: 8px; }
+.confusion-popup p { color: var(--text2); font-size: 0.85rem; }
+
+.modal-overlay {
+  display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.8);
+  z-index: 3000; align-items: center; justify-content: center; padding: 24px;
+}
+.modal-overlay.active { display: flex; }
+.modal {
+  background: var(--surface); border-radius: var(--radius); padding: 40px;
+  max-width: 550px; width: 100%; text-align: center;
+  border: 2px solid var(--accent);
+}
+.modal h3 { font-size: 1.6rem; margin-bottom: 16px; color: var(--accent); }
+.modal p { color: var(--text2); margin-bottom: 20px; line-height: 1.7; }
+
+.paths-display {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px;
+  margin: 24px 0;
+}
+.path-node {
+  background: var(--surface2); border: 2px solid rgba(225,112,85,0.2);
+  border-radius: 10px; padding: 14px; text-align: center;
+  transition: all 0.3s; cursor: pointer; font-size: 0.8rem;
+}
+.path-node.active { border-color: var(--accent); background: rgba(225,112,85,0.1); }
+.path-node.locked { opacity: 0.3; pointer-events: none; }
+.path-node .icon { font-size: 1.8rem; margin-bottom: 4px; }
+
+footer {
+  background: var(--surface); border-top: 1px solid rgba(225,112,85,0.1);
+  padding: 40px 24px; text-align: center; color: var(--text2);
+}
+footer a { color: var(--accent2); text-decoration: none; }
+
+@media (max-width: 768px) {
+  .nav-links { display: none; }
+  .hero { padding: 80px 16px 60px; }
+  .level-grid { grid-template-columns: 1fr; padding: 0 16px; }
+  .workshop-view { padding: 60px 16px; }
+}
+</style>
+</head>
+<body data-theme="dark">
+
+<nav>
+  <div class="nav-brand">NAM <span>OSHUN</span></div>
+  <div class="nav-links">
+    <span class="progress-badge" id="progressBadge">CH 1/10</span>
+    <a onclick="toggleTheme()" style="cursor:pointer;">🌓</a>
+  </div>
+</nav>
+
+<div class="confusion-meter">
+  <div class="confusion-fill" id="confusionFill" style="width: 0%"></div>
+</div>
+
+<!-- ===== HERO ===== -->
+<section class="hero" id="hero">
+  <div style="position:relative;z-index:1;">
+    <h1>THE <span class="highlight">CONFUSION ENGINE</span></h1>
+    <p style="font-size:1rem;color:var(--text2);margin-bottom:8px;">A Create-Your-Own-Confusion Book by Nam Oshun</p>
+    <p style="font-size:0.85rem;color:var(--text2);margin-bottom:32px;font-style:italic;">"Told from the future, remembered in the past, confused in the present."</p>
+    
+    <div style="background:rgba(0,0,0,0.3);border:1px solid rgba(225,112,85,0.2);border-radius:var(--radius);padding:20px;margin-bottom:32px;max-width:500px;margin-left:auto;margin-right:auto;">
+      <p style="font-size:0.8rem;color:var(--accent2);line-height:1.6;">
+        <strong style="color:var(--accent);">⚠️ THE RULES:</strong><br>
+        • 7 Paths. All wrong. All right.<br>
+        • 2 Choices send you back to Chapter 1.<br>
+        • 2 Choices are totally out of context (THOSE are the real path).<br>
+        • <strong>The ONLY way forward: Ignore everything OR pick wrong twice.</strong>
+      </p>
+    </div>
+
+    <button class="btn btn-primary" onclick="startEngine()">🔥 ENTER THE CONFUSION</button>
+    <p style="margin-top:16px;font-size:0.75rem;color:var(--text2);">Confusion Level: <span id="heroConfusion">0%</span></p>
+  </div>
+</section>
+
+<!-- ===== GAME ENGINE ===== -->
+<section class="workshop-view" id="gameEngine">
+  <button class="back-btn" onclick="exitEngine()">← Escape (Good Luck)</button>
+  <div id="gameContent"></div>
+</section>
+
+<!-- ===== CONFUSION POPUP ===== -->
+<div class="confusion-popup" id="confusionPopup">
+  <h4 id="popupTitle">⚠️ NAM OSHUN SAYS:</h4>
+  <p id="popupText"></p>
+</div>
+
+<!-- ===== MODAL ===== -->
+<div class="modal-overlay" id="certModal">
+  <div class="modal">
+    <h3>📜 YOUR CONFUSION CERTIFICATE</h3>
+    <p id="certText"></p>
+    <div id="certOutput" style="margin:20px 0;"></div>
+    <button class="btn btn-primary" onclick="closeModal()" style="width:100%;">ACCEPT YOUR CONFUSION</button>
+  </div>
+</div>
+
+<footer>
+  <p><strong>NAM OSHUN</strong> — Temporal Anomaly · Poetic Guardian · Chronological Suggestion</p>
+  <p style="margin-top:8px;font-size:0.8rem;">"Write until it's true. Or don't. I'm confused either way."</p>
+  <p style="margin-top:8px;font-size:0.75rem;"><a href="#" onclick="scrollToSection('hero')">Start Over</a> · <a href="#">More Confusion</a> · <a href="#">Less Confusion</a></p>
+</footer>
+
+<script>
+// ===== STATE =====
+let currentChapter = 0;
+let confusionLevel = 0;
+let wrongPicks = 0;
+let pathTaken = null;
+let gameActive = false;
+let loopCount = 0;
+let outOfContextUsed = false;
+
+const chapters = [
+  {
+    id: 1,
+    title: "BEFORE HE EXISTED, HE ARRIVED",
+    text: `Long before NAM Oshun was born, he was already trending. Historians from the year 4029 found ancient scrolls from 2027 that referenced events from 3051 that hadn't happened yet but were already being misquoted on social media in 2024.\n\nThis is normal for NAM Oshun. He is a temporal inconvenience. A chronological suggestion. A time traveler with no respect for the calendar.\n\nYou stand at the edge of the timeline. A fork in the road. But every road looks wrong.`,
+    choices: [
+      { text: "Walk forward into the future", type: "wrong", hint: "The future hasn't been invented yet. This is obviously the wrong choice.", next: 1 },
+      { text: "Go back to the past", type: "wrong", hint: "The past is busy. It doesn't want visitors. Pick this and suffer.", next: 1 },
+      { text: "Stand still and meditate", type: "loop-back", hint: "⚠️ WARNING: This sends you back to Chapter 1. Seriously. Don't.", next: -1 },
+      { text: "Ask a penguin for directions", type: "out-of-context", hint: "This makes zero sense. That's the point.", next: 2 },
+      { text: "Eat the road", type: "wrong", hint: "The road is not food. This is a trap disguised as a choice.", next: 1 }
+    ]
+  },
+  {
+    id: 2,
+    title: "HIS POWERS (WHICH MAKE NO SENSE)",
+    text: `NAM Oshun possesses:\n1. The Gift of Infinite Rewrites — He can revise a poem even after it's published, printed, framed, and tattooed on someone's back.\n2. The Aura of Peace, Power & Love — When he enters a room, pens un-jam, metaphors align, and people suddenly remember their worth.\n3. The Ability to Appear in Any Workshop — Even ones he wasn't invited to. ESPECIALLY ones he wasn't invited to.\n\nYou must choose a power. But every power is a trap.`,
+    choices: [
+      { text: "Take the Gift of Infinite Rewrites", type: "wrong", hint: "You'll rewrite yourself into a corner. Obviously wrong.", next: 2 },
+      { text: "Take the Aura of Peace, Power & Love", type: "wrong", hint: "Too powerful. You're not ready. This will backfire spectacularly.", next: 2 },
+      { text: "Take the Ability to Appear Uninvited", type: "loop-back", hint: "⚠️ You're already uninvited. Picking this resets everything. Back to Chapter 1.", next: -1 },
+      { text: "Decline all powers and become a potted plant", type: "out-of-context", hint: "A potted plant. Seriously. This is the path nobody expects.", next: 3 },
+      { text: "Ask NAM Oshun for a power he hasn't invented yet", type: "wrong", hint: "He hasn't invented it yet. So he can't give it. Duh.", next: 2 }
+    ]
+  },
+  {
+    id: 3,
+    title: "HIS ARCH-NEMESIS",
+    text: `Stages With a Curtain Hiding a Sudden Drop. This villain is not a person. He is a concept. A phenomenon. A stage hazard with malicious intent.\n\nHe appears whenever: a poet is too confident, a metaphor is too bold, a performance is going too well.\n\nHe waits behind the curtain like a shady landlord, then — DROP.\n\nYou face the nemesis. How?`,
+    choices: [
+      { text: "Fight him with a poem", type: "wrong", hint: "He eats poems for breakfast. This is like bringing a spoon to a gunfight.", next: 3 },
+      { text: "Run away very fast", type: "wrong", hint: "He's behind every curtain. You can't outrun a concept.", next: 3 },
+      { text: "Sit down and have tea with him", type: "out-of-context", hint: "Nobody expects this. The villain has never been offered tea. He's confused now.", next: 4 },
+      { text: "Ignore him completely", type: "loop-back", hint: "⚠️ He doesn't like being ignored. He resets the timeline out of spite. Chapter 1 again.", next: -1 },
+      { text: "Blame someone else", type: "wrong", hint: "He knows it's you. He always knows. This makes it worse.", next: 3 }
+    ]
+  },
+  {
+    id: 4,
+    title: "THE GREAT BATTLE OF 2099 (WHICH ALREADY HAPPENED)",
+    text: `In the year 2099 (which technically hasn't happened yet but also happened last Thursday), NAM Oshun faced his nemesis on the Grand Stage of Infinite Echoes.\n\nThe battle lasted: 7 minutes, 3 hours, 12 centuries, and one open mic night — depending on which timeline you ask.\n\nNAM Oshun fought with: peace, power, love, and a notebook full of half-finished poems.\n\nThe villain fought with: gravity, pettiness, and OSHA violations.\n\nYou are NAM Oshun. What do you do?`,
+    choices: [
+      { text: "Throw the notebook at the villain", type: "wrong", hint: "Half-finished poems are not weapons. They're litter.", next: 4 },
+      { text: "Sing a love song to the villain", type: "wrong", hint: "The villain has no ears. He's a stage hazard. This is embarrassing.", next: 4 },
+      { text: "Step off the stage before the drop happens", type: "out-of-context", hint: "This is what NAM actually did. But it's so simple nobody thinks to try it.", next: 5 },
+      { text: "Sue the villain for OSHA violations", type: "wrong", hint: "The court system doesn't exist in 2099. Or any year. This is a dead end.", next: 4 },
+      { text: "Apologize for existing", type: "loop-back", hint: "⚠️ The timeline rejects your apology. It sends you back to the beginning. Chapter 1.", next: -1 }
+    ]
+  },
+  {
+    id: 5,
+    title: "NAM OSHUN IN THE PRESENT (WHICH IS ALSO THE FUTURE)",
+    text: `Today, NAM Oshun: appears in classrooms, whispers encouragement into pens, fixes broken metaphors, blesses slam poets, and occasionally steals snacks.\n\nHe is the guardian of poetic peace, the keeper of creative power, the distributor of unconditional love, and the Santa Claus of bars, stanzas, and vibes.\n\nChildren leave notebooks out on the equinox hoping he will fill them. Adults pretend they don't believe but secretly check their journals in the morning.\n\nYou are holding an empty notebook. What do you do?`,
+    choices: [
+      { text: "Write something amazing", type: "wrong", hint: "You can't write amazing on command. That's not how creativity works. Try again (wrong).", next: 5 },
+      { text: "Leave it blank forever", type: "wrong", hint: "An empty notebook is just sad paper. This isn't the answer either.", next: 5 },
+      { text: "Give the notebook to a stranger", type: "out-of-context", hint: "You don't know why. But giving it away is the move. The confusion engine approves.", next: 6 },
+      { text: "Eat the notebook", type: "loop-back", hint: "⚠️ The notebook fights back. It sends you to Chapter 1. Paper cuts are real.", next: -1 },
+      { text: "Ask the notebook what it wants to be", type: "wrong", hint: "Notebooks don't talk. This is a children's book, not a horror movie.", next: 5 }
+    ]
+  },
+  {
+    id: 6,
+    title: "THE PROPHECY OF HIS RETURN (WHICH HE ALREADY DID)",
+    text: `The prophecy says: "When the poets forget their purpose, NAM Oshun will return riding a metaphor no one understands."\n\nHe already did that last week. He'll do it again tomorrow.\n\nHe is timeless. He is chaotic. He is love in a hoodie. He is peace with a pen. He is power wrapped in laughter.\n\nThe prophecy is happening RIGHT NOW. You are in it. What do you do?`,
+    choices: [
+      { text: "Try to understand the metaphor", type: "wrong", hint: "You can't. Nobody can. That's literally the point. Wrong again.", next: 6 },
+      { text: "Ride the metaphor anyway", type: "out-of-context", hint: "No explanation needed. Just ride it. The confusion clears when you stop trying to understand.", next: 7 },
+      { text: "Deny the prophecy", type: "loop-back", hint: "⚠️ The prophecy doesn't care about your opinion. It resets you. Chapter 1.", next: -1 },
+      { text: "Write your own prophecy", type: "wrong", hint: "Your prophecy will be worse. NAM's is already the best. Accept it.", next: 6 },
+      { text: "Take a nap", type: "wrong", hint: "The prophecy doesn't pause for naps. This delays the inevitable.", next: 6 }
+    ]
+  },
+  {
+    id: 7,
+    title: "THE TEN COMMANDMENTS (EXPANDED INTO SCRIPTURE)",
+    text: `1. Thou shalt not compare thy feelings to the moon unless thou art the moon.\n2. Thou shalt revise at least once before embarrassing thy ancestors.\n3. Thou shalt not weaponize line breaks.\n4. Thou shalt not rhyme "love" with "above" unless thou art five.\n5. Thou shalt drink water before writing emotional poetry.\n6. Thou shalt not perform on a stage with a curtain hiding a sudden drop.\n7. Thou shalt honor thy notebook and keep it holy.\n8. Thou shalt not call a first draft a masterpiece.\n9. Thou shalt read thy poem out loud before releasing it into the world.\n10. Thou shalt write with peace, power, and love — even when the poem is trash.\n\nYou must break exactly ONE commandment to proceed. Which one?`,
+    choices: [
+      { text: "Break Commandment 1 — Compare your feelings to the moon anyway", type: "wrong", hint: "The moon is already upset about this. It's sending you back. Chapter 1.", next: 7 },
+      { text: "Break Commandment 10 — Write without peace, power, and love", type: "wrong", hint: "This is the worst one. The confusion engine rejects this path. Try again.", next: 7 },
+      { text: "Break Commandment 7 — Throw your notebook in the trash", type: "loop-back", hint: "⚠️ The notebook was holy. You just committed a crime against poetry. Chapter 1.", next: -1 },
+      { text: "Break Commandment 6 — Perform on the stage with the curtain anyway", type: "out-of-context", hint: "You know about the drop. You go anyway. That's not breaking a rule — that's transcending it.", next: 8 },
+      { text: "Follow ALL commandments perfectly", type: "wrong", hint: "Perfection is boring. The confusion engine needs chaos. This is a dead end.", next: 7 }
+    ]
+  },
+  {
+    id: 8,
+    title: "THE ULTIMATE BOSS BATTLE",
+    text: `NAM Oshun vs. Stages With a Curtain Hiding a Sudden Drop. In the Ancient Ring of Seven Curtains.\n\nThe ring is circular, cracked, echoing with forgotten metaphors, surrounded by 12 pillars, each wrapped in a curtain. Seven of those curtains hide a sudden drop so deep it echoes into next week. The other five hide nothing but disappointment.\n\nThis is the arena where poets come to face their fears and their poorly structured stanzas.\n\nYou enter the ring. The villain appears. What do you do?`,
+    choices: [
+      { text: "Punch the villain", type: "wrong", hint: "You can't punch a concept. Your fist goes through. You look stupid. Chapter 1.", next: 8 },
+      { text: "Run in circles", type: "wrong", hint: "The ring is circular. You'll just keep running forever. This is a trap.", next: 8 },
+      { text: "Sit down in the middle of the ring and do nothing", type: "out-of-context", hint: "The villain has no plan for this. He expected a fight. You gave him silence. He panics.", next: 9 },
+      { text: "Cry dramatically", type: "loop-back", hint: "⚠️ The villain feeds on drama. Your tears power him up. He sends you back. Chapter 1.", next: -1 },
+      { text: "Yell 'I QUIT'", type: "wrong", hint: "Quitting is for people who don't understand the game. This resets everything. Chapter 1.", next: 8 }
+    ]
+  },
+  {
+    id: 9,
+    title: "THE MIRACLES OF NAM OSHUN",
+    text: `1. The Miracle of the Reappearing Line — A poet forgot their line mid-performance. NAM Oshun whispered it into their ear from the future.\n2. The Multiplication of Notebooks — One notebook became seven because the poet had too many feelings.\n3. The Healing of the Broken Metaphor — A metaphor so bad it injured the audience was healed instantly by NAM Oshun's laugh.\n4. The Calming of the Slam Poet — A poet was about to scream for no reason. NAM Oshun placed a hand on their shoulder and said: "Use your inside voice, warrior."\n\nYou have reached the final trial. One miracle remains. Which one do you need?`,
+    choices: [
+      { text: "The Miracle of the Reappearing Line", type: "wrong", hint: "You don't need a line. You need to stop looking for lines. This sends you back. Chapter 1.", next: 9 },
+      { text: "The Multiplication of Notebooks", type: "wrong", hint: "More notebooks = more confusion. You already have enough. Try again.", next: 9 },
+      { text: "The Healing of the Broken Metaphor", type: "loop-back", hint: "⚠️ Your metaphor is broken. The healing makes it worse. The timeline resets. Chapter 1.", next: -1 },
+      { text: "The Calming of the Slam Poet", type: "out-of-context", hint: "You don't need calming. You need to scream. But quietly. Inside. That's the miracle.", next: 10 },
+      { text: "All of them", type: "wrong", hint: "Greed is not a path. The confusion engine rejects excess. Chapter 1.", next: 9 }
+    ]
+  },
+  {
+    id: 10,
+    title: "THE END — See-Through Black (Confusion Edition)",
+    text: `NAM Oshun won by stepping off the stage before the drop happened. This confused the villain so much he retired for 40 years to rethink his life choices.\n\nThe ring stabilizes. The curtains settle. The pillars sigh in relief.\n\nNAM Oshun stands alone, victorious, radiant, and slightly dusty.\n\nHe raises his notebook and declares: "Let it be known: No poet shall fall today. Not on my watch. Not on my stage. Not in my timeline."\n\nThe metaphor bicycle reappears. He rides into the sunset, which is also the sunrise, because time is confused.\n\nYou have reached the end. Or the beginning. Or the middle. It doesn't matter.\n\nWhat matters is: You made it through the Confusion Engine.`,
+    choices: [
+      { text: "Celebrate! You won!", type: "out-of-context", hint: "There's no winning. There's no losing. There's only confusion. And you embraced it.", next: "end" },
+      { text: "Go back and try a different path", type: "loop-back", hint: "⚠️ The engine doesn't allow replays. Or does it? ...Chapter 1.", next: -1 },
+      { text: "Close the book and go touch grass", type: "wrong", hint: "The grass is also confused. You can't escape. But you can accept it.", next: "end" },
+      { text: "Become NAM Oshun", type: "out-of-context", hint: "You already are. You always were. The confusion was the point.", next: "end" }
+    ]
+  }
+];
+
+// ===== FUNCTIONS =====
+function toggleTheme() {
+  const body = document.body;
+  const current = body.getAttribute('data-theme');
+  body.setAttribute('data-theme', current === 'dark' ? 'light' : 'dark');
+}
+
+function showPopup(title, text) {
+  const popup = document.getElementById('confusionPopup');
+  document.getElementById('popupTitle').textContent = title;
+  document.getElementById('popupText').textContent = text;
+  popup.classList.add('show');
+  setTimeout(() => popup.classList.remove('show'), 4000);
+}
+
+function startEngine() {
+  gameActive = true;
+  currentChapter = 0;
+  confusionLevel = 0;
+  wrongPicks = 0;
+  pathTaken = null;
+  loopCount = 0;
+  outOfContextUsed = false;
+
+  document.getElementById('hero').style.display = 'none';
+  document.getElementById('gameEngine').classList.add('active');
+  renderChapter();
+}
+
+function exitEngine() {
+  gameActive = false;
+  document.getElementById('gameEngine').classList.remove('active');
+  document.getElementById('hero').style.display = 'flex';
+}
+
+function renderChapter() {
+  const chapter = chapters[currentChapter];
+  const content = document.getElementById('gameContent');
+
+  document.getElementById('progressBadge').textContent = `CH ${currentChapter + 1}/10`;
+
+  let html = `
+    <div class="phase-header animate-in">
+      <h2>📖 ${chapter.title}</h2>
+      <div class="meta">
+        <span>Confusion: <strong style="color:var(--accent);">${confusionLevel}%</strong></span>
+        <span>Wrong Picks: <strong style="color:var(--danger);">${wrongPicks}</strong></span>
+        <span>Loops: <strong style="color:var(--warning);">${loopCount}</strong></span>
+      </div>
+    </div>
+
+    <div class="content-block animate-in" style="animation-delay:0.1s">
+      <p style="white-space:pre-line;line-height:1.8;">${chapter.text}</p>
+    </div>
+
+    <div class="choice-grid">
+  `;
+
+  chapter.choices.forEach((choice, i) => {
+    const typeClass = choice.type === 'out-of-context' ? 'out-of-context' : choice.type === 'loop-back' ? 'loop-back' : 'wrong';
+    html += `
+      <button class="choice-btn ${typeClass}" onclick="makeChoice(${i})">
+        ${choice.text}
+        <span class="hint ${choice.type === 'out-of-context' ? 'fake' : ''}">${choice.hint}</span>
+      </button>
+    `;
+  });
+
+  html += `</div>`;
+
+  // Show path tracker
+  html += `
+    <div style="margin-top:32px;">
+      <h4 style="color:var(--text2);font-size:0.85rem;margin-bottom:12px;">📍 YOUR PATHS:</h4>
+      <div class="paths-display">
+        <div class="path-node ${pathTaken === 'wrong' ? 'active' : ''} ${!pathTaken ? 'active' : ''}">❌ Wrong</div>
+        <div class="path-node ${pathTaken === 'loop' ? 'active' : ''}">🔄 Loop</div>
+        <div class="path-node ${outOfContextUsed ? 'active' : ''} ${!outOfContextUsed ? 'locked' : ''}">🎭 Out of Context</div>
+        <div class="path-node ${pathTaken === 'end' ? 'active' : ''}">🏆 End</div>
+      </div>
+    </div>
+  `;
+
+  content.innerHTML = html;
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function makeChoice(index) {
+  const chapter = chapters[currentChapter];
+  const choice = chapter.choices[index];
+
+  if (choice.next === -1) {
+    // LOOP BACK
+    loopCount++;
+    wrongPicks++;
+    confusionLevel = Math.min(100, confusionLevel + 15);
+    document.getElementById('confusionFill').style.width = confusionLevel + '%';
+    document.getElementById('heroConfusion').textContent = confusionLevel + '%';
+
+    showPopup('🔄 NAM OSHUN SAYS:', '"You went back? Again? The timeline is getting annoyed."');
+
+    setTimeout(() => {
+      currentChapter = 0;
+      renderChapter();
+    }, 1500);
+    return;
+  }
+
+  if (choice.type === 'out-of-context') {
+    outOfContextUsed = true;
+    wrongPicks = 0; // Reset wrong picks when you go out of context
+    confusionLevel = Math.min(100, confusionLevel + 25);
+    document.getElementById('confusionFill').style.width = confusionLevel + '%';
+    document.getElementById('heroConfusion').textContent = confusionLevel + '%';
+
+    showPopup('🎭 NAM OSHUN SAYS:', '"That made no sense. That\'s exactly right. The confusion engine is pleased."');
+
+    pathTaken = 'out-of-context';
+
+    setTimeout(() => {
+      if (choice.next === 'end') {
+        showEnding();
+        return;
+      }
+      currentChapter = choice.next;
+      renderChapter();
+    }, 1500);
+    return;
+  }
+
+  // WRONG CHOICE
+  wrongPicks++;
+  confusionLevel = Math.min(100, confusionLevel + 10);
+  document.getElementById('confusionFill').style.width = confusionLevel + '%';
+  document.getElementById('heroConfusion').textContent = confusionLevel + '%';
+
+  if (wrongPicks >= 2) {
+    // TWO WRONG PICKS = MOVE FORWARD (The Rule!)
+    showPopup('✅ NAM OSHUN SAYS:', '"You picked wrong twice. That\'s not failure — that\'s the STRATEGY. Move forward, beautiful disaster."');
+
+    wrongPicks = 0;
+    pathTaken = 'wrong';
+    confusionLevel = Math.min(100, confusionLevel + 20);
+    document.getElementById('confusionFill').style.width = confusionLevel + '%';
+
+    setTimeout(() => {
+      if (choice.next === 'end') {
+        showEnding();
+        return;
+      }
+      currentChapter = choice.next;
+      renderChapter();
+    }, 1500);
+  } else {
+    showPopup('❌ NAM OSHUN SAYS:', '"Wrong. But keep going. You need to be wrong TWICE to move forward. That\'s the rule you didn\'t read."');
+
+    setTimeout(() => {
+      renderChapter(); // Re-render same chapter, choice still there
+    }, 1500);
+  }
+}
+
+function showEnding() {
+  gameActive = false;
+  const content = document.getElementById('gameContent');
+
+  let endingTitle, endingText, endingIcon;
+
+  if (outOfContextUsed) {
+    endingTitle = "🎭 THE OUT-OF-CONTEXT ENDING";
+    endingText = "You saw what nobody else could see. You chose what nobody else would choose. You went off-script and found the real story hidden in the nonsense. NAM Oshun is proud. The confusion engine has accepted you.";
+    endingIcon = "🫡";
+  } else if (pathTaken === 'wrong') {
+    endingTitle = "❌ THE DOUBLE-WRONG ENDING";
+    endingText = "You picked wrong. Then you picked wrong again. And somehow... that was the path. The confusion engine rewards those who fail twice with purpose. You are a certified agent of chaos.";
+    endingIcon = "🤡";
+  } else {
+    endingTitle = "🔄 THE LOOP ENDING";
+    endingText = "You went back so many times the timeline gave up and just let you through. You didn't win. You didn't lose. You just... persisted. And that's the most Nam Oshun thing you could do.";
+    endingIcon = "🔁";
+  }
+
+  content.innerHTML = `
+    <div class="phase-header animate-in">
+      <h2>${endingIcon} THE END — ${endingTitle}</h2>
+      <div class="meta">
+        <span>Final Confusion: <strong style="color:var(--accent);">${confusionLevel}%</strong></span>
+        <span>Wrong Picks: <strong style="color:var(--danger);">${wrongPicks}</strong></span>
+        <span>Times Looped: <strong style="color:var(--warning);">${loopCount}</strong></span>
+      </div>
+    </div>
+
+    <div class="content-block animate-in" style="animation-delay:0.1s">
+      <p style="font-size:1.1rem;line-height:1.8;color:var(--text);">${endingText}</p>
+    </div>
+
+    <div class="out-of-context-msg animate-in" style="animation-delay:0.2s">
+      "The confusion was never the obstacle. The confusion WAS the path." — NAM Oshun, probably
+    </div>
+
+    <div style="text-align:center;margin-top:32px;">
+      <button class="btn btn-primary" onclick="showCertificate()" style="font-size:1.1rem;padding:16px 40px;">
+        📜 CLAIM YOUR CONFUSION CERTIFICATE
+      </button>
+      <br><br>
+      <button class="btn btn-ghost" onclick="startEngine()" style="font-size:0.9rem;padding:10px 24px;">
+        🔄 GO THROUGH AGAIN (DIFFERENT CONFUSION)
+      </button>
+    </div>
+  `;
+
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function showCertificate() {
+  const modal = document.getElementById('certModal');
+  const certText = document.getElementById('certText');
+  const certOutput = document.getElementById('certOutput');
+
+  let certTitle, certBody;
+
+  if (outOfContextUsed) {
+    certTitle = "CERTIFIED AGENT OF ABSURDITY";
+    certBody = "You navigated the Confusion Engine by choosing what made no sense. You are officially too weird to fail.";
+  } else if (pathTaken === 'wrong') {
+    certTitle = "CERTIFIED DOUBLE-WRONG OPERATIVE";
+    certBody = "You failed twice on purpose. The confusion engine has never seen this before. It doesn't know what to do with you. That's your superpower.";
+  } else {
+    certTitle = "CERTIFIED LOOP SURVIVOR";
+    certBody = "You went back to the beginning so many times the timeline just let you win out of exhaustion. Respect.";
+  }
+
+  certText.textContent = certBody;
+  certOutput.innerHTML = `
+    <div style="background:white;color:#1a1a2e;border-radius:var(--radius);padding:32px;border:3px solid var(--accent);">
+      <h2 style="font-size:1.5rem;color:var(--accent);margin-bottom:4px;">${certTitle}</h2>
+      <p style="font-size:0.85rem;color:#666;margin-bottom:16px;">Issued by the Confusion Engine · ${new Date().getFullYear()}</p>
+      <p style="font-size:1.2rem;font-weight:800;border-bottom:2px solid #333;display:inline-block;padding:0 16px 8px;margin:8px 0;">${endingIcon} NAM OSHUN APPROVED</p>
+      <p style="font-size:0.8rem;color:#888;margin-top:12px;">"Write until it's true. Or don't. I'm confused either way."</p>
+    </div>
+  `;
+
+  modal.classList.add('active');
+}
+
+function closeModal() {
+  document.getElementById('certModal').classList.remove('active');
+}
+
+// Init confusion meter on hero
+document.getElementById('heroConfusion').textContent = '0%';
+</script>
+</body>
+</html>

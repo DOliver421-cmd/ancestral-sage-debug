@@ -222,6 +222,14 @@ FEATURE_MIN_TIER: dict = {
     "publisher_ai": "member",
     "lounge": "member",
     "courses": "plus",
+    # NOTE: "The Soup" (Mini More Help Center) is deliberately NOT listed here.
+    # Its 16 files are static HTML served by the frontend build, gated per file
+    # at /classic/:slug in frontend/src/pages/LegacyTool.jsx from each entry's
+    # `feature` in originalTools.js — there is no /api surface to map, and
+    # FEATURE_API_PATHS only accepts /api prefixes. The tier contract for the
+    # Soup therefore lives in the frontend TIER_FOR_FEATURE map, which is where
+    # its gate is enforced and verified. Adding a key here without an API
+    # surface would fail test_tier_map_mirrors_frontend_contract.
     "tracks": "plus",
     # Creator Studio is a paid feature: Member ($9/mo) is the entry tier, not
     # free. Free accounts get no studio access at all.
