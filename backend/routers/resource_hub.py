@@ -543,19 +543,80 @@ SEED_RESOURCES = [
     },
     {
         "title": "Grant Writing Basics Guide",
-        "description": "Step-by-step guide to writing effective grant proposals: problem statement, goals, budget, evaluation metrics.",
+        "description": "Work through a live proposal: problem statement, goals, budget, and evaluation metrics.",
         "category": "templates",
         "url": "",
-        "tags": ["grant-writing", "template", "guide"],
+        "tags": ["grant-writing", "template", "guide", "workflow"],
+        "in_product": True,
+        "steps": [
+            {"title": "Name the problem in one paragraph", "description": "Who is affected, how you know, and what changes if it is solved. Funders read this first and stop reading if it is vague. One paragraph, no jargon."},
+            {"title": "Write measurable goals", "description": "Three to five goals, each with a number and a deadline: 'serve 60 students in 12 months', not 'help the community'."},
+            {"title": "List the activities that produce those goals", "description": "One line per activity, showing how it moves a specific goal. If an activity moves nothing, cut it."},
+            {"title": "Build the budget and check the arithmetic", "description": "Every activity gets a line; salaries sum to the total; the total matches the request plus other sources. Funders check this line first."},
+            {"title": "Define how you will measure success", "description": "For each goal, the number you will report and how you will collect it. A goal without a measure is a wish."},
+            {"title": "Add organisational credibility", "description": "Who you are, who you have served, audited figures or references. Two paragraphs is enough for a first application."},
+            {"title": "Write the one-page summary last", "description": "Problem, what you will do, what it costs, what will change. Many funders read only this page."},
+            {"title": "Submit and record the outcome", "description": "Log the funder, amount, deadline, and decision. A submitted proposal is an asset; an unlogged one is lost work."},
+        ],
     },
     {
         "title": "Community Fundraising Playbook",
-        "description": "Strategies for community-based fundraising: events, crowdfunding, social media campaigns, donor cultivation.",
+        "description": "Run a community campaign as a workflow: events, crowdfunding, social campaigns, and donor cultivation.",
         "category": "templates",
         "url": "",
-        "tags": ["fundraising", "playbook", "community"],
+        "tags": ["fundraising", "playbook", "community", "workflow"],
+        "in_product": True,
+        "steps": [
+            {"title": "Set the goal and the deadline", "description": "One number and one date. 'Raise $5,000 by March 1 for X.' A campaign without both is a wish."},
+            {"title": "Write the case in two paragraphs", "description": "What the money does, who it reaches, and what happens at each amount. Ask for a specific amount, not 'support'."},
+            {"title": "List your inner circle", "description": "Twenty people who will give first and tell others. Name them. Fundraising starts warm."},
+            {"title": "Pick the channels you will actually run", "description": "Two, not six: one event, one online page. Depth beats breadth in a community campaign."},
+            {"title": "Run the event", "description": "A date, a place, a host, and one ask. Capture names and contact details with permission."},
+            {"title": "Launch the online page", "description": "One page, the case, the goal, and the deadline. Share it with the inner circle first."},
+            {"title": "Thank every donor within 48 hours", "description": "A specific thank-you naming what their gift does. The second gift depends on the first thank-you."},
+            {"title": "Report the result publicly", "description": "Tell the community what was raised and what it did. It is the strongest ask for next year."},
+        ],
     },
 ]
+
+
+GUIDE_TITLES = ("Grant Writing Basics Guide", "Community Fundraising Playbook")
+
+
+async def _sync_guide_resources() -> None:
+    """Bring the two in-product guides up to date, on every boot.
+
+    seed_hub_resources() returns early once hub_resources has any row, so a
+    database seeded before these guides carried their steps would never receive
+    them — and the guides would stay as "read-only" catalogue rows forever.
+    This upserts them by title instead: existing rows gain the content, and the
+    insert-only fields apply only when a row is created.
+
+    Idempotent by construction — the same guide content is written every boot,
+    so repeated boots converge on one row per title. No schema change: the rows
+    simply gain their guide fields, which `list_resources` already returns whole.
+    """
+    guides = {r["title"]: r for r in SEED_RESOURCES if r.get("title") in GUIDE_TITLES}
+    if not guides:
+        return
+    coll = _coll("hub_resources")
+    for title, guide in guides.items():
+        try:
+            await coll.update_one(
+                {"title": title},
+                {
+                    "$set": {k: v for k, v in guide.items() if k != "title"},
+                    "$setOnInsert": {
+                        "id": uuid.uuid4().hex,
+                        "downloads": 0,
+                        "created_by": "system",
+                        "created_at": _now_iso(),
+                    },
+                },
+                upsert=True,
+            )
+        except Exception:
+            logger.exception("Guide resource sync failed for %s", title)
 
 
 async def seed_hub_resources():
@@ -563,9 +624,11 @@ async def seed_hub_resources():
     if db is None:
         return
     count = await _coll("hub_resources").count_documents({})
-    if count > 0:
-        return
-    for r in SEED_RESOURCES:
-        doc = {**r, "id": uuid.uuid4().hex, "downloads": 0, "created_by": "system", "created_at": _now_iso()}
-        await _coll("hub_resources").insert_one(doc)
-    logger.info("Seeded %d business resources into hub_resources", len(SEED_RESOURCES))
+    if count == 0:
+        for r in SEED_RESOURCES:
+            doc = {**r, "id": uuid.uuid4().hex, "downloads": 0, "created_by": "system", "created_at": _now_iso()}
+            await _coll("hub_resources").insert_one(doc)
+        logger.info("Seeded %d business resources into hub_resources", len(SEED_RESOURCES))
+    # The guides sync even when the collection was already populated: that is
+    # the upgrade path from the stub rows to the real in-product guides.
+    await _sync_guide_resources()
