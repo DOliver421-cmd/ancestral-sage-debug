@@ -323,6 +323,22 @@ MODULES = FREE_MODULES + [
 def quiz_for(module_slug: str):
     """Return a seed quiz (4 questions) for each module."""
     bank = {
+        # The two free-preview modules. Both promise "complete this and earn 50
+        # Partnership Points", but neither had a quiz, so neither could ever be
+        # completed — score 0 always meant "in_progress" and no points were ever
+        # awarded, blocking the enrollment funnel at its first step.
+        "free-electrical-basics": [
+            {"q": "Current through a 120Ω resistor connected across 12V is:", "options": ["120 A", "0.1 A", "10 A", "1,440 A"], "answer": 1},
+            {"q": "The three basic circuit types are:", "options": ["Series, parallel, series-parallel", "AC, DC and EC", "Line, load and ground", "Single-phase, split-phase and three-phase"], "answer": 0},
+            {"q": "A non-contact voltage tester is used to:", "options": ["Measure exact voltage to 0.1V", "Detect the presence of voltage without touching the conductor", "Test insulation resistance", "Verify amperage on a branch circuit"], "answer": 1},
+            {"q": "The first step before working on any circuit is to:", "options": ["Put on insulated gloves", "Verify it is de-energised, then lock and tag it out", "Switch off the lights", "Note the wire colours"], "answer": 1},
+        ],
+        "free-tools-orientation": [
+            {"q": "Which tool is used to remove insulation from a conductor?", "options": ["Lineman's pliers", "Wire strippers", "Multi-bit screwdriver", "Needle-nose pliers"], "answer": 1},
+            {"q": "Insulated tools are rated for work:", "options": ["Only on de-energised circuits", "Near energised parts, up to their marked voltage rating", "On any voltage without limit", "Only on DC circuits"], "answer": 1},
+            {"q": "Lineman's pliers are primarily used to:", "options": ["Cut and bend wire", "Strip coaxial cable", "Terminate data jacks", "Megger a motor"], "answer": 0},
+            {"q": "Correct tool care means:", "options": ["Store them loose in a bucket", "Inspect before every use and replace damaged insulation immediately", "Oil them weekly regardless of use", "Only clean them when visibly dirty"], "answer": 1},
+        ],
         "safety-loto": [
             {"q": "Which NFPA standard covers Electrical Safety in the Workplace?", "options": ["NFPA 13", "NFPA 70", "NFPA 70E", "NFPA 101"], "answer": 2},
             {"q": "The correct PPE verification sequence is:", "options": ["Work-Test-Work", "Test-Verify-Test", "Verify-Work-Verify", "Test-Work-Test"], "answer": 1},
