@@ -62,6 +62,9 @@ except Exception:  # pragma: no cover - import-time safety
 # feature such as Social Blast without accidentally changing every AI route.
 FEATURE_API_PATHS: dict = {
     "publisher_ai": ["/api/ai/social-blast"],
+    # Creator Studio's premium surfaces — Song Arrangement and Publish — come
+    # first so the prefix match is specific before the whole-studio entry.
+    "studio_full": ["/api/studio/lyric", "/api/studio/metadata"],
     "sovereign": ["/api/sovereign/", "/api/puzzles/"],
     "studio": ["/api/studio/"],
     "band": ["/api/band/"],
@@ -220,7 +223,11 @@ FEATURE_MIN_TIER: dict = {
     "lounge": "member",
     "courses": "free",
     "tracks": "plus",
-    "studio": "free",
+    # Creator Studio is a paid feature: Member ($9/mo) is the entry tier, not
+    # free. Free accounts get no studio access at all.
+    "studio": "member",
+    # The full studio — Song Arrangement and Publish — is Plus and above.
+    "studio_full": "plus",
     "band": "plus",
     "publisher": "plus",
     "earnings": "plus",

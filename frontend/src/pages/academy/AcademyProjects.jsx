@@ -42,8 +42,8 @@ const PATHWAYS = [
   },
   {
     title: "Creation to earning",
-    body: "A finished project is the evidence half of a business. Turn a skill and a piece of work into a business concept, then publish it from the free Creator Studio.",
-    to: "/studio",
+    body: "A finished project is the evidence half of a business. Turn a skill and a piece of work into a business concept, then publish it in your Academy portfolio.",
+    to: "/academy/portfolio",
     kind: "business",
   },
 ];
@@ -298,7 +298,7 @@ export default function AcademyProjects() {
                             <p className="text-xs text-ink/55 mt-1 leading-relaxed">{p.body}</p>
                             {p.to !== "/academy/projects" && (
                               <Link to={p.to} className="text-xs font-bold text-copper underline mt-2 inline-block">
-                                {p.to === "/studio" ? "Open the Creator Studio (free)" : "Browse the curriculum"}
+                                {p.to === "/academy/portfolio" ? "Open the portfolio" : "Browse the curriculum"}
                               </Link>
                             )}
                           </div>
@@ -385,8 +385,9 @@ export default function AcademyProjects() {
                           className="inline-flex items-center gap-2 text-sm font-bold text-copper hover:text-ink">
                           <Folder className="w-4 h-4" /> Open the portfolio
                         </Link>
-                        <Link to="/studio" className="inline-flex items-center gap-2 text-sm font-bold text-ink hover:text-copper">
-                          <Sparkles className="w-4 h-4" /> Publish the work (free Creator Studio)
+                        <Link to={studentId ? `/academy/portfolio?student=${studentId}` : "/academy/portfolio"}
+                          className="inline-flex items-center gap-2 text-sm font-bold text-ink hover:text-copper">
+                          <Sparkles className="w-4 h-4" /> Publish the work in your portfolio
                         </Link>
                       </div>
                       {selected.status !== "submitted" && openSteps.length > 0 && (
