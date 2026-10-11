@@ -112,6 +112,15 @@ class _FakeCollection:
         for op, fields in (update or {}).items():
             if op == "$set":
                 target.update(fields)
+            elif op == "$addToSet":
+                for k, v in fields.items():
+                    vals = target.setdefault(k, [])
+                    if v not in vals:
+                        vals.append(v)
+            elif op == "$pull":
+                for k, v in fields.items():
+                    vals = target.get(k, [])
+                    target[k] = [x for x in vals if x != v]
             elif op == "$push":
                 for k, v in fields.items():
                     target.setdefault(k, [])

@@ -615,18 +615,26 @@ async def archive_student(student_id: str, user=Depends(_dep_current_user)):
 async def change_enrollment(student_id: str, body: EnrollmentChange, user=Depends(_dep_current_user)):
     student = await _owned_student(student_id, user)
     course = await _course_or_404(body.course_slug)
-    slugs = set(student.get("course_slugs", []))
     if body.enroll:
         if not course_applies(course, student.get("grade"), student.get("track")):
             raise HTTPException(400, "This course is not offered for the student's grade and track.")
-        slugs.add(course["slug"])
+        # Atomic set operators, not read-modify-write: the previous Python-side
+        # read + $set of the whole array let two concurrent enroll calls
+        # overwrite each other while both returned 200 (audit F2 — 8/8 rounds
+        # lost 1-2 of 3 courses). $addToSet/$pull cannot lose a write.
+        await db.academy_students.update_one(
+            {"id": student_id},
+            {"$addToSet": {"course_slugs": course["slug"]}, "$set": {"updated_at": _now()}},
+        )
     else:
-        slugs.discard(course["slug"])
-    await db.academy_students.update_one(
-        {"id": student_id},
-        {"$set": {"course_slugs": sorted(slugs), "updated_at": _now()}},
+        await db.academy_students.update_one(
+            {"id": student_id},
+            {"$pull": {"course_slugs": course["slug"]}, "$set": {"updated_at": _now()}},
+        )
+    stored = await db.academy_students.find_one(
+        {"id": student_id}, {"_id": 0, "course_slugs": 1}
     )
-    return {"student_id": student_id, "course_slugs": sorted(slugs)}
+    return {"student_id": student_id, "course_slugs": stored.get("course_slugs", [])}
 
 
 # ── Dashboards ───────────────────────────────────────────────────────────────
