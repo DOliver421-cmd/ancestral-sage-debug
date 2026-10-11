@@ -15,14 +15,13 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from routers import member_projects as mp  # noqa: E402
 
-SECRET = "test-secret"
-
-# The router resolves the JWT secret from the canonical server module
-# (server.JWT_SECRET, read from the environment at import).  Force the
-# environment to match the signing literal BEFORE server.py is first
-# imported by the dependency under test, so the suite exercises the real
-# production contract instead of a private app.state secret.
-os.environ["JWT_SECRET"] = SECRET
+# The router validates tokens against server.JWT_SECRET, which conftest pins
+# from the environment BEFORE any backend import. Sign with that same canonical
+# value: this file used to overwrite JWT_SECRET with its own literal
+# ("test-secret" vs the suite's "testsecret"), so its tokens validated only
+# when this file happened to be the one that first imported server — four
+# tests failed with 401 in a full run and passed in isolation.
+SECRET = os.environ.get("JWT_SECRET", "testsecret")
 
 
 @pytest.fixture(autouse=True)
