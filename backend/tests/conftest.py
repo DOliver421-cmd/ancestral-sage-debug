@@ -57,13 +57,18 @@ import time
 import requests
 
 _TOKEN_CACHE: dict = {}
+_BODY_CACHE: dict = {}
 
 _BASE = os.environ.get("REACT_APP_BACKEND_URL", "http://localhost:8001").rstrip("/")
 _API = f"{_BASE}/api"
 
 
-def login_token(email: str, password: str, attempts: int = 8) -> str:
-    """Return a bearer token for `email`, cached for the whole session.
+def login_body(email: str, password: str, attempts: int = 8) -> dict:
+    """Return the full `/auth/login` response body, cached per session.
+
+    Several suites index the body (`body["access_token"]`, `body["user"]["role"]`)
+    and several expect only the token string, so both are kept: this returns the
+    whole body and `login_token()` returns just the token from the same cache.
 
     A 429 (rate limit) is retried after one window, so a suite that
     authenticates each account once stays inside the 20-per-minute-per-IP
@@ -72,20 +77,29 @@ def login_token(email: str, password: str, attempts: int = 8) -> str:
     seeded account — a real signal, not a timing artefact.
     """
     key = (email, password)
-    if key in _TOKEN_CACHE:
-        return _TOKEN_CACHE[key]
+    if key in _BODY_CACHE:
+        return dict(_BODY_CACHE[key])
     last = None
     for _ in range(attempts):
         r = requests.post(
             f"{_API}/auth/login", json={"email": email, "password": password}, timeout=20
         )
         if r.status_code == 200:
-            token = r.json()["access_token"]
-            _TOKEN_CACHE[key] = token
-            return token
+            body = r.json()
+            _BODY_CACHE[key] = dict(body)
+            _TOKEN_CACHE[key] = body["access_token"]
+            return body
         last = f"{r.status_code} {r.text[:200]}"
         if r.status_code == 429:
             time.sleep(62)   # one full rate-limit window
             continue
         break
     raise AssertionError(f"login failed for {email}: {last}")
+
+
+def login_token(email: str, password: str, attempts: int = 8) -> str:
+    """Return only the bearer token for `email`, cached for the whole session."""
+    key = (email, password)
+    if key in _TOKEN_CACHE:
+        return _TOKEN_CACHE[key]
+    return login_body(email, password, attempts)["access_token"]

@@ -39,13 +39,13 @@ def _login(email, password):
     is cached per account for the whole run, which is what keeps the suite
     inside the login rate limit."""
     try:
-        from conftest import login_token
+        from conftest import login_body
     except ImportError:      # standalone run: python3 tests/<file>.py
         r = requests.post(f"{os.environ['REACT_APP_BACKEND_URL'].rstrip('/')}/api/auth/login",
                           json={"email": email, "password": password}, timeout=20)
         assert r.status_code == 200, f"login failed for {email}: {r.status_code} {r.text}"
         return r.json()["access_token"]
-    return login_token(email, password)
+    return login_body(email, password)   # this suite indexes the login body
 
 def _auth(token):
     return {"Authorization": f"Bearer {token}"}
