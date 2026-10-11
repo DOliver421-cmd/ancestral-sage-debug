@@ -131,6 +131,10 @@ MONGO_BACKUP_DB  = os.environ.get("MONGO_BACKUP_DB", "")
 
 _backup_db = None
 _pipeline_manager = None
+# Hybrid NAM knowledge-seed outcome from the last boot, surfaced on /api/health.
+# A silent "0 seeded, 31 failed" boot is how the empty corpus went unnoticed.
+_NAM_SEED_STATE: dict = {"seeded": None, "skipped": None, "failed": None,
+                         "failed_reasons": [], "at": None}
 _discount_manager = None
 
 # ── WAI engine singletons ───────────────────────────────────────────────────────
@@ -1502,14 +1506,39 @@ async def _on_startup_impl():
         from seed_nam_knowledge import seed_nam_knowledge as _nam_seed
 
         _nam_result = await _nam_seed()
-        logger.info(
-            "STARTUP: Hybrid NAM knowledge seed done — %d seeded, %d skipped, %d failed.",
-            _nam_result["seeded_count"],
-            _nam_result["skipped_count"],
-            _nam_result["failed_count"],
-        )
+        # updated in place: this is a module-level dict read by /api/health
+        _NAM_SEED_STATE.update({
+            "seeded": _nam_result["seeded_count"],
+            "skipped": _nam_result["skipped_count"],
+            "failed": _nam_result["failed_count"],
+            "failed_reasons": list(_nam_result.get("failed") or [])[:20],
+            "at": datetime.now(timezone.utc).isoformat(),
+        })
+        if _nam_result["failed_count"]:
+            # Loud, and with the per-item reasons the seed already returns.
+            # The old INFO line made a total seed failure read like a normal
+            # boot: "0 seeded, 0 skipped, 31 failed" was believed for weeks
+            # while the corpus was empty on every real deployment (audit F4).
+            logger.warning(
+                "STARTUP: Hybrid NAM knowledge seed FAILED — %d seeded, %d skipped, %d failed: %s",
+                _nam_result["seeded_count"],
+                _nam_result["skipped_count"],
+                _nam_result["failed_count"],
+                "; ".join(str(f) for f in (_nam_result.get("failed") or []))[:1000],
+            )
+        else:
+            logger.info(
+                "STARTUP: Hybrid NAM knowledge seed done — %d seeded, %d skipped, 0 failed.",
+                _nam_result["seeded_count"],
+                _nam_result["skipped_count"],
+            )
     except Exception as _e:
         logger.warning("STARTUP: seed_nam_knowledge failed (non-fatal): %s", _e)
+        _NAM_SEED_STATE.update({
+            "seeded": 0, "skipped": 0, "failed": -1,
+            "failed_reasons": [str(_e)],
+            "at": datetime.now(timezone.utc).isoformat(),
+        })
 
     try:
         await seed_sites_inventory()
@@ -1573,14 +1602,16 @@ async def _on_startup_impl():
         logger.warning("WAI autonomous pipeline startup failed (non-fatal): %s", _wai_err)
 
     # ── PipelineManager (LLM intent routing) ─────────────────────────────────
+    # The intent pipeline module (backend/src/agents/pipeline_manager.py) does
+    # not exist in this checkout or deployment — no other module imports it and
+    # nothing in frontend/src calls /api/exec/pipeline/*. The import used to be
+    # attempted here and failed on every boot with "init failed (non-fatal)",
+    # which reads like a transient fault rather than an absent module, so the
+    # two endpoints below returned 503 forever with no traceable cause. It is
+    # not attempted any more; they keep the honest 503, and building the
+    # pipeline is a decision for the owner, not something to fake here.
     global _pipeline_manager
-    try:
-        from src.agents.pipeline_manager import PipelineManager as _PipelineManager
-        _pipeline_manager = _PipelineManager(db=db)
-        _mode = "keyword_fallback"
-        logger.info("STARTUP: PipelineManager ready — analyzer=%s", _mode)
-    except Exception as _pm_err:
-        logger.warning("STARTUP: PipelineManager init failed (non-fatal): %s", _pm_err)
+    _pipeline_manager = None
 
     # ── Discount Management System initialization ─────────────────────────────
     try:
@@ -1959,6 +1990,17 @@ async def health():
 
     # ── Rate limiter ──────────────────────────────────────────────────────────
     checks["rate_limiter"] = {"status": "up", "tracked_keys": len(_RATE)}
+
+    # ── Hybrid NAM knowledge seed ─────────────────────────────────────────────
+    # A failed seed leaves the persona corpus empty; that is a degraded service,
+    # not a successful boot. The per-item reasons come from the seed itself.
+    _seed_failed = _NAM_SEED_STATE.get("failed") or 0
+    checks["nam_knowledge_seed"] = {
+        "status": "up" if _seed_failed <= 0 else "degraded",
+        **_NAM_SEED_STATE,
+    }
+    if _seed_failed:
+        issues.append("nam_knowledge_seed_failed")
 
     # ── Overall status ────────────────────────────────────────────────────────
     if not issues:
@@ -10326,7 +10368,12 @@ async def exec_pipeline_process(
         - Keyword fallback when gateway is unavailable  (offline mode)
     """
     if _pipeline_manager is None:
-        raise HTTPException(503, "PipelineManager not initialized — check server logs")
+        raise HTTPException(
+            503,
+            "Intent pipeline unavailable: PipelineManager is not installed in this "
+            "deployment (no backend/src/agents/pipeline_manager.py, and no caller in "
+            "frontend/src). Building it is a deliberate decision, not a config fault.",
+        )
 
     result = await _pipeline_manager.process(body.text.strip(), source=body.source.strip())
     return result.to_dict()
@@ -10343,7 +10390,12 @@ async def exec_pipeline_process_batch(
     Semaphore inside PipelineManager limits concurrent LLM calls to 5.
     """
     if _pipeline_manager is None:
-        raise HTTPException(503, "PipelineManager not initialized — check server logs")
+        raise HTTPException(
+            503,
+            "Intent pipeline unavailable: PipelineManager is not installed in this "
+            "deployment (no backend/src/agents/pipeline_manager.py, and no caller in "
+            "frontend/src). Building it is a deliberate decision, not a config fault.",
+        )
 
     texts  = body.texts
     source = body.source.strip()
