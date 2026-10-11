@@ -17,11 +17,16 @@ import { useState } from "react";
 import { Link, Navigate } from "react-router-dom";
 import AppShell from "../components/AppShell";
 import { ORIGINAL_BY_SLUG } from "../lib/originalTools";
-import { ArrowLeft, ExternalLink, FileArchive, AlertTriangle } from "lucide-react";
+import { ArrowLeft, ExternalLink, FileArchive, AlertTriangle, Lock } from "lucide-react";
+import { canAccess, TIER_FOR_FEATURE } from "../lib/tiers";
+import { useAuth } from "../lib/auth";
+
+const TIER_LABEL = { free: "Free", member: "Member ($9/mo)", plus: "Plus ($15/mo)", pro: "Pro", patron: "Patron", platinum: "Platinum", executive: "Executive" };
 
 export default function LegacyTool({ slug }) {
   const tool = ORIGINAL_BY_SLUG[slug];
   const [blocked, setBlocked] = useState(false);
+  const { user } = useAuth();
 
   if (!tool) return <Navigate to="/classic-tools" replace />;
 
@@ -41,6 +46,41 @@ export default function LegacyTool({ slug }) {
             style={{ background: "#1B4332" }}>
             <ArrowLeft className="w-4 h-4" /> Back to Classic Tools
           </Link>
+        </div>
+      </AppShell>
+    );
+  }
+
+  // Tier gate. Every original that carries a `feature` is a paid/tiered
+  // surface (the Soup's decisions, 2026-10-11): the launcher must refuse
+  // before the iframe is built, otherwise the URL itself hands the content
+  // to anyone who can type it — including a signed-out visitor.
+  const required = tool.feature ? (TIER_FOR_FEATURE[tool.feature] || "free") : "free";
+  const allowed = !tool.feature || canAccess(user, tool.feature);
+  if (!allowed) {
+    return (
+      <AppShell>
+        <div className="min-h-screen flex items-center justify-center bg-bone p-8">
+          <div className="max-w-md w-full text-center space-y-5" data-testid="legacy-tool-locked">
+            <div className="flex items-center justify-center gap-3 text-copper">
+              <Lock className="w-8 h-8" />
+              <span className="font-heading font-bold text-2xl text-ink">
+                {TIER_LABEL[required] || required} required
+              </span>
+            </div>
+            <p className="text-ink/70 text-sm leading-relaxed">
+              <span className="font-bold">{tool.title}</span> is part of{" "}
+              {tool.suite === "The Soup" ? "the Soup" : tool.suite} and is available on the{" "}
+              {TIER_LABEL[required] || required} plan. Upgrade to open it here.
+            </p>
+            <div className="flex items-center justify-center gap-3">
+              <Link to="/plans" className="btn-copper text-sm">See plans</Link>
+              <Link to="/classic-tools"
+                className="inline-flex items-center gap-2 text-sm font-bold text-ink/60 hover:text-copper">
+                <ArrowLeft className="w-4 h-4" /> Classic Tools
+              </Link>
+            </div>
+          </div>
         </div>
       </AppShell>
     );

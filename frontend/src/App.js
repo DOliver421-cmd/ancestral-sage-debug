@@ -324,9 +324,13 @@ function App() {
           <Route path="/knowledge-base" element={<KnowledgeBase />} />
           <Route path="/knowledge" element={<KnowledgeFinder />} />
           <Route path="/seshats-hub" element={<SeshatsHubPublic />} />
-          {/* Classic Tools — the preserved original HTML applications */}
-          <Route path="/classic-tools" element={<ClassicTools />} />
-          <Route path="/classic/:slug" element={<ClassicToolRoute />} />
+          {/* Classic Tools — the preserved original HTML applications.
+              Gated to signed-in members: "the Soup" is a registered-member
+              surface (owner decision 2026-10-11) and these routes are its front
+              door. The per-tool tier (free / $9 / $15) is enforced inside
+              LegacyTool from each entry's `feature`. */}
+          <Route path="/classic-tools" element={<Protected><ClassicTools /></Protected>} />
+          <Route path="/classic/:slug" element={<Protected><ClassicToolRoute /></Protected>} />
           {/* Site search + Site Guide persona */}
           <Route path="/search" element={<SiteSearch />} />
           <Route path="/site-guide" element={<SiteGuideRedirect />} />

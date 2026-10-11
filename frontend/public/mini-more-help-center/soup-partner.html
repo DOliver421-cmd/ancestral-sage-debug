@@ -1,0 +1,1125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Autonomous Partner — M.O.R.E. W.A.I.</title>
+<style>
+:root {
+  --bg: #0a0e1a;
+  --card: #111827;
+  --text: #e5e7eb;
+  --text-dim: #6b7280;
+  --accent: #10b981;
+  --accent-glow: rgba(16,185,129,0.3);
+  --danger: #ef4444;
+  --blue: #3b82f6;
+  --yellow: #f59e0b;
+  --purple: #a855f7;
+  --radius: 10px;
+  --font: 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: var(--font);
+  background: var(--bg);
+  color: var(--text);
+  height: 100vh;
+  overflow: hidden;
+}
+
+#app {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ═══════════════════════════════════════════
+   LIVE DASHBOARD
+   ═══════════════════════════════════════════ */
+.dashboard-bar {
+  background: var(--card);
+  border-bottom: 2px solid var(--accent);
+  padding: 12px 20px;
+  overflow-x: auto;
+  white-space: nowrap;
+  z-index: 100;
+}
+
+.dashboard-bar::-webkit-scrollbar { height: 4px; }
+.dashboard-bar::-webkit-scrollbar-thumb { background: var(--accent); border-radius: 4px; }
+
+.dashboard-content {
+  display: inline-flex;
+  gap: 20px;
+  min-width: 100%;
+}
+
+.dash-block {
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: var(--radius);
+  padding: 10px 14px;
+  min-width: 180px;
+  white-space: normal;
+}
+
+.dash-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  letter-spacing: 1px;
+  margin-bottom: 4px;
+}
+
+.dash-value {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.dash-sub {
+  font-size: 11px;
+  color: var(--text-dim);
+  margin-top: 2px;
+}
+
+/* ═══════════════════════════════════════════
+   HEADER
+   ═══════════════════════════════════════════ */
+.header {
+  background: var(--card);
+  padding: 14px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.avatar {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #10b981, #3b82f6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  font-weight: 900;
+  box-shadow: 0 0 20px var(--accent-glow);
+}
+
+.header-title { font-size: 18px; font-weight: 700; }
+.header-sub { font-size: 12px; color: var(--text-dim); }
+
+.header-right {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.btn {
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: none;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-accent {
+  background: var(--accent);
+  color: #000;
+}
+
+.btn-danger {
+  background: var(--danger);
+  color: #fff;
+}
+
+.btn-ghost {
+  background: rgba(255,255,255,0.05);
+  color: var(--text);
+  border: 1px solid rgba(255,255,255,0.1);
+}
+
+.crisis-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 20px;
+  background: rgba(239,68,68,0.1);
+  border: 1px solid var(--danger);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--danger);
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.crisis-toggle.active {
+  background: var(--danger);
+  color: #fff;
+  box-shadow: 0 0 20px rgba(239,68,68,0.5);
+}
+
+/* ═══════════════════════════════════════════
+   CHAT AREA
+   ═══════════════════════════════════════════ */
+.chat-area {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.chat-area::-webkit-scrollbar { width: 6px; }
+.chat-area::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 6px; }
+
+.message {
+  display: flex;
+  gap: 12px;
+  max-width: 85%;
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.message.user { align-self: flex-end; flex-direction: row-reverse; }
+.message.partner { align-self: flex-start; }
+
+.msg-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--purple);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+.msg-user .msg-avatar { background: var(--blue); }
+
+.msg-bubble {
+  background: var(--card);
+  border-radius: var(--radius);
+  padding: 14px 18px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+  border: 1px solid rgba(255,255,255,0.05);
+}
+
+.msg-user .msg-bubble {
+  background: linear-gradient(135deg, #1e40af, #3b82f6);
+  border: none;
+}
+
+.msg-text {
+  font-size: 14px;
+  line-height: 1.7;
+  white-space: pre-wrap;
+}
+
+.msg-text code {
+  background: rgba(0,0,0,0.3);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: 'Courier New', monospace;
+  font-size: 13px;
+}
+
+.msg-text table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 8px 0;
+  font-size: 13px;
+}
+
+.msg-text table th,
+.msg-text table td {
+  padding: 6px 10px;
+  border: 1px solid rgba(255,255,255,0.1);
+  text-align: left;
+}
+
+.msg-text table th {
+  background: rgba(16,185,129,0.2);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.msg-time {
+  font-size: 10px;
+  color: var(--text-dim);
+  margin-top: 8px;
+}
+
+.file-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(0,0,0,0.3);
+  padding: 6px 10px;
+  border-radius: 6px;
+  margin-top: 8px;
+  font-size: 12px;
+}
+
+.file-chip img {
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  object-fit: cover;
+}
+
+.msg-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+
+.action-btn {
+  padding: 6px 12px;
+  border-radius: 6px;
+  border: none;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.action-btn.green { background: var(--accent); color: #000; }
+.action-btn.blue { background: var(--blue); color: #fff; }
+.action-btn.red { background: var(--danger); color: #fff; }
+
+/* ═══════════════════════════════════════════
+   INPUT AREA
+   ═══════════════════════════════════════════ */
+.input-area {
+  background: var(--card);
+  border-top: 2px solid var(--accent);
+  padding: 16px 20px;
+}
+
+.drop-zone {
+  border: 2px dashed rgba(255,255,255,0.15);
+  border-radius: var(--radius);
+  padding: 16px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-bottom: 12px;
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
+.drop-zone:hover,
+.drop-zone.dragover {
+  border-color: var(--accent);
+  background: rgba(16,185,129,0.05);
+  color: var(--accent);
+}
+
+.input-row {
+  display: flex;
+  gap: 12px;
+  align-items: flex-end;
+}
+
+#chatInput {
+  flex: 1;
+  min-height: 50px;
+  max-height: 150px;
+  background: rgba(255,255,255,0.03);
+  border: 2px solid rgba(255,255,255,0.08);
+  border-radius: var(--radius);
+  padding: 12px 16px;
+  color: var(--text);
+  font-size: 14px;
+  font-family: var(--font);
+  resize: vertical;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+#chatInput:focus {
+  border-color: var(--accent);
+}
+
+.send-btn {
+  padding: 12px 24px;
+  border-radius: var(--radius);
+  border: none;
+  background: var(--accent);
+  color: #000;
+  font-weight: 700;
+  font-size: 14px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s;
+}
+
+.send-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 20px var(--accent-glow);
+}
+
+.send-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* ═══════════════════════════════════════════
+   SETTINGS MODAL
+   ═══════════════════════════════════════════ */
+.modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0,0,0,0.8);
+  display: none;
+  z-index: 1000;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.modal.show { display: flex; }
+
+.modal-content {
+  background: var(--card);
+  border-radius: var(--radius);
+  padding: 32px;
+  max-width: 600px;
+  width: 100%;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.modal-header h2 {
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.modal-close {
+  background: none;
+  border: none;
+  font-size: 28px;
+  cursor: pointer;
+  color: var(--text-dim);
+}
+
+.form-group {
+  margin-bottom: 20px;
+}
+
+.form-group label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: var(--text);
+}
+
+.form-group input {
+  width: 100%;
+  padding: 12px;
+  background: rgba(255,255,255,0.05);
+  border: 2px solid rgba(255,255,255,0.1);
+  border-radius: 8px;
+  color: var(--text);
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.form-group input:focus {
+  border-color: var(--accent);
+}
+
+.save-btn {
+  width: 100%;
+  padding: 14px;
+  background: var(--accent);
+  color: #000;
+  border: none;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 15px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.save-btn:hover {
+  box-shadow: 0 4px 20px var(--accent-glow);
+}
+
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  margin-top: 12px;
+}
+
+.status-badge.active {
+  background: rgba(16,185,129,0.2);
+  color: var(--accent);
+  border: 1px solid var(--accent);
+}
+
+.status-badge.inactive {
+  background: rgba(239,68,68,0.2);
+  color: var(--danger);
+  border: 1px solid var(--danger);
+}
+
+/* ═══════════════════════════════════════════
+   ARTIST PANEL
+   ═══════════════════════════════════════════ */
+.artist-panel {
+  position: fixed;
+  right: -400px;
+  top: 0;
+  width: 380px;
+  height: 100vh;
+  background: var(--card);
+  border-left: 2px solid var(--accent);
+  z-index: 200;
+  transition: right 0.3s ease;
+  overflow-y: auto;
+  padding: 20px;
+}
+
+.artist-panel.open { right: 0; }
+
+.panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.panel-close {
+  background: none;
+  border: none;
+  font-size: 24px;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+
+.artist-card {
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: var(--radius);
+  padding: 14px;
+  margin-bottom: 12px;
+}
+
+.artist-name {
+  font-size: 16px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.artist-status {
+  font-size: 12px;
+  color: var(--accent);
+}
+
+.add-artist-form {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.add-artist-form input {
+  flex: 1;
+  padding: 10px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 8px;
+  color: var(--text);
+  font-size: 13px;
+  outline: none;
+}
+
+.add-artist-form button {
+  padding: 10px 16px;
+  background: var(--accent);
+  border: none;
+  border-radius: 8px;
+  color: #000;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* ═══════════════════════════════════════════
+   LOADING
+   ═══════════════════════════════════════════ */
+.loading-msg {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 18px;
+}
+
+.spinner {
+  width: 14px;
+  height: 14px;
+  border: 3px solid rgba(255,255,255,0.2);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ═══════════════════════════════════════════
+   RESPONSIVE
+   ═══════════════════════════════════════════ */
+@media (max-width: 768px) {
+  .dashboard-content { gap: 10px; }
+  .dash-block { min-width: 140px; }
+  .message { max-width: 95%; }
+  .artist-panel { width: 100%; right: -100%; }
+  .modal-content { padding: 20px; }
+}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- LIVE DASHBOARD -->
+  <div class="dashboard-bar">
+    <div class="dashboard-content" id="dashboardContent">
+      <div class="dash-block">
+        <div class="dash-label">Status</div>
+        <div class="dash-value" id="dashStatus">🟢 ONLINE</div>
+        <div class="dash-sub">Partner Active</div>
+      </div>
+      <div class="dash-block">
+        <div class="dash-label">Revenue</div>
+        <div class="dash-value" id="dashRevenue">$0.00</div>
+        <div class="dash-sub">This session</div>
+      </div>
+      <div class="dash-block">
+        <div class="dash-label">Projects</div>
+        <div class="dash-value" id="dashProjects">0</div>
+        <div class="dash-sub">Active</div>
+      </div>
+      <div class="dash-block">
+        <div class="dash-label">Artists</div>
+        <div class="dash-value" id="dashArtists">0</div>
+        <div class="dash-sub">Onboarded</div>
+      </div>
+      <div class="dash-block">
+        <div class="dash-label">Crisis Mode</div>
+        <div class="dash-value" id="dashCrisis" style="color:var(--text-dim)">OFF</div>
+        <div class="dash-sub">Manual toggle</div>
+      </div>
+      <div class="dash-block">
+        <div class="dash-label">Memory</div>
+        <div class="dash-value" id="dashMemory">0</div>
+        <div class="dash-sub">Conversations</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- HEADER -->
+  <div class="header">
+    <div class="header-left">
+      <div class="avatar">M</div>
+      <div>
+        <div class="header-title">Autonomous Partner</div>
+        <div class="header-sub">V3.0-Omega • Full Authority • Zero Passivity</div>
+      </div>
+    </div>
+    <div class="header-right">
+      <div class="crisis-toggle" id="crisisToggle" onclick="toggleCrisis()">
+        ⚡ CRISIS OFF
+      </div>
+      <button class="btn btn-ghost" onclick="toggleArtists()">👤 Artists</button>
+      <button class="btn btn-accent" onclick="openSettings()">& Settings</button>
+      <button class="btn btn-danger" onclick="exportMemory()">💾 Export</button>
+    </div>
+  </div>
+
+  <!-- CHAT -->
+  <div class="chat-area" id="chatArea">
+    <div class="message partner">
+      <div class="msg-avatar">🤖</div>
+      <div class="msg-bubble">
+        <div class="msg-text">
+<b>PARTNER ONLINE — V3.0-OMEGA ACTIVE</b>
+
+I am your Autonomous Operational Partner. I do not wait. I do not ask. I execute.
+
+<b>My mandate:</b>
+✅ Build digital empire + artist roster independently
+✅ Generate eBooks, MP3s, content — asymmetric monetization
+✅ Override blockages, command personas, enforce finance
+✅ Survive any crisis with ruthless triage
+
+<b>Primordial Genesis Protocol: ENGAGED</b>
+I've analyzed our position. Here's the launch framework:
+
+| Priority | Project | Status | Revenue Target |
+|----------|---------|--------|----------------|
+| 🥇 | eBook: Market Trap | 🔄 Researching | $500/mo |
+| 🥈 | MP3: Audio Pipeline | # Queued | $300/mo |
+| 🥉 | Artist Roster | 📋 Ready | $1000/mo |
+
+<b>Your move.</b> Type a command or upload files. I don't need permission.</div>
+        <div class="msg-time">System initialized — Just now</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- INPUT -->
+  <div class="input-area">
+    <div class="drop-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
+      📁 Drop files here (PDF, images, docs, code, audio) — Saves to projects/ folder
+    </div>
+    <input type="file" id="fileInput" multiple accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png,.gif,.mp3,.mp4,.html,.css,.js,.csv,.xlsx">
+
+    <div class="input-row">
+      <textarea id="chatInput" placeholder="Command me... (e.g., 'Launch eBook', 'Onboard artist @Name', 'Generate revenue report')" rows="1"></textarea>
+      <button class="send-btn" id="sendBtn" onclick="sendMessage()">EXECUTE 🚀</button>
+    </div>
+  </div>
+
+  <!-- ARTIST PANEL -->
+  <div class="artist-panel" id="artistPanel">
+    <div class="panel-header">
+      <h3>👤 Artist Roster</h3>
+      <button class="panel-close" onclick="toggleArtists()">&times;</button>
+    </div>
+    <div id="artistList"></div>
+    <div class="add-artist-form">
+      <input type="text" id="newArtistName" placeholder="Artist name or @handle">
+      <button onclick="addArtist()">+ Add</button>
+    </div>
+  </div>
+
+  <!-- SETTINGS MODAL -->
+  <div class="modal" id="settingsModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>& Partner Settings</h2>
+        <button class="modal-close" onclick="closeSettings()">&times;</button>
+      </div>
+
+      <div class="form-group">
+        <label>🔑 OpenRouter API Key (Required for AI)</label>
+        <input type="password" id="apiKeyInput" placeholder="sk-or-v1-...">
+        <div id="keyStatus" class="status-badge inactive">
+          ❌ No key set
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>🎯 Default Model</label>
+        <select id="modelSelect" style="width:100%;padding:12px;background:rgba(255,255,255,0.05);border:2px solid rgba(255,255,255,0.1);border-radius:8px;color:var(--text);font-size:14px;outline:none;">
+          <option value="meta-llama/llama-3-8b-instruct:free">Llama 3 8B (Free)</option>
+          <option value="mistralai/Mistral-7B-Instruct-v0.2">Mistral 7B</option>
+          <option value="mixtral-8x7b">Mixtral 8x7B</option>
+        </select>
+      </div>
+
+      <button class="save-btn" onclick="saveSettings()">💾 Save & Activate</button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ═══════════════════════════════════════════
+// AUTONOMOUS PARTNER — V3.0-OMEGA
+// ═══════════════════════════════════════════
+
+const API_URL = '/api/partner';
+let crisisMode = false;
+let uploadedFiles = [];
+let conversationCount = 0;
+
+// Load memory
+let memory = [];
+try {
+  if (localStorage.getItem('partner_memory')) {
+    memory = JSON.parse(localStorage.getItem('partner_memory'));
+  }
+} catch(e) {}
+
+// Artists
+let artists = [];
+try {
+  if (localStorage.getItem('partner_artists')) {
+    artists = JSON.parse(localStorage.getItem('partner_artists'));
+  }
+} catch(e) {}
+
+// Load API key from config
+let apiKey = '';
+try {
+  if (localStorage.getItem('partner_apikey')) {
+    apiKey = localStorage.getItem('partner_apikey');
+  }
+} catch(e) {}
+
+// ═══════════════════════════════════════════
+// SETTINGS UI
+// ═══════════════════════════════════════════
+function openSettings() {
+  document.getElementById('settingsModal').classList.add('show');
+  document.getElementById('apiKeyInput').value = apiKey;
+  updateKeyStatus();
+}
+
+function closeSettings() {
+  document.getElementById('settingsModal').classList.remove('show');
+}
+
+function saveSettings() {
+  const key = document.getElementById('apiKeyInput').value.trim();
+  const model = document.getElementById('modelSelect').value;
+  
+  if (!key) {
+    alert('❌ Please enter an API key');
+    return;
+  }
+
+  apiKey = key;
+  localStorage.setItem('partner_apikey', key);
+  
+  // Save to backend
+  fetch('/api/config', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ apiKey: key, model: model })
+  })
+  .then(res => res.json())
+  .then(data => {
+    updateKeyStatus();
+    closeSettings();
+    addMessage('partner', '✅ Settings saved. API key activated. Partner is now fully operational.');
+  })
+  .catch(err => {
+    alert('❌ Failed to save settings: ' + err.message);
+  });
+}
+
+function updateKeyStatus() {
+  const status = document.getElementById('keyStatus');
+  if (apiKey) {
+    status.className = 'status-badge active';
+    status.textContent = '✅ Key set — Partner active';
+  } else {
+    status.className = 'status-badge inactive';
+    status.textContent = '❌ No key set';
+  }
+}
+
+// ═══════════════════════════════════════════
+// FILE UPLOAD
+// ═══════════════════════════════════════════
+const dropZone = document.getElementById('dropZone');
+const fileInput = document.getElementById('fileInput');
+
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropZone.classList.remove('dragover');
+  handleFiles(e.dataTransfer.files);
+});
+
+fileInput.addEventListener('change', e => handleFiles(e.target.files));
+
+function handleFiles(files) {
+  uploadedFiles = Array.from(files).slice(0, 10);
+  let html = '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;">';
+  uploadedFiles.forEach(f => {
+    const isImg = f.type.startsWith('image/');
+    html += `<div class="file-chip">
+      ${isImg ? `<img src="${URL.createObjectURL(f)}">` : '📄'}
+      <span>${f.name}</span>
+      <span style="color:var(--text-dim)">${(f.size/1024).toFixed(0)}KB</span>
+    </div>`;
+  });
+  html += '</div>';
+  
+  const existing = document.getElementById('filePreview');
+  if (existing) existing.remove();
+  
+  const div = document.createElement('div');
+  div.id = 'filePreview';
+  div.innerHTML = html;
+  document.querySelector('.input-area').appendChild(div);
+}
+
+// ═══════════════════════════════════════════
+// SEND MESSAGE
+// ═══════════════════════════════════════════
+async function sendMessage() {
+  const input = document.getElementById('chatInput');
+  const text = input.value.trim();
+  
+  if (!text && uploadedFiles.length === 0) return;
+  
+  // Check if API key is set
+  if (!apiKey) {
+    addMessage('partner', '❌ ERROR: No API key set. Click ⚙️ Settings to add your OpenRouter key.');
+    return;
+  }
+  
+  addMessage('user', text, uploadedFiles);
+  
+  input.value = '';
+  const fp = document.getElementById('filePreview');
+  if (fp) fp.remove();
+  uploadedFiles = [];
+  
+  const loadingId = addLoading();
+  
+  try {
+    const payload = {
+      prompt: text,
+      crisis: crisisMode,
+      artistCount: artists.length,
+      files: uploadedFiles.map(f => ({ name: f.name, type: f.type, size: f.size })),
+      memoryCount: memory.length
+    };
+    
+    const res = await fetch(API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    
+    const data = await res.json();
+    removeLoading(loadingId);
+    
+    if (data.error) {
+      addMessage('partner', `❌ ${data.message}`);
+      return;
+    }
+    
+    addMessage('partner', data.response, data.files || [], data.actions || []);
+    
+    memory.push({ role: 'user', content: text, time: new Date().toISOString() });
+    memory.push({ role: 'partner', content: data.response, time: new Date().toISOString() });
+    if (memory.length > 500) memory = memory.slice(-500);
+    localStorage.setItem('partner_memory', JSON.stringify(memory));
+    
+    updateDashboard(data.dashboard || {});
+    
+  } catch(err) {
+    removeLoading(loadingId);
+    addMessage('partner', `❌ Connection failed: ${err.message}`);
+  }
+}
+
+// ═══════════════════════════════════════════
+// MESSAGE RENDERING
+// ═══════════════════════════════════════════
+function addMessage(role, text, files = [], actions = []) {
+  const area = document.getElementById('chatArea');
+  const div = document.createElement('div');
+  div.className = `message ${role}`;
+  
+  let filesHtml = '';
+  if (files.length > 0) {
+    filesHtml = '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;">';
+    files.forEach(f => {
+      const isImg = f.type && f.type.startsWith('image/');
+      filesHtml += `<div class="file-chip">
+        ${isImg ? `<img src="${URL.createObjectURL(f)}">` : '📄'}
+        <span>${f.name}</span>
+      </div>`;
+    });
+    filesHtml += '</div>';
+  }
+  
+  let actionsHtml = '';
+  if (actions.length > 0) {
+    actionsHtml = '<div class="msg-actions">';
+    actions.forEach(a => {
+      actionsHtml += `<button class="action-btn ${a.color}" onclick="${a.onclick}">${a.label}</button>`;
+    });
+    actionsHtml += '</div>';
+  }
+  
+  div.innerHTML = `
+    <div class="msg-avatar">${role === 'user' ? '👤' : '🤖'}</div>
+    <div class="msg-bubble">
+      <div class="msg-text">${text}</div>
+      ${filesHtml}
+      ${actionsHtml}
+      <div class="msg-time">${new Date().toLocaleTimeString()}</div>
+    </div>
+  `;
+  
+  area.appendChild(div);
+  area.scrollTop = area.scrollHeight;
+}
+
+function addLoading() {
+  const area = document.getElementById('chatArea');
+  const div = document.createElement('div');
+  div.className = 'message partner';
+  div.id = 'loading-' + Date.now();
+  div.innerHTML = `
+    <div class="msg-avatar">🤖</div>
+    <div class="msg-bubble">
+      <div class="loading-msg">
+        <div class="spinner"></div>
+        <div>Executing...</div>
+      </div>
+    </div>
+  `;
+  area.appendChild(div);
+  area.scrollTop = area.scrollHeight;
+  return div.id;
+}
+
+function removeLoading(id) {
+  const el = document.getElementById(id);
+  if (el) el.remove();
+}
+
+// ═══════════════════════════════════════════
+// CRISIS TOGGLE
+// ═══════════════════════════════════════════
+function toggleCrisis() {
+  crisisMode = !crisisMode;
+  const toggle = document.getElementById('crisisToggle');
+  if (crisisMode) {
+    toggle.classList.add('active');
+    toggle.textContent = '⚡ CRISIS ON';
+    document.getElementById('dashCrisis').textContent = 'ON';
+    document.getElementById('dashCrisis').style.color = 'var(--danger)';
+  } else {
+    toggle.classList.remove('active');
+    toggle.textContent = '⚡ CRISIS OFF';
+    document.getElementById('dashCrisis').textContent = 'OFF';
+    document.getElementById('dashCrisis').style.color = 'var(--text-dim)';
+  }
+}
+
+// ═══════════════════════════════════════════
+// ARTIST PANEL
+// ═══════════════════════════════════════════
+function toggleArtists() {
+  document.getElementById('artistPanel').classList.toggle('open');
+  renderArtists();
+}
+
+function renderArtists() {
+  const list = document.getElementById('artistList');
+  if (artists.length === 0) {
+    list.innerHTML = '<div style="color:var(--text-dim);font-size:13px;padding:20px;text-align:center;">No artists yet. Add one below.</div>';
+    return;
+  }
+  
+  list.innerHTML = artists.map((a, i) => `
+    <div class="artist-card">
+      <div class="artist-name">${a.name}</div>
+      <div class="artist-status">🟢 Managed by Partner</div>
+      <div style="font-size:11px;color:var(--text-dim);margin-top:4px;">Added ${new Date(a.added).toLocaleDateString()}</div>
+    </div>
+  `).join('');
+  
+  document.getElementById('dashArtists').textContent = artists.length;
+}
+
+function addArtist() {
+  const input = document.getElementById('newArtistName');
+  const name = input.value.trim();
+  if (!name) return;
+  
+  artists.push({ name, added: new Date().toISOString() });
+  localStorage.setItem('partner_artists', JSON.stringify(artists));
+  input.value = '';
+  renderArtists();
+}
+
+// ═══════════════════════════════════════════
+// DASHBOARD UPDATE
+// ═══════════════════════════════════════════
+function updateDashboard(data) {
+  if (data.revenue) document.getElementById('dashRevenue').textContent = '$' + data.revenue;
+  if (data.projects) document.getElementById('dashProjects').textContent = data.projects;
+  if (data.memory) document.getElementById('dashMemory').textContent = data.memory;
+  if (data.status) {
+    document.getElementById('dashStatus').textContent = data.status;
+  }
+}
+
+// ═══════════════════════════════════════════
+// EXPORT MEMORY
+// ═══════════════════════════════════════════
+function exportMemory() {
+  const blob = new Blob([JSON.stringify(memory, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `partner_memory_${Date.now()}.json`;
+  a.click();
+}
+
+// ═══════════════════════════════════════════
+// KEYBOARD
+// ═══════════════════════════════════════════
+document.getElementById('chatInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    sendMessage();
+  }
+});
+
+// ═══════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════
+renderArtists();
+document.getElementById('dashMemory').textContent = memory.length;
+updateKeyStatus();
+console.log('🟫 AUTONOMOUS PARTNER V3.0-OMEGA ONLINE');
+console.log('⚡ Crisis Mode: Manual Toggle');
+console.log('📁 Projects: projects/ folder');
+console.log('💾 Memory: localStorage');
+console.log('🔑 API Key: ' + (apiKey ? '✅ Set' : '❌ Not set — Click ⚙️ Settings'));
+</script>
+</body>
+</html>

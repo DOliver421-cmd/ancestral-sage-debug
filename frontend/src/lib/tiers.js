@@ -45,6 +45,10 @@ export const TIER_FOR_FEATURE = {
   projects: "member",     // "Have your M.O.R.E. team work on it"
   curriculum: "free",    // catalog directory — always visible
   courses: "plus",        // course library (content)
+  // ── "The Soup" — the Mini More Help Center archive (owner decision 2026-10-11) ──
+  soup: "free",         // any signed-in account: the Soup requires registration
+  soup_manual: "member", // the manual, pantheon, games, training, 60 tactics, calendar
+  soup_full: "plus",     // broadcast, distribution, publishing, media, partner, workshops
   tracks: "plus",         // learning tracks / adaptive path
   ghost: "plus",          // Ghost Producer
   studio: "member",       // Creator Studio — paid member ($9/mo) entry tier, not free
