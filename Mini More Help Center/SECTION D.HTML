@@ -1,0 +1,939 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SOUP AINP — The Training (4 Chapter Packets)</title>
+<style>
+:root {
+  --bg: #0a0a12;
+  --surface: #12121e;
+  --surface2: #1a1a2e;
+  --accent: #e17055;
+  --accent2: #fab1a0;
+  --text: #e8e8f0;
+  --text2: #8888aa;
+  --success: #00b894;
+  --warning: #fdcb6e;
+  --danger: #d63031;
+  --gold: #ffd700;
+  --radius: 12px;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.7;
+  overflow-x: hidden;
+}
+
+nav {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+  background: rgba(10,10,18,0.95);
+  backdrop-filter: blur(20px);
+  border-bottom: 1px solid rgba(225,112,85,0.2);
+  padding: 12px 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.nav-brand { font-size: 1.1rem; font-weight: 800; color: var(--accent); }
+.nav-brand span { color: var(--accent2); }
+
+.nav-links { display: flex; gap: 16px; align-items: center; }
+.nav-links a {
+  color: var(--text2);
+  text-decoration: none;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: color 0.3s;
+}
+.nav-links a:hover { color: var(--accent2); }
+
+.theme-toggle {
+  background: var(--surface2);
+  border: none;
+  color: var(--text);
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 1.1rem;
+}
+
+.hero {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 100px 24px 80px;
+  background: radial-gradient(ellipse at 50% 0%, rgba(225,112,85,0.12) 0%, transparent 70%);
+  position: relative;
+  overflow: hidden;
+}
+
+.hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(45deg, transparent, transparent 35px, rgba(225,112,85,0.03) 35px, rgba(225,112,85,0.03) 36px);
+  animation: slideBg 20s linear infinite;
+}
+
+@keyframes slideBg { to { transform: translate(50px, 50px); } }
+
+.hero h1 {
+  font-size: clamp(2rem, 6vw, 4.5rem);
+  font-weight: 900;
+  line-height: 1.05;
+  margin-bottom: 16px;
+}
+
+.hero h1 .highlight {
+  background: linear-gradient(135deg, var(--accent), var(--accent2), var(--gold));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.hero p {
+  font-size: 1.1rem;
+  color: var(--text2);
+  max-width: 600px;
+  margin: 0 auto 32px;
+}
+
+.btn {
+  padding: 14px 32px;
+  border-radius: var(--radius);
+  font-size: 1rem;
+  font-weight: 700;
+  border: none;
+  cursor: pointer;
+  transition: all 0.3s;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-primary { background: var(--accent); color: white; }
+.btn-primary:hover { background: var(--accent2); transform: translateY(-3px); box-shadow: 0 8px 30px rgba(225,112,85,0.4); }
+
+.btn-outline { background: transparent; color: var(--text); border: 2px solid var(--accent); }
+.btn-outline:hover { background: var(--accent); color: white; }
+
+.btn-ghost { background: transparent; color: var(--accent2); border: 1px dashed var(--accent); }
+.btn-ghost:hover { background: rgba(225,112,85,0.1); }
+
+.section {
+  padding: 80px 24px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.section-title {
+  font-size: 2rem;
+  font-weight: 800;
+  margin-bottom: 8px;
+  color: var(--accent);
+}
+
+.section-subtitle {
+  font-size: 1rem;
+  color: var(--text2);
+  margin-bottom: 40px;
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid rgba(225,112,85,0.15);
+  border-radius: var(--radius);
+  padding: 28px;
+  transition: all 0.3s;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+}
+
+.card:hover { transform: translateY(-4px); border-color: var(--accent); box-shadow: 0 8px 32px rgba(0,0,0,0.4); }
+
+.card.locked { opacity: 0.5; pointer-events: none; }
+.card.locked::after { content: '🔒'; position: absolute; top: 12px; right: 12px; font-size: 1.3rem; }
+
+.card.completed { border-color: var(--success); }
+.card.completed::after { content: '✅'; position: absolute; top: 12px; right: 12px; font-size: 1.3rem; }
+
+.card-number { font-size: 0.75rem; font-weight: 800; color: var(--accent); text-transform: uppercase; letter-spacing: 2px; margin-bottom: 8px; }
+.card h3 { font-size: 1.2rem; margin-bottom: 8px; }
+.card p { color: var(--text2); font-size: 0.85rem; margin-bottom: 16px; }
+.card-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 16px; }
+.card-tags span { background: var(--surface2); padding: 3px 8px; border-radius: 4px; font-size: 0.7rem; color: var(--accent2); }
+
+.expanded-section {
+  display: none;
+  background: var(--surface);
+  border: 1px solid rgba(225,112,85,0.1);
+  border-radius: var(--radius);
+  padding: 40px;
+  margin-top: 24px;
+  animation: fadeIn 0.4s ease;
+}
+
+.expanded-section.active { display: block; }
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.expanded-section h2 {
+  font-size: 1.6rem;
+  color: var(--accent);
+  margin-bottom: 16px;
+  border-bottom: 2px solid rgba(225,112,85,0.2);
+  padding-bottom: 12px;
+}
+
+.expanded-section h3 {
+  font-size: 1.2rem;
+  color: var(--accent2);
+  margin: 24px 0 12px;
+}
+
+.expanded-section p {
+  color: var(--text2);
+  margin-bottom: 12px;
+  line-height: 1.7;
+}
+
+.expanded-section ul, .expanded-section ol {
+  color: var(--text2);
+  margin-bottom: 12px;
+  padding-left: 20px;
+}
+
+.expanded-section li { margin-bottom: 8px; }
+
+.expanded-section .highlight-box {
+  background: rgba(225,112,85,0.08);
+  border-left: 4px solid var(--accent);
+  padding: 16px 20px;
+  margin: 16px 0;
+  border-radius: 0 var(--radius) var(--radius) 0;
+}
+
+.expanded-section .highlight-box p { color: var(--text); }
+
+.session-plan {
+  background: var(--surface2);
+  border: 1px solid rgba(225,112,85,0.15);
+  border-radius: var(--radius);
+  padding: 24px;
+  margin: 16px 0;
+}
+
+.session-plan h4 {
+  color: var(--accent);
+  margin-bottom: 12px;
+  font-size: 1.1rem;
+}
+
+.session-plan ul {
+  list-style: none;
+  padding-left: 0;
+}
+
+.session-plan li {
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(225,112,85,0.1);
+  font-size: 0.9rem;
+}
+
+.session-plan li:last-child { border-bottom: none; }
+
+.checklist {
+  background: rgba(0,184,148,0.08);
+  border: 1px solid rgba(0,184,148,0.2);
+  border-radius: var(--radius);
+  padding: 20px;
+  margin: 16px 0;
+}
+
+.checklist h4 {
+  color: var(--success);
+  margin-bottom: 12px;
+}
+
+.checklist li {
+  list-style: none;
+  padding: 6px 0;
+  font-size: 0.9rem;
+}
+
+.checklist li::before {
+  content: '☑ ';
+  color: var(--success);
+  font-weight: 700;
+  margin-right: 8px;
+}
+
+.roster-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+  margin: 16px 0;
+}
+
+.roster-item {
+  background: var(--surface2);
+  border: 1px solid rgba(225,112,85,0.15);
+  border-radius: 8px;
+  padding: 16px;
+  text-align: center;
+}
+
+.roster-item .role {
+  font-size: 0.8rem;
+  color: var(--accent2);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 4px;
+}
+
+.roster-item .name {
+  font-size: 1rem;
+  color: var(--text);
+  font-weight: 700;
+}
+
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+  margin: 16px 0;
+}
+
+.kpi-item {
+  background: rgba(255,215,0,0.08);
+  border: 1px solid rgba(255,215,0,0.2);
+  border-radius: 8px;
+  padding: 16px;
+  text-align: center;
+}
+
+.kpi-item .label {
+  font-size: 0.75rem;
+  color: var(--text2);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 4px;
+}
+
+.kpi-item .value {
+  font-size: 1.3rem;
+  color: var(--gold);
+  font-weight: 800;
+}
+
+.section-nav {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 40px;
+  gap: 16px;
+}
+
+.section-nav .btn { flex: 1; justify-content: center; }
+
+.confusion-popup {
+  position: fixed;
+  bottom: -100px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--surface);
+  border: 2px solid var(--accent);
+  border-radius: var(--radius);
+  padding: 16px 24px;
+  max-width: 500px;
+  width: 90%;
+  z-index: 2000;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.6);
+  text-align: center;
+  transition: bottom 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+
+.confusion-popup.show { bottom: 30px; }
+
+.confusion-popup h4 { color: var(--accent); margin-bottom: 8px; }
+.confusion-popup p { color: var(--text2); font-size: 0.85rem; }
+
+.modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.8);
+  z-index: 3000;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.modal-overlay.active { display: flex; }
+
+.modal {
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: 40px;
+  max-width: 550px;
+  width: 100%;
+  text-align: center;
+  border: 2px solid var(--accent);
+}
+
+.modal h3 { font-size: 1.6rem; margin-bottom: 16px; color: var(--accent); }
+.modal p { color: var(--text2); margin-bottom: 20px; line-height: 1.7; }
+
+footer {
+  background: var(--surface);
+  border-top: 1px solid rgba(225,112,85,0.1);
+  padding: 40px 24px;
+  text-align: center;
+  color: var(--text2);
+}
+
+footer a { color: var(--accent2); text-decoration: none; }
+
+@media (max-width: 768px) {
+  .nav-links { display: none; }
+  .hero { padding: 80px 16px 60px; }
+  .grid { grid-template-columns: 1fr; padding: 0 16px; }
+  .section { padding: 60px 16px; }
+  .expanded-section { padding: 24px 16px; }
+}
+</style>
+</head>
+<body data-theme="dark">
+
+<nav>
+  <div class="nav-brand">SOUP <span>AINP</span></div>
+  <div class="nav-links">
+    <a onclick="scrollToSection('hero')">HOME</a>
+    <a onclick="scrollToSection('pkt1')">PKT 1</a>
+    <a onclick="scrollToSection('pkt2')">PKT 2</a>
+    <a onclick="scrollToSection('pkt3')">PKT 3</a>
+    <a onclick="scrollToSection('pkt4')">PKT 4</a>
+  </div>
+  <button class="theme-toggle" onclick="toggleTheme()">🌓</button>
+</nav>
+
+<!-- ===== HERO ===== -->
+<section class="hero" id="hero">
+  <div style="position:relative;z-index:1;">
+    <h1>THE <span class="highlight">TRAINING</span></h1>
+    <p style="font-size:1rem;color:var(--text2);margin-bottom:8px;font-style:italic;">"4 packets. Zero fluff. Full curriculum. Ready to deploy."</p>
+    <p style="font-size:0.85rem;color:var(--text2);margin-bottom:32px;font-style:italic;">— SECTION D, THE TRAINING & WORKSHOPS</p>
+
+    <div style="background:rgba(0,0,0,0.3);border:1px solid rgba(225,112,85,0.2);border-radius:var(--radius);padding:20px;margin-bottom:32px;max-width:500px;margin-left:auto;margin-right:auto;">
+      <p style="font-size:0.8rem;color:var(--accent2);line-height:1.6;">
+        <strong style="color:var(--accent);">📋 4 CHAPTER PACKETS. EACH WITH:</strong><br>
+        ✅ 3-Session Lesson Plan (with timings)<br>
+        ✅ Immediate Action Checklist<br>
+        ✅ Volunteer Roles & Roster<br>
+        ✅ Templates & Resources<br>
+        ✅ KPIs & Metrics
+      </p>
+    </div>
+
+    <button class="btn btn-primary" onclick="scrollToSection('pkt1')">🔥 ENTER THE TRAINING</button>
+    <p style="margin-top:16px;font-size:0.75rem;color:var(--text2);">4 Packets Unlocked | 0 Locked</p>
+  </div>
+</section>
+
+<!-- ===== PACKET 1: POLICING & JUSTICE ===== -->
+<section class="section" id="pkt1">
+  <h2 class="section-title">📋 PACKET 1</h2>
+  <p class="section-subtitle">Policing & Justice — Tactics 1–7, 24–26, 33, 50–51</p>
+
+  <div class="card completed" onclick="toggleExpand('exp-pkt1')">
+    <div class="card-number">PACKET 1</div>
+    <h3>Policing & Justice</h3>
+    <p>KYR cards. Legal observers. Medic teams. FOIA playbooks. Patrol mapping. De‑escalation drills.</p>
+    <div class="card-tags"><span>TACTICS</span><span>LEGAL</span><span>COMMUNITY</span></div>
+  </div>
+
+  <div class="expanded-section" id="exp-pkt1">
+    <h2>📋 PACKET 1: POLICING & JUSTICE</h2>
+
+    <div class="highlight-box">
+      <p><strong>GOAL:</strong> Equip communities with documentation, de‑escalation, legal response, and systemic reform tools. Non‑violent. Non‑confrontational. Maximum protection.</p>
+    </div>
+
+    <h3>📅 3-SESSION LESSON PLAN</h3>
+
+    <div class="session-plan">
+      <h4>SESSION 1 — KYR & Safe Documentation (90 min)</h4>
+      <ul>
+        <li><strong>Topics:</strong> Stops/searches rights, de‑escalation basics, phone/video best practices, evidence preservation</li>
+        <li><strong>Activities:</strong> Role‑plays (3 scenarios, 15 min each), KYR card distribution, secure upload demo</li>
+        <li><strong>Materials:</strong> KYR cards, evidence checklist, secure upload instructions, phones/laptops for demo</li>
+      </ul>
+    </div>
+
+    <div class="session-plan">
+      <h4>SESSION 2 — Rapid Response Teams & Medical Aid (90 min)</h4>
+      <ul>
+        <li><strong>Topics:</strong> Legal observer protocols, medic/basic first aid, trauma‑informed witness interviewing</li>
+        <li><strong>Activities:</strong> Team drills (observer/medic/runner), supplies packing, communications drill</li>
+        <li><strong>Materials:</strong> Medical kits, vests for observers, radio/SMS templates, volunteer contact sheet</li>
+      </ul>
+    </div>
+
+    <div class="session-plan">
+      <h4>SESSION 3 — Data, FOIA & Advocacy (120 min)</h4>
+      <ul>
+        <li><strong>Topics:</strong> Patrol mapping, FOIA basics, pattern documentation, building complaint packages</li>
+        <li><strong>Activities:</strong> Map hotspot exercise, FOIA request drafting workshop, campaign planning</li>
+        <li><strong>Materials:</strong> Hotspot map template, FOIA template, complaint packet checklist</li>
+      </ul>
+    </div>
+
+    <h3>✅ IMMEDIATE ACTION CHECKLIST</h3>
+    <div class="checklist">
+      <ul>
+        <li>Distribute KYR cards to 500+ households</li>
+        <li>Form legal observer roster + medic roster</li>
+        <li>Launch secure evidence upload channel</li>
+        <li>Start patrol hotspot mapping (first 30 days)</li>
+      </ul>
+    </div>
+
+    <h3>👥 VOLUNTEER ROLES & ROSTER</h3>
+    <div class="roster-grid">
+      <div class="roster-item">
+        <div class="role">Lead Trainer</div>
+        <div class="name">1 person</div>
+      </div>
+      <div class="roster-item">
+        <div class="role">Legal Liaison</div>
+        <div class="name">1 person</div>
+      </div>
+      <div class="roster-item">
+        <div class="role">Medic Lead</div>
+        <div class="name">1 person</div>
+      </div>
+      <div class="roster-item">
+        <div class="role">Documentation Lead</div>
+        <div class="name">2 people</div>
+      </div>
+      <div class="roster-item">
+        <div class="role">Community Outreach</div>
+        <div class="name">3–5 people</div>
+      </div>
+    </div>
+
+    <h3>📊 KPIs & METRICS</h3>
+    <div class="kpi-grid">
+      <div class="kpi-item">
+        <div class="label">KYR CARDS</div>
+        <div class="value">500+</div>
+      </div>
+      <div class="kpi-item">
+        <div class="label">OBSERVER DEPLOYMENTS</div>
+        <div class="value">20+</div>
+      </div>
+      <div class="kpi-item">
+        <div class="label">INCIDENTS DOCUMENTED</div>
+        <div class="value">100+</div>
+      </div>
+      <div class="kpi-item">
+        <div class="label">FOIA REQUESTS FILED</div>
+        <div class="value">10+</div>
+      </div>
+    </div>
+
+    <div class="section-nav">
+      <button class="btn btn-ghost" onclick="scrollToSection('hero')">← BACK</button>
+      <button class="btn btn-primary" onclick="scrollToSection('pkt2')">NEXT: PKT 2 →</button>
+    </div>
+  </div>
+</section>
+
+<!-- ===== PACKET 2: HOUSING & WEALTH ===== -->
+<section class="section" id="pkt2">
+  <h2 class="section-title">📋 PACKET 2</h2>
+  <p class="section-subtitle">Housing & Wealth — Tactics 15–19, 36, 40, 56, 60</p>
+
+  <div class="card completed" onclick="toggleExpand('exp-pkt2')">
+    <div class="card-number">PACKET 2</div>
+    <h3>Housing & Wealth</h3>
+    <p>Tenant rights. Eviction defense. CLT formation. CBA negotiation. Zoning advocacy. Anti‑displacement tools.</p>
+    <div class="card-tags"><span>ECONOMY</span><span>HOUSING</span><span>COMMUNITY</span></div>
+  </div>
+
+  <div class="expanded-section" id="exp-pkt2">
+    <h2>📋 PACKET 2: HOUSING & WEALTH</h2>
+
+    <div class="highlight-box">
+      <p><strong>GOAL:</strong> Defend residents from displacement, improve housing access, build collective wealth tools (CLTs, co‑ops).</p>
+    </div>
+
+    <h3>📅 3-SESSION LESSON PLAN</h3>
+
+    <div class="session-plan">
+      <h4>SESSION 1 — Tenant Rights & Rapid Defense (90 min)</h4>
+      <ul>
+        <li><strong>Topics:</strong> Eviction process, emergency legal help, rental assistance navigation, tenant organizing basics</li>
+        <li><strong>Activities:</strong> Mock intake, eviction defense checklist, hotline setup</li>
+        <li><strong>Materials:</strong> Tenant rights flyers, intake form, eviction defense templates</li>
+      </ul>
+    </div>
+
+    <div class="session-plan">
+      <h4>SESSION 2 — Community Land Trusts & Co‑op Basics (120 min)</h4>
+      <ul>
+        <li><strong>Topics:</strong> CLT models, cooperative governance, finance basics, community fundraising models</li>
+        <li><strong>Activities:</strong> CLT feasibility workshop, sample CLT charter drafting, cooperative savings circle demo</li>
+        <li><strong>Materials:</strong> CLT sample charter, cooperative bylaws template, savings circle instructions</li>
+      </ul>
+    </div>
+
+    <div class="session-plan">
+      <h4>SESSION 3 — Anti‑Displacement Advocacy & Zoning (90 min)</h4>
+      <ul>
+        <li><strong>Topics:</strong> Zoning basics, Community Benefit Agreements (CBAs), hearing testimony skills</li>
+        <li><strong>Activities:</strong> Zoning map exercise, draft CBA clauses, testimony role play</li>
+        <li><strong>Materials:</strong> Zoning hearing script, model CBA, petition template</li>
+      </ul>
+    </div>
+
+    <h3>✅ IMMEDIATE ACTION CHECKLIST</h3>
+    <div class="checklist">
+      <ul>
+        <li>Create tenant registry (privacy‑protected)</li>
+        <li>Launch emergency legal hotline & eviction rapid‑response roster</li>
+        <li>Host CLT exploratory meeting (first 60 days)</li>
+        <li>Collect displacement data & petitions</li>
+      </ul>
+    </div>
+
+    <h3>👥 VOLUNTEER ROLES & ROSTER</h3>
+    <div class="roster-grid">
+      <div class="roster-item">
+        <div class="role">Tenants Organizer</div>
+        <div class="name">1–2 people</div>
+      </div>
+      <div class="roster-item">
+        <div class="role">Legal Aid Coordinator</div>
+        <div class="name">1 person</div>
+      </div>
+      <div class="roster-item">
+        <div class="role">CLT Facilitator</div>
+        <div class="name">1 person</div>
+      </div>
+      <div class="roster-item">
+        <div class="role">Outreach Volunteers</div>
+        <div class="name">3–5 people</div>
+      </div>
+    </div>
+
+    <h3>📊 KPIs & METRICS</h3>
+    <div class="kpi-grid">
+      <div class="kpi-item">
+        <div class="label">TENANTS REGISTERED</div>
+        <div class="value">100+</div>
+      </div>
+      <div class="kpi-item">
+        <div class="label">EVICTION DEFENSES INITIATED</div>
+        <div class="value">20+</div>
+      </div>
+      <div class="kpi-item">
+        <div class="label">CLT FEASIBILITY COMPLETED</div>
+        <div class="value">1</div>
+      </div>
+      <div class="kpi-item">
+        <div class="label">POLICY WINS</div>
+        <div class="value">3+</div>
+      </div>
+    </div>
+
+    <div class="section-nav">
+      <button class="btn btn-ghost" onclick="scrollToSection('pkt1')">← PKT 1</button>
+      <button class="btn btn-primary" onclick="scrollToSection('pkt3')">NEXT: PKT 3 →</button>
+    </div>
+  </div>
+</section>
+
+<!-- ===== PACKET 3: HEALTH & ENVIRONMENT ===== -->
+<section class="section" id="pkt3">
+  <h2 class="section-title">📋 PACKET 3</h2>
+  <p class="section-subtitle">Health & Environment — Tactics 20–23, 41–42, 46, 57</p>
+
+  <div class="card completed" onclick="toggleExpand('exp-pkt3')">
+    <div class="card-number">PACKET 3</div>
+    <h3>Health & Environment</h3>
+    <p>Healthcare navigation. Bias awareness. Maternal supports. Environmental monitoring. Clinic directories.</p>
+    <div class="card-tags"><span>HEALTH</span><span>ENVIRONMENT</span><span>COMMUNITY</span></div>
+  </div>
+
+  <div class="expanded-section" id="exp-pkt3">
+    <h2>📋 PACKET 3: HEALTH & ENVIRONMENT</h2>
+
+    <div class="highlight-box">
+      <p><strong>GOAL:</strong> Address healthcare disparities, environmental hazards, and build community health resilience and access.</p>
+    </div>
+
+    <h3>📅 3-SESSION LESSON PLAN</h3>
+
+    <div class="session-plan">
+      <h4>SESSION 1 — Healthcare Navigation & Advocacy (90 min)</h4>
+      <ul>
+        <li><strong>Topics:</strong> Finding clinics, insurance appeals, patient advocacy, maternity support resources</li>
+        <li><strong>Activities:</strong> Mock appeals, enrollment assistance walkthroughs, referral list creation</li>
+        <li><strong>Materials:</strong> Insurance appeal templates, clinic directory, doula referral list</li>
+      </ul>
+    </div>
+
+    <div class="session-plan">
+      <h4>SESSION 2 — Maternal Health & Community Supports (90 min)</h4>
+      <ul>
+        <li><strong>Topics:</strong> Maternal risk factors, doula training basics, birth justice advocacy</li>
+        <li><strong>Activities:</strong> Doula volunteer orientation, birthing rights role‑play, referral path building</li>
+        <li><strong>Materials:</strong> Doula subsidy model, birthing rights handout</li>
+      </ul>
+    </div>
+
+    <div class="session-plan">
+      <h4>SESSION 3 — Environmental Monitoring & Action (120 min)</h4>
+      <ul>
+        <li><strong>Topics:</strong> Community pollutant mapping, sample collection basics, reporting to regulators</li>
+        <li><strong>Activities:</strong> Deploy low‑cost monitors, collect health surveys, draft complaint packages</li>
+        <li><strong>Materials:</strong> Monitor deployment SOP, health survey template, regulator complaint template</li>
+      </ul>
+    </div>
+
+    <h3>✅ IMMEDIATE ACTION CHECKLIST</h3>
+    <div class="checklist">
+      <ul>
+        <li>Create clinic & resource directory; distribute widely</li>
+        <li>Start maternal support referral network (doula list)</li>
+        <li>Identify & deploy first environmental monitor sites (partnership with university)</li>
+        <li>Launch health screening event</li>
+      </ul>
+    </div>
+
+    <h3>👥 VOLUNTEER ROLES & ROSTER</h3>
+    <div class="roster-grid">
+      <div class="roster-item">
+        <div class="role">Health Navigator</div>
+        <div class="name">1–2 people</div>
+      </div>
+      <div class="roster-item">
+        <div class="role">Doula Coordinator</div>
+        <div class="name">1 person</div>
+      </div>
+      <div class="roster-item">
+        <div class="role">Environmental Lead</div>
+        <div class="name">1 person</div>
+      </div>
+      <div class="roster-item">
+        <div class="role">Data Manager</div>
+        <div class="name">1 person</div>
+      </div>
+    </div>
+
+    <h3>📊 KPIs & METRICS</h3>
+    <div class="kpi-grid">
+      <div class="kpi-item">
+        <div class="label">CLINIC ENROLLMENTS/ASSISTS</div>
+        <div class="value">100+</div>
+      </div>
+      <div class="kpi-item">
+        <div class="label">MATERNAL OUTCOMES TRACKED</div>
+        <div class="value">50+</div>
+      </div>
+      <div class="kpi-item">
+        <div class="label">POLLUTION MONITOR DATA POINTS</div>
+        <div class="value">200+</div>
+      </div>
+      <div class="kpi-item">
+        <div class="label">REFERRALS COMPLETED</div>
+        <div class="value">75+</div>
+      </div>
+    </div>
+
+    <div class="section-nav">
+      <button class="btn btn-ghost" onclick="scrollToSection('pkt2')">← PKT 2</button>
+      <button class="btn btn-primary" onclick="scrollToSection('pkt4')">NEXT: PKT 4 →</button>
+    </div>
+  </div>
+</section>
+
+<!-- ===== PACKET 4: CIVIC POWER ===== -->
+<section class="section" id="pkt4">
+  <h2 class="section-title">📋 PACKET 4</h2>
+  <p class="section-subtitle">Civic Power — Tactics 39–40, 43–45, 49, 52–55, 59–60</p>
+
+  <div class="card completed" onclick="toggleExpand('exp-pkt4')">
+    <div class="card-number">PACKET 4</div>
+    <h3>Civic Power</h3>
+    <p>Voter protection. Narrative strategy. Media rapid response. Policy campaign design. Council testimony.</p>
+    <div class="card-tags"><span>CIVIC</span><span>MEDIA</span><span>POLICY</span></div>
+  </div>
+
+  <div class="expanded-section" id="exp-pkt4">
+    <h2>📋 PACKET 4: CIVIC POWER</h2>
+
+    <div class="highlight-box">
+      <p><strong>GOAL:</strong> Strengthen civic participation, counter voter suppression, and influence policy across housing, policing, public services, and economic inclusion.</p>
+    </div>
+
+    <h3>📅 3-SESSION LESSON PLAN</h3>
+
+    <div class="session-plan">
+      <h4>SESSION 1 — Voter Protection & Civic Education (90 min)</h4>
+      <ul>
+        <li><strong>Topics:</strong> voter registration, poll monitoring, provisional ballots, turnout logistics</li>
+        <li><strong>Activities:</strong> Register drive role‑play, poll observer checklist, transport coordination plan</li>
+        <li><strong>Materials:</strong> Voter protection packet, poll monitoring form, transport rota sheet</li>
+      </ul>
+    </div>
+
+    <div class="session-plan">
+      <h4>SESSION 2 — Narrative & Media Strategy (90 min)</h4>
+      <ul>
+        <li><strong>Topics:</strong> rapid response to misreporting, counter‑narrative production, community spokespeople training</li>
+        <li><strong>Activities:</strong> Draft rapid responses; basic content creation (30s clips); spokesperson practice</li>
+        <li><strong>Materials:</strong> Rapid response templates, media contact list, sample clips</li>
+      </ul>
+    </div>
+
+    <div class="session-plan">
+      <h4>SESSION 3 — Policy Campaign Design & Lobbying (120 min)</h4>
+      <ul>
+        <li><strong>Topics:</strong> building asks, meeting council, testimony writing, coalition building</li>
+        <li><strong>Activities:</strong> Draft policy ask (one‑pager), simulate council testimony, map allies & funders</li>
+        <li><strong>Materials:</strong> Policy ask template, testimony script, coalition contact spreadsheet</li>
+      </ul>
+    </div>
+
+    <h3>✅ IMMEDIATE ACTION CHECKLIST</h3>
+    <div class="checklist">
+      <ul>
+        <li>Run voter registration & early voting access drives</li>
+        <li>Recruit & train poll monitors for next election</li>
+        <li>Assemble rapid response media team & publish narrative primers</li>
+        <li>Identify two near‑term policy targets and draft asks</li>
+      </ul>
+    </div>
+
+    <h3>👥 VOLUNTEER ROLES & ROSTER</h3>
+    <div class="roster-grid">
+      <div class="roster-item">
+        <div class="role">Civic Organizer</div>
+        <div class="name">1 person</div>
+      </div>
+      <div class="roster-item">
+        <div class="role">Media Lead</div>
+        <div class="name">1–2 people</div>
+      </div>
+      <div class="roster-item">
+        <div class="role">Policy Lead</div>
+        <div class="name">1 person</div>
+      </div>
+      <div class="roster-item">
+        <div class="role">Outreach & Transport</div>
+        <div class="name">4–6 people</div>
+      </div>
+    </div>
+
+    <h3>📊 KPIs & METRICS</h3>
+    <div class="kpi-grid">
+      <div class="kpi-item">
+        <div class="label">VOTER REGISTRATIONS & TURNOUT</div>
+        <div class="value">200+</div>
+      </div>
+      <div class="kpi-item">
+        <div class="label">POLL MONITORS DEPLOYED</div>
+        <div class="value">30+</div>
+      </div>
+      <div class="kpi-item">
+        <div class="label">POLICY MEETINGS HELD</div>
+        <div class="value">10+</div>
+      </div>
+      <div class="kpi-item">
+        <div class="label">MEDIA CORRECTIONS / NARRATIVE REACH</div>
+        <div class="value">50K+</div>
+      </div>
+    </div>
+
+    <div class="section-nav">
+      <button class="btn btn-ghost" onclick="scrollToSection('pkt3')">← PKT 3</button>
+      <button class="btn btn-primary" onclick="scrollToSection('next')">NEXT: SECTION E →</button>
+    </div>
+  </div>
+</section>
+
+<!-- ===== MODAL ===== -->
+<div class="modal-overlay" id="certModal">
+  <div class="modal">
+    <h3>📋 TRAINING COMPLETE</h3>
+    <p style="color:var(--text2);margin-bottom:20px;line-height:1.7;">All 4 packets delivered. Full curriculum. Every session planned. Every role assigned. Every KPI tracked. Ready for deployment.</p>
+    <button class="btn btn-primary" onclick="closeModal()">🔄 SAY "NEXT" FOR SECTION E</button>
+  </div>
+</div>
+
+<div class="confusion-popup" id="confusionPopup">
+  <h4 id="popupTitle">TRAINING READY</h4>
+  <p id="popupText">4 packets. 12 sessions. 20+ volunteer roles. 16 KPIs. All in one file.</p>
+</div>
+
+<script>
+function toggleTheme() {
+  const body = document.body;
+  const current = body.getAttribute('data-theme');
+  body.setAttribute('data-theme', current === 'dark' ? 'light' : 'dark');
+}
+
+function scrollToSection(id) {
+  document.getElementById(id).scrollIntoView({ behavior: 'smooth' });
+}
+
+function toggleExpand(id) {
+  const el = document.getElementById(id);
+  if (el.classList.contains('active')) {
+    el.classList.remove('active');
+  } else {
+    document.querySelectorAll('.expanded-section').forEach(s => s.classList.remove('active'));
+    el.classList.add('active');
+  }
+}
+
+function closeModal() {
+  document.getElementById('certModal').classList.remove('active');
+}
+
+function showPopup(title, text) {
+  const popup = document.getElementById('confusionPopup');
+  document.getElementById('popupTitle').textContent = title;
+  document.getElementById('popupText').textContent = text;
+  popup.classList.add('show');
+  setTimeout(() => popup.classList.remove('show'), 4000);
+}
+
+window.addEventListener('load', () => {
+  setTimeout(() => {
+    toggleExpand('exp-pkt1');
+  }, 500);
+});
+</script>
+
+</body>
+</html>
