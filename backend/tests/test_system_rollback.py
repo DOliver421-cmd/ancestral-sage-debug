@@ -39,6 +39,25 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import routers.system_rollback as sr
 
 
+@pytest.fixture(autouse=True)
+def _own_env(monkeypatch):
+    """Own this suite's environment for the duration of each test.
+
+    The webhook secret is read live by the handler (routers/system_rollback.py
+    `webhook_secret()`), but the values were claimed with setdefault at module
+    import — so whichever rollback suite imported first won the value for the
+    whole process and the other suite's HMAC stopped matching, failing under
+    pytest-randomly while passing in isolation. Set them per test and restore
+    afterwards, which is what the live-reading accessors exist for.
+    """
+    for key, value in (
+        ("MORE_ROLLBACK_WEBHOOK_SECRET", "test-secret-rollback"),
+        ("RAILWAY_DEPLOYMENT_ID", "dep-live-001"),
+        ("COMMIT_SHA", "sha-live-001"),
+    ):
+        monkeypatch.setenv(key, value)
+
+
 def _run(coro):
     return asyncio.run(coro)
 

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { api } from "../../lib/api";
 import AppShell from "../../components/AppShell";
@@ -63,12 +63,14 @@ export default function AcademyProjects() {
   const [notice, setNotice] = useState("");
   const [loading, setLoading] = useState(true);
 
-  const load = () => {
+  // useCallback so the effect below can list it as a dependency without
+  // re-running on every render (it changes only when the student changes).
+  const load = useCallback(() => {
     if (!studentId) return;
     api.get(`/academy/projects?student_id=${studentId}`)
       .then((r) => setProjects(r.data.projects || []))
       .catch((e) => setError(errorMessage(e, "Could not load projects.")));
-  };
+  }, [studentId]);
 
   useEffect(() => {
     api.get("/academy/kinds".replace("/kinds", "/projects/kinds"))
@@ -85,7 +87,7 @@ export default function AcademyProjects() {
     setLoading(true);
     load();
     setLoading(false);
-  }, [studentId]);
+  }, [studentId, load]);
 
   const kindLabel = (id) => kinds.kinds.find((k) => k.id === id)?.label || id;
 

@@ -38,7 +38,7 @@ import time
 import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import List, Optional, Literal
+from typing import List, Optional, Literal, Tuple
 
 import jwt
 from fastapi import Depends, FastAPI, APIRouter, File, HTTPException, Header, Request, UploadFile
@@ -873,26 +873,39 @@ async def _send_via_gmail(to_email: str, subject: str, html: str) -> bool:
         return False
 
 
-async def _send_reset_email(to_email: str, raw_token: str, full_name: str = "there") -> bool:
-    """Send password reset email. Tries Resend first, falls back to Gmail SMTP.
-    Returns True if sent by either provider, False if neither is configured."""
-    reset_url = _build_reset_url(raw_token)
+async def _send_reset_email(
+    to_email: str,
+    raw_token: str,
+    full_name: str = "there",
+    base_url: Optional[str] = None,
+) -> Tuple[bool, str]:
+    """Send a password-reset email. Tries Resend first, falls back to Gmail SMTP.
+
+    Returns (sent, reason): the bool is whether a provider accepted it, and the
+    reason explains every failure path. A bare False left callers and admins
+    with no way to tell "no provider configured" from "provider rejected it",
+    which is the difference between a configuration fix and an outage.
+    """
+    if base_url:
+        reset_url = _build_reset_url(raw_token, base=base_url)
+    else:
+        reset_url = _build_reset_url(raw_token)
     if reset_url.startswith("/"):
         logger.warning("PUBLIC_APP_URL not set — cannot build absolute reset URL for email.")
-        return False
+        return False, "PUBLIC_APP_URL is not set, so no absolute reset URL can be built."
     subject, html = _reset_email_html(full_name, reset_url)
 
     if RESEND_API_KEY:
         sent = await _send_via_resend(to_email, subject, html)
         if sent:
-            return True
+            return True, "sent via Resend"
         logger.warning("Resend failed — falling back to Gmail SMTP")
 
     if GMAIL_USER and GMAIL_APP_PASSWORD:
-        return await _send_via_gmail(to_email, subject, html)
+        return await _send_via_gmail(to_email, subject, html), "sent via Gmail SMTP"
 
     logger.warning("No email provider configured (RESEND_API_KEY or GMAIL_USER+GMAIL_APP_PASSWORD).")
-    return False
+    return False, "no email provider is configured (RESEND_API_KEY or GMAIL_USER+GMAIL_APP_PASSWORD)"
 # ----------------------------------------------------------------------------
 
 
@@ -3094,7 +3107,7 @@ async def forgot_password(body: ForgotPasswordReq, request: Request):
         })
         await audit(user_doc["id"], "auth.password_reset.requested",
                     target=user_doc["id"], meta={"ip": ip})
-        email_sent = await _send_reset_email(
+        email_sent, email_reason = await _send_reset_email(
             user_doc["email"], raw, user_doc.get("full_name", "there"),
         )
         # Dev/admin convenience: when explicitly enabled, return the raw
@@ -3240,7 +3253,7 @@ async def admin_create_reset_link(uid: str, request: Request,
         "ip": (request.client.host if request.client else "admin"),
         "issued_by": user.id,
     })
-    email_sent = await _send_reset_email(
+    email_sent, email_reason = await _send_reset_email(
         target["email"], raw, target.get("full_name", "there"),
     )
     await audit(user.id, "admin.password_reset.link_issued", target=target["id"],
@@ -4164,11 +4177,14 @@ async def sage_tts(body: SageTTSReq, user: User = Depends(current_user)):
       4. latency / hit-ratio / error-rate metrics buffer (5 min)
     """
     import time as _t
-    if not OPENAI_API_KEY and not EMERGENT_LLM_KEY:
-        raise HTTPException(500, "AI not configured")
+    # Validate the request BEFORE checking provider configuration: a caller
+    # sending empty text must get a 400 for their own input, not a 500 that
+    # blames the server and hides the real problem.
     text = (body.text or "").strip()
     if not text:
         raise HTTPException(400, "text is required")
+    if not OPENAI_API_KEY and not EMERGENT_LLM_KEY:
+        raise HTTPException(500, "AI not configured")
     if len(text) > 4000:
         text = text[:4000]
     voice = body.voice or "sage"

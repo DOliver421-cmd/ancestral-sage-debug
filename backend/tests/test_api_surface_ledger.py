@@ -22,12 +22,13 @@ import pytest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-# Measured 2026-09-29 against commit d2f521a. Bump deliberately, with a
+# Measured 2026-09-29 against commit d2f521a; re-measured 2026-10-11 after
+# F5-F9 merged. Bump deliberately, with a
 # ledger update in the same commit, when the surface changes on purpose.
 EXPECTED_API_PATHS = 356
-EXPECTED_API_METHODS = 405
-EXPECTED_TOTAL_PATHS = 882
-EXPECTED_TOTAL_METHODS = 1004
+EXPECTED_API_METHODS = 406
+EXPECTED_TOTAL_PATHS = 888
+EXPECTED_TOTAL_METHODS = 1016
 
 # The executive/admin surface is mounted at the root, not under /api. Its
 # disappearance would mean a whole router stopped mounting, so pin a sample

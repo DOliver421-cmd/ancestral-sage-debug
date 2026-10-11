@@ -769,9 +769,18 @@ the integrity of its governance structure.
 # HASH INTEGRITY
 # Run `python3 prompts/ancestral_sage_prompt.py` from the backend directory
 # whenever ANCESTRAL_SAGE_PROMPT is edited and paste the printed value below.
+#
+# Owner-approved update, 2026-10-11: the prompt was edited by b1143d12
+# ("reclassify AI personas as decision-support; enforce HITL + human
+# authorization audit") but this constant was never refreshed, so the platform
+# had been reporting the Ancestral Sage as RESTRICTED (integrity mismatch) for
+# every user since that change. The drift was an intentional, reviewed prompt
+# change, not tampering — hence the constant is updated rather than the prompt
+# reverted. Any future edit to ANCESTRAL_SAGE_PROMPT must update this value in
+# the same change, or the persona correctly goes back into Restricted Mode.
 # ─────────────────────────────────────────────────────────────────────────────
 
-ANCESTRAL_SAGE_PROMPT_HASH_EXPECTED = "b52c7b23ed866d1cfee3358adfcdfce235a742ea80cc6077178d8ccdea6fd156"
+ANCESTRAL_SAGE_PROMPT_HASH_EXPECTED = "d4ffbd18ebeb7e1e0797a7ba878080553705061ac1d7de967827d00db57b72de"
 
 
 def compute_sage_prompt_hash(prompt: str = ANCESTRAL_SAGE_PROMPT) -> str:

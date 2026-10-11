@@ -221,7 +221,7 @@ FEATURE_MIN_TIER: dict = {
     "posts": "member",
     "publisher_ai": "member",
     "lounge": "member",
-    "courses": "free",
+    "courses": "plus",
     "tracks": "plus",
     # Creator Studio is a paid feature: Member ($9/mo) is the entry tier, not
     # free. Free accounts get no studio access at all.

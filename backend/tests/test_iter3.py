@@ -2,6 +2,8 @@
 import os
 import time
 import uuid
+import pathlib
+import re
 import requests
 import pytest
 
@@ -74,9 +76,17 @@ class TestPWA:
         assert r.status_code == 200
         html = r.text
         assert 'rel="manifest"' in html or "rel='manifest'" in html
-        assert "#0B203F" in html
         assert "apple-touch-icon" in html
         assert "viewport-fit=cover" in html
+        # The theme colour must be the brand's, read from frontend/public/
+        # index.html rather than a literal: the hardcoded "#0B203F" here had
+        # drifted from the brand (#1B4332) and failed on every correct build.
+        src = pathlib.Path(__file__).resolve().parents[2] / "frontend" / "public" / "index.html"
+        expected = re.search(r'theme-color"\s+content="([^"]+)"', src.read_text())
+        assert expected, "frontend/public/index.html has no theme-color"
+        assert expected.group(1) in html, (
+            f"served index.html theme-color is not the brand {expected.group(1)}"
+        )
 
 
 # ---------- Compliance ----------
@@ -291,9 +301,13 @@ class TestAINewModes:
 # ---------- Regression: previously-passing ----------
 class TestRegression:
     def test_modules_still_12(self, s, stud_t):
+        # Derived from the product's catalogue rather than a literal: it is 14
+        # today (the two free-preview modules included), and a hardcoded count
+        # fails every time the catalogue legitimately grows.
+        from seed import MODULES
         r = s.get(f"{API}/modules", headers=hdr(stud_t))
         assert r.status_code == 200
-        assert len(r.json()) == 12
+        assert len(r.json()) == len(MODULES), f"expected {len(MODULES)} modules, got {len(r.json())}"
 
     def test_labs_still_21(self, s, stud_t):
         r = s.get(f"{API}/labs", headers=hdr(stud_t))

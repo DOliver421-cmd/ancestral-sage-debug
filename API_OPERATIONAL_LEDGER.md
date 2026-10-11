@@ -31,6 +31,23 @@ Two measurement defects produced the old number:
    `/api`. A `/api`-only sweep never saw them, so this ledger has never
    accounted for them at all.
 
+### Update — 2026-10-11 (re-measured; +1 path, +1 method, +12 total paths)
+
+Phase 0 merged `DELETE /api/admin/users/{uid}` (the user-deletion endpoint that
+was implemented in `routers/users.py` but missing from the registration table),
+plus the merged F5-F9 routing-policy work. Current measured surface:
+
+| Measure | 2026-09-29 | 2026-10-11 |
+|---|---|---|
+| `/api` unique paths | 356 | **356** |
+| `/api` route-method entries | 405 | **406** |
+| Root-mounted (non-`/api`) unique paths | 526 | **532** |
+| Total unique paths | 882 | **888** |
+| Total route-method entries | 1004 | **1016** |
+
+The pinned constants in `backend/tests/test_api_surface_ledger.py` are bumped
+in the same change, per the instruction in the 2026-09-29 update above.
+
 The per-row PASS/BLOCKED classification below is **unchanged and still valid**
 for the rows it lists. What is corrected here is the scope statement: this
 ledger covered 647 of **1004** mounted route-method entries, so roughly a
