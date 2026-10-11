@@ -225,9 +225,11 @@ def test_tier_requirements_match_frontend_contract():
     assert action == "block" and "Member plan" in detail
     # member user passes posts.
     assert _check(_UserDB(), _u(feature_tier="member"), "/api/more/posts") == ("pass", None)
-    # courses is free by default; member and free both pass.
-    assert _check(_UserDB(), _u(feature_tier="member"), "/api/modules/x") == ("pass", None)
-    assert _check(_UserDB(), _u(feature_tier="free"), "/api/modules/x") == ("pass", None)
+    # courses is Plus by default (owner decision 2026-10-11: module content is
+    # monetized); member and free are both blocked, plus passes.
+    assert _check(_UserDB(), _u(feature_tier="member"), "/api/modules/x")[0] == "block"
+    assert _check(_UserDB(), _u(feature_tier="free"), "/api/modules/x")[0] == "block"
+    assert _check(_UserDB(), _u(feature_tier="plus"), "/api/modules/x") == ("pass", None)
     # ai_chat requires free -> never a tier block.
     assert _check(_UserDB(), _u(feature_tier="free"), "/api/ai/chat") == ("pass", None)
 
@@ -264,7 +266,7 @@ def test_authz_matrix_absent_defaults_to_code():
     # No matrix doc -> exactly the code defaults, for every enforced feature.
     req = asyncio.run(load_feature_tier_requirements(_UserDB()))
     assert req == FEATURE_MIN_TIER
-    assert req["ai_chat"] == "free" and req["posts"] == "member" and req["courses"] == "free"
+    assert req["ai_chat"] == "free" and req["posts"] == "member" and req["courses"] == "plus"
 
 
 def test_authz_matrix_stored_overrides_defaults():
@@ -281,7 +283,7 @@ def test_authz_matrix_ignores_unknown_keys_and_tiers():
     db = _UserDB(authz={"posts": "pro", "ghost_feature": "plus", "courses": "platinum"})
     req = asyncio.run(load_feature_tier_requirements(db))
     assert req["posts"] == "pro"
-    assert req["courses"] == "free"      # platinum dropped -> default
+    assert req["courses"] == "plus"     # platinum dropped -> default
     assert "ghost_feature" not in req
 
 

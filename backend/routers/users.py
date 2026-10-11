@@ -11,7 +11,7 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Literal, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Header
+from fastapi import APIRouter, Depends, HTTPException, Header, Request
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 from security.field_authorization import FieldAuthorization
@@ -825,7 +825,7 @@ async def admin_revoke_sessions(uid: str, request,
 
 
 @router.delete("/admin/users/{uid}")
-async def admin_delete_user(uid: str, request,
+async def admin_delete_user(uid: str, request: Request,
                              user: User = Depends(_require_rank("executive_admin"))):
     """Permanently delete a user account.
     executive_admin only. Cannot delete yourself or another executive_admin.

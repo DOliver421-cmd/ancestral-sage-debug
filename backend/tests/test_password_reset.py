@@ -57,8 +57,17 @@ def _auth(token):
 class TestForgotPassword:
 
     def test_real_email_returns_200_with_dev_token(self):
+        # A fresh account, not a shared demo address: for
+        # /auth/forgot-password is capped at 5 requests per email per 600s, so a
+        # fixed address makes the suite unrunnable twice within ten minutes.
+        unique = f"reset-{uuid.uuid4().hex[:8]}@example.com"
+        reg = requests.post(f"{API}/auth/register", json={
+            "email": unique, "password": "OrigPass123!", "full_name": "Reset Probe",
+            "agreed_terms": True, "over_13": True, "birth_date": "1990-05-01",
+        })
+        assert reg.status_code == 200, reg.text
         r = requests.post(f"{API}/auth/forgot-password",
-                          json={"email": STUDENT_EMAIL}, timeout=10)
+                          json={"email": unique}, timeout=10)
         assert r.status_code == 200
         body = r.json()
         assert body["ok"] is True

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { api } from "../../lib/api";
 import AppShell from "../../components/AppShell";
@@ -42,8 +42,8 @@ const PATHWAYS = [
   },
   {
     title: "Creation to earning",
-    body: "A finished project is the evidence half of a business. Turn a skill and a piece of work into a business concept, then publish it from the free Creator Studio.",
-    to: "/studio",
+    body: "A finished project is the evidence half of a business. Turn a skill and a piece of work into a business concept, then publish it in your Academy portfolio.",
+    to: "/academy/portfolio",
     kind: "business",
   },
 ];
@@ -63,12 +63,14 @@ export default function AcademyProjects() {
   const [notice, setNotice] = useState("");
   const [loading, setLoading] = useState(true);
 
-  const load = () => {
+  // useCallback so the effect below can list it as a dependency without
+  // re-running on every render (it changes only when the student changes).
+  const load = useCallback(() => {
     if (!studentId) return;
     api.get(`/academy/projects?student_id=${studentId}`)
       .then((r) => setProjects(r.data.projects || []))
       .catch((e) => setError(errorMessage(e, "Could not load projects.")));
-  };
+  }, [studentId]);
 
   useEffect(() => {
     api.get("/academy/kinds".replace("/kinds", "/projects/kinds"))
@@ -85,7 +87,7 @@ export default function AcademyProjects() {
     setLoading(true);
     load();
     setLoading(false);
-  }, [studentId]);
+  }, [studentId, load]);
 
   const kindLabel = (id) => kinds.kinds.find((k) => k.id === id)?.label || id;
 
@@ -298,7 +300,7 @@ export default function AcademyProjects() {
                             <p className="text-xs text-ink/55 mt-1 leading-relaxed">{p.body}</p>
                             {p.to !== "/academy/projects" && (
                               <Link to={p.to} className="text-xs font-bold text-copper underline mt-2 inline-block">
-                                {p.to === "/studio" ? "Open the Creator Studio (free)" : "Browse the curriculum"}
+                                {p.to === "/academy/portfolio" ? "Open the portfolio" : "Browse the curriculum"}
                               </Link>
                             )}
                           </div>
@@ -385,8 +387,9 @@ export default function AcademyProjects() {
                           className="inline-flex items-center gap-2 text-sm font-bold text-copper hover:text-ink">
                           <Folder className="w-4 h-4" /> Open the portfolio
                         </Link>
-                        <Link to="/studio" className="inline-flex items-center gap-2 text-sm font-bold text-ink hover:text-copper">
-                          <Sparkles className="w-4 h-4" /> Publish the work (free Creator Studio)
+                        <Link to={studentId ? `/academy/portfolio?student=${studentId}` : "/academy/portfolio"}
+                          className="inline-flex items-center gap-2 text-sm font-bold text-ink hover:text-copper">
+                          <Sparkles className="w-4 h-4" /> Publish the work in your portfolio
                         </Link>
                       </div>
                       {selected.status !== "submitted" && openSteps.length > 0 && (

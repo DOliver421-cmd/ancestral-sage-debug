@@ -56,6 +56,22 @@ def _sig(payload: bytes) -> str:
     return hmac.new(b"route-test-secret", payload, hashlib.sha256).hexdigest()
 
 
+@pytest.fixture(autouse=True)
+def _own_env(monkeypatch):
+    """Own this suite's environment for the duration of each test.
+
+    The webhook secret is read live by the handler (routers/system_rollback.py
+    `webhook_secret()`), but the values were claimed with setdefault at module
+    import — so whichever rollback suite imported first won for the whole
+    process and the other suite's HMAC stopped matching, failing under
+    pytest-randomly but passing in isolation. Set them per test and restore
+    afterwards, which is what the live-reading accessors exist for.
+    """
+    monkeypatch.setenv("MORE_ROLLBACK_WEBHOOK_SECRET", "route-test-secret")
+    monkeypatch.setenv("RAILWAY_DEPLOYMENT_ID", "dep-route-1")
+    monkeypatch.setenv("COMMIT_SHA", "sha-route-1")
+
+
 def test_health_anonymous_401(client):
     r = client.get("/api/admin/system/health")
     assert r.status_code == 401, r.text

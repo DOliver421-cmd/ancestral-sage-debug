@@ -47,7 +47,8 @@ export const TIER_FOR_FEATURE = {
   courses: "plus",        // course library (content)
   tracks: "plus",         // learning tracks / adaptive path
   ghost: "plus",          // Ghost Producer
-  studio: "free",         // Creator Studio (free access; premium chambers stay tiered)
+  studio: "member",       // Creator Studio — paid member ($9/mo) entry tier, not free
+  studio_full: "plus",    // Song Arrangement + Publish — the full studio
   band: "plus",           // Band on a Page
   publisher: "plus",      // full publishing toolkit
   earnings: "plus",       // creator earnings

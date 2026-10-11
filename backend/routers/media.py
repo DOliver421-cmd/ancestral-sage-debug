@@ -419,6 +419,19 @@ async def get_media_file(
 ):
     """Serve uploaded media with an entitlement-aware preview boundary.
 
+    Anonymous visitors are read-only on this platform (owner decision,
+    2026-10-11): no file bytes leave without an account, free or paid. Uploads
+    already require a token, so no working anonymous path is closed here — the
+    only callers without a session are ones holding a URL they could not have
+    obtained anonymously in the first place.
+    """
+    if user is None:
+        raise HTTPException(
+            401,
+            "Sign in or register for a User account to access this file.",
+        )
+    """Serve uploaded media with an entitlement-aware preview boundary.
+
     Uploaded audio is preview-only by default. Paid purchases, the owner, and
     executive staff receive the full stream. Preview requests are byte-limited
     using the duration supplied at upload; the browser also enforces the exact

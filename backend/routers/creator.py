@@ -246,7 +246,10 @@ async def creator_course_checkout(course_id: str, user: User = Depends(_dep_curr
             {"$setOnInsert": {"enrolled_at": datetime.now(timezone.utc).isoformat()}},
             upsert=True,
         )
-        return {"enrolled": True}
+        # `free` distinguishes this outcome from the paid branch's checkout
+        # redirect, so a caller knows it is already enrolled and has nothing
+        # further to do.
+        return {"enrolled": True, "free": True}
 
     # Only PAID courses require a configured payment provider.
     if not PAYMENTS_ENABLED:

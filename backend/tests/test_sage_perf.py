@@ -10,6 +10,24 @@ import requests
 BASE = os.environ["REACT_APP_BACKEND_URL"].rstrip("/")
 API = f"{BASE}/api"
 
+
+_AI_NOT_CONFIGURED = "AI not configured"
+
+
+def _require_ai_provider(r):
+    """Skip rather than fail when the live backend has no AI key.
+
+    These tests call the real TTS provider (test_sage_v2's header documents
+    the cost and the key requirement). With no EMERGENT_LLM_KEY/OPENAI_API_KEY
+    the endpoint answers 500 "AI not configured" — an environment condition,
+    not a defect in the code under test. A red run must say "skipped: no AI
+    provider" instead of failing, otherwise real breakage hides among
+    environment noise.
+    """
+    if r.status_code == 500 and _AI_NOT_CONFIGURED in r.text:
+        pytest.skip("live backend has no AI provider configured "
+                    "(EMERGENT_LLM_KEY / OPENAI_API_KEY)")
+
 STUDENT_EMAIL = "student@lcewai.org"
 STUDENT_PW = "Learn@LCE2026"
 EXEC_EMAIL = os.environ.get("TEST_EXEC_EMAIL", "youpickeddoliver@gmail.com")
@@ -62,6 +80,7 @@ class TestSageTTSCache:
             f"{API}/ai/sage/tts", headers=_auth(student_token),
             json=body, timeout=60,
         )
+        _require_ai_provider(r1)
         assert r1.status_code == 200, r1.text
         assert r1.headers.get("x-cache") == "miss"
         # Second identical call should hit cache.
@@ -69,6 +88,7 @@ class TestSageTTSCache:
             f"{API}/ai/sage/tts", headers=_auth(student_token),
             json=body, timeout=20,
         )
+        _require_ai_provider(r2)
         assert r2.status_code == 200
         assert r2.headers.get("x-cache") == "hit"
         # Same audio length implies identical bytes served.
@@ -80,10 +100,13 @@ class TestSageTTSCache:
             f"{API}/ai/sage/tts", headers=_auth(student_token),
             json={"text": text, "voice": "sage"}, timeout=60,
         )
+        _require_ai_provider(r1)
         r2 = requests.post(
             f"{API}/ai/sage/tts", headers=_auth(student_token),
             json={"text": text, "voice": "echo"}, timeout=60,
         )
+        _require_ai_provider(r2)
+        _require_ai_provider(r1)
         assert r1.status_code == 200 and r2.status_code == 200
         # Different voice → fresh cache entry → both miss
         assert r1.headers.get("x-cache") == "miss"
@@ -108,6 +131,7 @@ class TestSageTTSCostCaps:
                 f"{API}/ai/sage/tts", headers=_auth(student_token),
                 json={"text": chunk, "voice": "sage", "session_id": sid}, timeout=60,
             )
+            _require_ai_provider(r)
             if r.status_code == 429:
                 assert r.headers.get("x-cost-cap") == "true"
                 assert r.headers.get("x-cost-cap-reason") in ("session", "daily")

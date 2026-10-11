@@ -52,6 +52,48 @@ def student_token(s):
     return _login(s, *STUDENT)
 
 
+def _promote_local_user_to_plus(email):
+    """Register/overwrite the tier of ONE account in the LOCAL test database.
+
+    Portfolio publishing is Plus-gated by the platform's tier model
+    (security/feature_control.py maps /api/portfolio/publish to `publisher`),
+    so a free student is correctly refused with 403 ACCESS_ENFORCED. This
+    promotes the local test row only, never a deployment.
+    """
+    from pymongo import MongoClient
+    url = os.environ.get("MONGO_URL", "mongodb://localhost:27017")
+    db_name = os.environ.get("DB_NAME", "testdb_pytest")
+    c = MongoClient(url, serverSelectionTimeoutMS=5000)
+    try:
+        c[db_name].users.update_one({"email": email}, {"$set": {"feature_tier": "plus"}})
+    finally:
+        c.close()
+
+
+@pytest.fixture(scope="session")
+def plus_student_token(s):
+    """A Plus-tier student token: Portfolio publishing is a Plus feature."""
+    email = STUDENT[0]
+    _promote_local_user_to_plus(email)
+    # a fresh login so the token carries the promoted tier
+    r = requests.post(f"{API}/auth/login",
+                      json={"email": email, "password": STUDENT[1]}, timeout=20)
+    assert r.status_code == 200, r.text
+    return r.json()["access_token"]
+
+
+@pytest.fixture(scope="session")
+def free_student_token(s):
+    """A free-tier student token, for the tier boundary tests."""
+    latin = f"free_{uuid.uuid4().hex[:8]}@example.com"
+    r = requests.post(f"{API}/auth/register", json={
+        "email": latin, "password": "TestPass123!", "full_name": "Free Student",
+        "agreed_terms": True, "over_13": True, "birth_date": "1990-05-01",
+    })
+    assert r.status_code == 200, r.text
+    return r.json()["access_token"]
+
+
 def hdr(t):
     return {"Authorization": f"Bearer {t}", "Content-Type": "application/json"}
 
@@ -74,9 +116,13 @@ class TestAuth:
 
     def test_register_new_student(self, s):
         email = f"TEST_{uuid.uuid4().hex[:8]}@example.com"
+        # The register endpoint requires explicit consent and age confirmation
+        # (server.py:2039-2042) and ignores role/associate from the client — a
+        # self-registration is always a student. Omitting them made this test
+        # fail with the platform working exactly as designed.
         r = s.post(f"{API}/auth/register", json={
             "email": email, "password": "TestPass123!", "full_name": "Test User",
-            "role": "student", "associate": "Associate-Alpha"
+            "agreed_terms": True, "over_13": True, "birth_date": "1990-05-01"
         })
         assert r.status_code == 200, r.text
         data = r.json()
@@ -99,11 +145,15 @@ class TestAuth:
 
 # ---------- Modules ----------
 class TestModules:
-    def test_modules_list_12(self, s, student_token):
+    def test_modules_list_matches_catalogue(self, s, student_token):
         r = s.get(f"{API}/modules", headers=hdr(student_token))
         assert r.status_code == 200
         mods = r.json()
-        assert len(mods) == 12, f"expected 12 modules, got {len(mods)}"
+        # Derived from the product's own catalogue rather than a literal: the
+        # count is 14 today (the two free-preview modules included), and a
+        # hardcoded 12 fails every time the catalogue legitimately grows.
+        from seed import MODULES
+        assert len(mods) == len(MODULES), f"expected {len(MODULES)} modules, got {len(mods)}"
         for m in mods:
             assert "quiz" in m and isinstance(m["quiz"], list) and len(m["quiz"]) > 0
             assert "scripture" in m or "scripture_tie_in" in m or any("scripture" in str(k).lower() for k in m.keys())
@@ -420,24 +470,34 @@ class TestPortfolio:
             assert isinstance(data["stats"][k], int)
         assert data["user"]["email"]  # private view has email
 
-    def test_portfolio_publish_creates_slug(self, s, student_token):
+    def test_portfolio_publish_requires_plus(self, s, free_student_token):
+        # The tier model is deliberate (owner decision #2): publishing a public
+        # portfolio is a Plus feature, and a free student is refused with a
+        # structured denial rather than a broken page.
+        r = s.post(f"{API}/portfolio/publish",
+                   json={"bio": "Should not publish.", "publish": True},
+                   headers=hdr(free_student_token))
+        assert r.status_code == 403, r.text
+        assert "ACCESS_ENFORCED" in r.text
+
+    def test_portfolio_publish_creates_slug(self, s, plus_student_token):
         r = s.post(f"{API}/portfolio/publish",
                    json={"bio": "Aspiring electrician.", "publish": True},
-                   headers=hdr(student_token))
+                   headers=hdr(plus_student_token))
         assert r.status_code == 200, r.text
         data = r.json()
         assert data.get("published") is True
         assert isinstance(data.get("slug"), str) and len(data["slug"]) > 0
 
         # subsequent /portfolio/me returns share_slug
-        me = s.get(f"{API}/portfolio/me", headers=hdr(student_token)).json()
+        me = s.get(f"{API}/portfolio/me", headers=hdr(plus_student_token)).json()
         assert me.get("share_slug") == data["slug"]
 
-    def test_portfolio_public_no_auth_no_email(self, s, student_token):
+    def test_portfolio_public_no_auth_no_email(self, s, plus_student_token):
         # ensure published
         pub = s.post(f"{API}/portfolio/publish",
                      json={"bio": "Public bio.", "publish": True},
-                     headers=hdr(student_token)).json()
+                     headers=hdr(plus_student_token)).json()
         slug = pub["slug"]
         # Use a fresh session WITHOUT any auth headers
         clean = requests.Session()

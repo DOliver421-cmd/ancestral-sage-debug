@@ -23,6 +23,7 @@
 import { useRef, useState, useCallback, useEffect } from "react";
 import AppShell from "../components/AppShell";
 import { useAuth } from "../lib/auth";
+import { canAccess } from "../lib/tiers";
 import { api } from "../lib/api";
 import { toast } from "sonner";
 import PageBack from "../components/PageBack";
@@ -516,6 +517,9 @@ export function StudioContent({ embedded = false }) {
     const requested = new URLSearchParams(window.location.search).get("tab");
     return ["beat", "keys", "song", "publish"].includes(requested) ? requested : "beat";
   });
+  // Members are limited to Beat and Keys; Song Arrangement and Publish are the
+  // full studio and require Plus (owner decision, 2026-10-11).
+  const [showStudioUpgrade, setShowStudioUpgrade] = useState(false);
 
   // Shared project state
   const [kitId, setKitId] = useState("boom-bap");
@@ -605,9 +609,19 @@ export function StudioContent({ embedded = false }) {
   };
 
   // ── Sync active section → working patterns ──
+  // Read the saved maps through refs so the effect still sees the latest values
+  // when the section or kit changes, without listing them as dependencies:
+  // sectionPatterns/sectionKeys update on every save, so adding them to the
+  // dependency array would re-run this on each edit and clobber the working
+  // pattern with the last-saved snapshot.
+  const sectionPatternsRef = useRef(sectionPatterns);
+  sectionPatternsRef.current = sectionPatterns;
+  const sectionKeysRef = useRef(sectionKeys);
+  sectionKeysRef.current = sectionKeys;
+
   useEffect(() => {
-    setPatterns(sectionPatterns[activeSection]?.[kitId] || makeDefaultDrumPatterns(KITS));
-    setKeys(sectionKeys[activeSection]?.[kitId] || makeEmptyKeys(KITS, KEY_ROWS, STEPS));
+    setPatterns(sectionPatternsRef.current[activeSection]?.[kitId] || makeDefaultDrumPatterns(KITS));
+    setKeys(sectionKeysRef.current[activeSection]?.[kitId] || makeEmptyKeys(KITS, KEY_ROWS, STEPS));
   }, [activeSection, kitId]);
 
   const saveSection = useCallback((secId, pat, k) => {
@@ -963,18 +977,41 @@ export function StudioContent({ embedded = false }) {
             { id: "publish", label: "Publish", icon: Upload },
           ].map((t) => {
             const Icon = t.icon;
+            // Member gets limited studio access: Beat and Keys are the member
+            // surface. Song Arrangement and Publish are the full studio and
+            // require Plus (owner decision, 2026-10-11).
+            const fullOnly = t.id === "song" || t.id === "publish";
+            const locked = fullOnly && !canAccess(user, "studio_full");
             return (
-              <button key={t.id} onClick={() => setTab(t.id)}
+              <button key={t.id} onClick={() => (locked ? setShowStudioUpgrade(true) : setTab(t.id))}
                 className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-bold border-b-2 whitespace-nowrap transition-colors ${
                   tab === t.id ? "border-cyan-700 text-cyan-700" : "border-transparent text-stone-500 hover:text-stone-800"
                 }`}>
-                <Icon className="w-4 h-4" /> {t.label}
+                <Icon className="w-4 h-4" /> {t.label}{locked && <Lock className="w-3 h-3" />}
               </button>
             );
           })}
         </div>
 
         {/* ── Transport ── */}
+        {showStudioUpgrade && (
+          <div className="mb-6 flex items-start justify-between gap-4 rounded-2xl border border-copper/40 bg-copper/10 px-5 py-4" data-testid="studio-full-upgrade">
+            <div>
+              <div className="text-sm font-bold text-ink flex items-center gap-2">
+                <Lock className="w-4 h-4" /> Song Arrangement and Publish are part of the full studio
+              </div>
+              <p className="text-xs text-ink/70 mt-1">
+                Your Member plan includes the Beat sequencer and the Keys. Arrange a full track and
+                publish it with Plus.
+              </p>
+            </div>
+            <div className="flex items-center gap-3 shrink-0">
+              <a href="/plans" className="btn-copper text-xs">Upgrade to Plus</a>
+              <button onClick={() => setShowStudioUpgrade(false)}
+                className="text-xs font-bold text-ink/50 hover:text-ink">Dismiss</button>
+            </div>
+          </div>
+        )}
         <div className="flex flex-wrap items-center gap-3 mb-6 card-flat rounded-2xl p-4 border" style={{ background: "#ffffff" }}>
           <button onClick={playing ? stop : play}
             className="w-11 h-11 rounded-full flex items-center justify-center text-white transition-transform active:scale-95"
