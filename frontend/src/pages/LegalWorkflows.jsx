@@ -135,8 +135,20 @@ function HelpCircle(props) {
    their case work the moment they changed device — and nothing was "real" about
    it. It now mirrors to their account through the Resource Hub workflows API
    (one well-known workflow whose step carries the state as JSON), with the
-   localStorage copy kept as an offline fallback. */
+   localStorage copy kept as an offline fallback.
+
+   The endpoint returns a bare JSON array. Reading `r.data.workflows` (the shape
+   it does not return) made every restore throw and every mirror POST 422, and
+   both were swallowed — the account copy never existed and nobody was told.
+   Read the array the API actually returns, and surface a failure instead of
+   hiding it (audit F1). */
 const LEGAL_STATE_WORKFLOW = "legal-workflow-engine-state";
+
+/* The workflows endpoint answers with a bare array; accept an
+   {workflows: [...]} envelope too so either shape reads correctly. */
+function workflowsOf(r) {
+  return Array.isArray(r.data) ? r.data : (r.data?.workflows || []);
+}
 
 function useLegalSave(key, initial) {
   const [state, setState] = useState(() => {
@@ -145,6 +157,7 @@ function useLegalSave(key, initial) {
       return saved ? JSON.parse(saved) : initial;
     } catch { return initial; }
   });
+  const [syncFailed, setSyncFailed] = useState(false);
 
   // Restore from the account once, when the browser has no copy.
   useEffect(() => {
@@ -152,12 +165,12 @@ function useLegalSave(key, initial) {
     if (localStorage.getItem(`hl_${key}`)) return;   // browser already authoritative
     api.get("/api/hub/workflows")
       .then((r) => {
-        const mine = (r.data?.workflows || []).find((w) => w.title === LEGAL_STATE_WORKFLOW && w.area === key);
+        const mine = workflowsOf(r).find((w) => w.title === LEGAL_STATE_WORKFLOW && w.area === key);
         const raw = mine?.steps?.[0]?.description;
         if (!raw) return;
         try { if (alive) setState(JSON.parse(raw)); } catch { /* ignore a bad blob */ }
       })
-      .catch(() => {});
+      .catch(() => { if (alive) setSyncFailed(true); });
     return () => { alive = false; };
   }, [key]);
 
@@ -171,16 +184,29 @@ function useLegalSave(key, initial) {
     };
     const sync = () => api.get("/api/hub/workflows")
       .then((r) => {
-        const existing = (r.data?.workflows || []).find((w) => w.title === LEGAL_STATE_WORKFLOW && w.area === key);
+        const existing = workflowsOf(r).find((w) => w.title === LEGAL_STATE_WORKFLOW && w.area === key);
         if (existing?.id) return api.patch(`/api/hub/workflows/${existing.id}`, { steps: payload.steps });
         return api.post("/api/hub/workflows", payload);
       })
-      .catch(() => {});
+      .then(() => setSyncFailed(false))
+      .catch(() => setSyncFailed(true));   // tell the member, do not swallow it
     const t = setTimeout(sync, 700);   // debounce while the member works
     return () => clearTimeout(t);
   }, [key, state]);
 
-  return [state, setState];
+  return [state, setState, syncFailed];
+}
+
+/* Shown when the account mirror is failing: the member's work is real but it is
+   only in this browser until a sync succeeds. */
+function SyncWarning() {
+  return (
+    <div className="mb-4 rounded-xl border border-[#e94560]/60 bg-[#e94560]/10 px-4 py-3 text-xs text-[#ffd7d7]">
+      <span className="font-bold uppercase tracking-wider">Not saved to your account.</span>{" "}
+      This work is only in this browser right now. It retries automatically — sign in on the device
+      you want to keep it on, and do not clear this browser's data until it saves.
+    </div>
+  );
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -409,7 +435,7 @@ function LegalNavigator({ setTab }) {
    ═══════════════════════════════════════════════════════════════════════════ */
 
 function LegalReadiness({ showSave }) {
-  const [checks, setChecks] = useLegalSave("readiness", {});
+  const [checks, setChecks, syncFailed] = useLegalSave("readiness", {});
 
   const toggle = (cat, item) => {
     setChecks(prev => {
@@ -440,6 +466,7 @@ function LegalReadiness({ showSave }) {
 
   return (
     <div className="space-y-6">
+    {syncFailed && <SyncWarning />}
       <div className="bg-[#1a1a2e] border border-[#0f3460] rounded-2xl p-6">
         <h2 className="text-[#ffd700] text-lg font-bold uppercase tracking-wider border-b border-[#e94560] pb-3 mb-4">
           📋 LEGAL READINESS WORKFLOW
@@ -504,7 +531,7 @@ function LegalReadiness({ showSave }) {
 
 function CaseTypeSection({ showSave }) {
   const [selectedCase, setSelectedCase] = useState("");
-  const [caseData, setCaseData] = useLegalSave("case", { name: "", facts: "", target: "", date: "", proof: [] });
+  const [caseData, setCaseData, syncFailed] = useLegalSave("case", { name: "", facts: "", target: "", date: "", proof: [] });
   const [result, setResult] = useState(null);
 
   const processCase = () => {
@@ -534,6 +561,7 @@ function CaseTypeSection({ showSave }) {
 
   return (
     <div className="space-y-6">
+    {syncFailed && <SyncWarning />}
       <div className="bg-[#1a1a2e] border border-[#0f3460] rounded-2xl p-6">
         <h2 className="text-[#ffd700] text-lg font-bold uppercase tracking-wider border-b border-[#e94560] pb-3 mb-4">
           📋 SELECT YOUR CASE TYPE
@@ -631,7 +659,7 @@ function StrategyNode({ step }) {
    ═══════════════════════════════════════════════════════════════════════════ */
 
 function EvidenceSection({ showSave }) {
-  const [checked, setChecked] = useLegalSave("evidence", {});
+  const [checked, setChecked, syncFailed] = useLegalSave("evidence", {});
 
   const toggle = (key) => {
     setChecked(prev => ({ ...prev, [key]: !prev[key] }));
@@ -644,6 +672,7 @@ function EvidenceSection({ showSave }) {
 
   return (
     <div className="space-y-6">
+    {syncFailed && <SyncWarning />}
       <div className="bg-[#1a1a2e] border border-[#0f3460] rounded-2xl p-6">
         <h2 className="text-[#ffd700] text-lg font-bold uppercase tracking-wider border-b border-[#e94560] pb-3 mb-4">
           📁 EVIDENCE CHECKLIST

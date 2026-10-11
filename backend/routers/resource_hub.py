@@ -125,6 +125,20 @@ class WorkflowStep(BaseModel):
     completed: bool = False
 
 
+class WorkflowCreate(BaseModel):
+    """Body for POST /hub/workflows.
+
+    Declared as a body model, not loose query parameters: the Legal Workflow
+    Engine's frontend sends JSON ({"title", "area", "steps"}), and the old
+    query-param signature answered every one of those requests with a 422 the
+    caller swallowed — so "sync to your account" never happened (audit F1).
+    """
+
+    title: str = Field(..., min_length=1, max_length=200)
+    area: str = Field(..., min_length=1, max_length=60)
+    steps: List[WorkflowStep] = Field(default_factory=list)
+
+
 # ── Grants ────────────────────────────────────────────────────────────────────
 
 @router.get("/grants")
@@ -366,15 +380,15 @@ async def list_workflows(user=Depends(_get_user)):
 
 
 @router.post("/workflows", status_code=201)
-async def create_workflow(title: str, area: str, steps: List[WorkflowStep], user=Depends(_get_user)):
+async def create_workflow(payload: WorkflowCreate, user=Depends(_get_user)):
     """Create a custom workflow across grant/fundraising/business areas."""
     _require_member(user)
     doc = {
         "id": uuid.uuid4().hex,
-        "title": title,
-        "area": area,  # grant, fundraising, business, custom
+        "title": payload.title,
+        "area": payload.area,  # grant, fundraising, business, custom
         "user_id": getattr(user, "id", ""),
-        "steps": [s.model_dump() for s in steps],
+        "steps": [s.model_dump() for s in payload.steps],
         "current_step": 0,
         "status": "active",
         "created_at": _now_iso(),
