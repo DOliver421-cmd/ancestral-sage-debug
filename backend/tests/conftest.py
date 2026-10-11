@@ -80,6 +80,46 @@ def ensure_lcewai_demo_accounts() -> None:
 def _seed_demo_accounts():
     ensure_lcewai_demo_accounts()
 
+
+@pytest.fixture(scope="session", autouse=True)
+def _pace_login_requests():
+    """Keep the suite inside POST /auth/login's rate limit.
+
+    Login is deliberately capped at 20 attempts per minute per IP — a real
+    anti-brute-force control the suite must work within, never around. A suite
+    that authenticates once per test from one address exceeds it and then fails
+    with "Too many requests, slow down" instead of testing anything (three
+    tests in test_rbac_matrix failed exactly this way), so login POSTs are paced
+    here to 18 per rolling 60-second window — what any real client from one
+    address can do. No limit is relaxed and nothing is mocked; the suite simply
+    authenticates at a human-plausible rate.
+    """
+    import threading
+    import time as _time
+
+    budget, window = 18, 60.0
+    stamps: list = []
+    lock = threading.Lock()
+    original = requests.Session.request
+
+    def paced(self, method, url, *args, **kwargs):
+        if str(method).upper() == "POST" and str(url).endswith("/auth/login"):
+            with lock:
+                now = _time.time()
+                stamps[:] = [s for s in stamps if now - s < window]
+                if len(stamps) >= budget:
+                    _time.sleep(window - (now - stamps[0]) + 0.5)
+                    now = _time.time()
+                    stamps[:] = [s for s in stamps if now - s < window]
+                stamps.append(now)
+        return original(self, method, url, *args, **kwargs)
+
+    requests.Session.request = paced
+    try:
+        yield
+    finally:
+        requests.Session.request = original
+
 # NOTE: do NOT add defaults for keys that individual suites set themselves at
 # module import (e.g. MORE_ROLLBACK_WEBHOOK_SECRET / RAILWAY_DEPLOYMENT_ID /
 # COMMIT_SHA in tests/test_system_rollback*.py).  conftest executes before the
