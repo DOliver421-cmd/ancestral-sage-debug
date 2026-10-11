@@ -45,6 +45,37 @@ plus the merged F5-F9 routing-policy work. Current measured surface:
 | Total unique paths | 882 | **888** |
 | Total route-method entries | 1004 | **1016** |
 
+### Update — 2026-10-11 (Soup work merged; +1 `/api` path, +5 `/api` methods, +6 total paths)
+
+Three surface changes from the Soup/AI-chat/puzzle work, all verified against
+the running server:
+
+1. **The Soup's Autonomous Partner API** (`routers/soup_partner.py`,
+   mounted at `/api`): `POST /api/partner`, `GET|POST /api/config`,
+   `POST /api/upload`, `GET /api/memory`, `POST /api/report`. These five
+   routes port the contract that `mini-more-help-center/soup-partner.html`
+   has always called (which previously all fell through to the SPA HTML page).
+   They are mounted through an `_IncludedRouter`, so this file's route walk
+   counts them where the wrapper's routes resolve rather than in the `/api`
+   prefix count — the live surface is five real endpoints.
+2. **`/api/{full_path:path}` (all verbs)** — the JSON 404 answer for unknown
+   `/api/*` paths (owner-approved decision #3): an API probe that used to get
+   `200 text/html` with the SPA page now gets `404 application/json`
+   `{"detail":"Not Found"}`. Registered after every real route, so it only
+   ever sees paths nothing matched.
+3. **`GET /mini-more-help-center/*`** now answers 401/403/404 from the Soup
+   byte gate (`security/soup_gate.py`) instead of serving the files to
+   anyone. Verified live: anonymous 401, free student 403 on the plus-tier
+   `soup-broadcast.html`, cookie session allowed on `soup-confusion.html`.
+
+| Measure | 2026-10-11 (F5-F9) | 2026-10-11 (Soup work) |
+|---|---|---|
+| `/api` unique paths | 356 | **357** |
+| `/api` route-method entries | 406 | **411** |
+| Root-mounted (non-`/api`) unique paths | 532 | **537** |
+| Total unique paths | 888 | **894** |
+| Total route-method entries | 1016 | **1027** |
+
 The pinned constants in `backend/tests/test_api_surface_ledger.py` are bumped
 in the same change, per the instruction in the 2026-09-29 update above.
 

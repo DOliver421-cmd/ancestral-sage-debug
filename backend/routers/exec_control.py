@@ -640,18 +640,25 @@ async def ec_feature_flag(body: _ExecFeatureFlagReq, request: Request,
 # overrides them per feature.  Executives edit this from the console — no code.
 AUTHZ_FEATURES = [
     {"key": "profile", "label": "Profile & account", "api": "/api/auth/me", "detail": "Authenticated account surface"},
-    {"key": "ai_chat", "label": "AI suite", "api": "/api/ai/*", "detail": "Platform and per-persona revocation"},
+    {"key": "ai_chat", "label": "AI suite", "api": "/api/ai/*", "detail": "Member+ or active BYOK; staff bypass; keyword-KB helper stays free"},
     {"key": "publisher_ai", "label": "AI Social Blast", "api": "/api/ai/social-blast", "detail": "Separate from general AI"},
     {"key": "posts", "label": "M.O.R.E. posts and needs", "api": "/api/more/*", "detail": "Tier and platform flag enforced"},
     {"key": "courses", "label": "Courses, labs, credentials", "api": "/api/modules · /api/labs · /api/credentials", "detail": "Instructors bypass course tier"},
     {"key": "tracks", "label": "Learning tracks", "api": "/api/modules/tracks", "detail": "Reserved for tracked LMS routes"},
-    {"key": "lounge", "label": "Creator Lounge", "api": "/api/creator-lounge/*", "detail": "Collaboration projects"},
+    {"key": "curriculum", "label": "Curriculum catalogue listing", "api": "/api/modules", "detail": "The public course directory — never hidden"},
     {"key": "studio", "label": "Creator Studio", "api": "/api/studio/*", "detail": "Creative production tools"},
+    {"key": "studio_full", "label": "Studio: arrangement & publish", "api": "/api/studio/lyric · /api/studio/metadata", "detail": "Song Arrangement + Publish"},
+    {"key": "lounge", "label": "Creator Lounge", "api": "/api/creator-lounge/*", "detail": "Collaboration projects"},
     {"key": "band", "label": "Band on a Page", "api": "/api/band/*", "detail": "Listings and bookings"},
     {"key": "publisher", "label": "Publishing and playlist", "api": "/api/playlist/* · /api/portfolio/publish", "detail": "Publishing tools"},
     {"key": "earnings", "label": "Creator earnings", "api": "/api/creator/earnings", "detail": "Financial visibility"},
     {"key": "payouts", "label": "Creator payouts", "api": "/api/creator/payouts", "detail": "Payout and banking surfaces"},
-    {"key": "sovereign", "label": "Sovereign control", "api": "/api/sovereign/*", "detail": "Executive-tier platform control"},
+    {"key": "puzzles", "label": "Daily puzzle & partnership points", "api": "/api/puzzles/*", "detail": "Free — public to view; points require login"},
+    {"key": "sovereign", "label": "Sovereign control", "api": "/api/sovereign/*", "detail": "Executive-tier platform control (also role-gated)"},
+    # ── "The Soup" — the byte gate on /mini-more-help-center/* ────────────────
+    {"key": "soup", "label": "The Soup — index, Confusion Engine, SEE Through Black", "api": "/mini-more-help-center/*", "detail": "Any signed-in account — the Soup has no anonymous entry"},
+    {"key": "soup_manual", "label": "The Soup — manual, pantheon, games, training, tactics, calendar", "api": "/mini-more-help-center/*", "detail": "The Founder's Manual suite"},
+    {"key": "soup_full", "label": "The Soup — production suite (broadcast, distribution, publisher, media, partner, Suno, workshop)", "api": "/mini-more-help-center/*", "detail": "Includes the Autonomous Partner API's file"},
 ]
 AUTHZ_FEATURE_KEYS = {f["key"] for f in AUTHZ_FEATURES}
 
@@ -659,11 +666,13 @@ AUTHZ_FEATURE_KEYS = {f["key"] for f in AUTHZ_FEATURES}
 @router.get("/exec/control/authz-matrix")
 async def ec_get_authz_matrix(actor: User = Depends(_require_rank("executive_admin"))):
     from security.feature_control import (
-        FEATURE_MIN_TIER, TIER_RANK, load_feature_tier_requirements,
+        FEATURE_MIN_TIER, TIER_RANK, SOUP_MIN_TIER,
+        load_feature_tier_requirements, load_soup_tier_requirements,
     )
     effective = await load_feature_tier_requirements(db)
+    effective.update(await load_soup_tier_requirements(db))
     features = [
-        {**f, "min_tier": effective.get(f["key"], FEATURE_MIN_TIER.get(f["key"], "free"))}
+        {**f, "min_tier": effective.get(f["key"], FEATURE_MIN_TIER.get(f["key"], SOUP_MIN_TIER.get(f["key"], "free")))}
         for f in AUTHZ_FEATURES
     ]
     return {

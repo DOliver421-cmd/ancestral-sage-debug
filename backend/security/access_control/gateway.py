@@ -42,6 +42,39 @@ from .tiers import (
 
 logger = logging.getLogger("lcewai.access_control")
 
+# The scoped session cookie (security/session_cookie.py) is honored ONLY on
+# these paths — the Soup partner routes, the exact narrow scope the Soup byte
+# gate grants. The partner page makes same-origin fetch() calls with no
+# Authorization header and is read-only content that cannot be edited to add
+# one, so the cookie is the only way its calls authenticate. No other path
+# accepts it.
+_SOUP_PARTNER_PATHS = frozenset({
+    "/api/partner", "/api/config", "/api/memory", "/api/upload", "/api/report",
+})
+
+
+try:  # the stdlib-only gate runner has no fastapi; the name is all we need
+    from security.session_cookie import COOKIE_NAME as _SESSION_COOKIE
+except Exception:  # pragma: no cover - import-time safety
+    _SESSION_COOKIE = "lce_session"
+
+
+def _cookie_from_header(cookie_header: Optional[str]) -> Optional[str]:
+    """The scoped session cookie's value from a raw Cookie header (or None)."""
+    if not cookie_header:
+        return None
+    for part in cookie_header.split(";"):
+        name, _, value = part.strip().partition("=")
+        if name == _SESSION_COOKIE:
+            return value or None
+    return None
+
+
+def _cookie_from_request(request) -> Optional[str]:
+    """The scoped session cookie's value from a Starlette Request (or None)."""
+    return _cookie_from_header(request.headers.get("cookie"))
+
+
 # Rank -> role label (for audit detail on handler-derived gates).
 _RANK_TO_ROLE: dict = {rank: role for role, rank in ROLE_HIERARCHY}
 
@@ -520,12 +553,19 @@ class AccessGateway:
         return dep
 
     # ── Middleware (defense-in-depth for the whole control surface) ───────────
-    async def _check(self, path: str, method: str, auth_header: Optional[str], spec) -> Optional[tuple]:
+    async def _check(self, path: str, method: str, auth_header: Optional[str], spec,
+                     cookie_token: Optional[str] = None) -> Optional[tuple]:
         """Core gate decision, shared by the Starlette and raw-ASGI adapters.
 
         Returns (status_code, detail) to reject with — after audit-logging the
         denial — or None to let the request through.
         """
+        # The scoped session cookie stands in for the Authorization header on
+        # the Soup partner routes ONLY (see _SOUP_PARTNER_PATHS). Everywhere
+        # else a cookie is simply not a credential and the header still rules.
+        if not auth_header and cookie_token and path in _SOUP_PARTNER_PATHS:
+            auth_header = f"Bearer {cookie_token}"
+
         # Intentionally-public routes (no user-auth dependency on the route)
         # are excluded from gating — e.g. /api/supervisor/public-chat,
         # /api/exec/panel/heartbeat, /api/bridge/receive. Method-aware: a
@@ -608,7 +648,8 @@ class AccessGateway:
                 if spec is None:
                     return await call_next(request)
                 result = await gateway._check(
-                    path, method, request.headers.get("authorization"), spec
+                    path, method, request.headers.get("authorization"), spec,
+                    cookie_token=_cookie_from_request(request),
                 )
                 if result is None:
                     return await call_next(request)
@@ -643,12 +684,16 @@ class AccessGateway:
                 return await app(scope, receive, send)
 
             auth_header = None
+            cookie_token = None
             for key, value in (scope.get("headers") or []):
-                if key.lower() == b"authorization":
+                k = key.lower()
+                if k == b"authorization":
                     auth_header = value.decode("latin-1")
-                    break
+                elif k == b"cookie":
+                    cookie_token = _cookie_from_header(value.decode("latin-1"))
 
-            result = await self._check(path, method, auth_header, spec)
+            result = await self._check(path, method, auth_header, spec,
+                                       cookie_token=cookie_token)
             if result is None:
                 return await app(scope, receive, send)
             return await self._reject(send, *result)
