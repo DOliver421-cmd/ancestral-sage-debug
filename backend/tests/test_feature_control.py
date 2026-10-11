@@ -177,24 +177,26 @@ def test_feature_for_path_maps_exact_prefixes():
 
 
 def test_per_user_absent_override_is_pass():
-    # No override doc at all -> no verdict -> platform checks decide.
-    assert _check(_UserDB(), _u(), "/api/ai/chat") == ("pass", None)
+    # No override doc at all -> no verdict -> platform checks decide. Uses a
+    # free surface (profile): ai_chat is member-gated on purpose since the
+    # 2026-10-11 owner decision, so a free user hitting it is a TIER block,
+    # not an override verdict.
+    assert _check(_UserDB(), _u(), "/api/auth/me") == ("pass", None)
     # A missing policy store is unavailable; a missing user is left for the
     # route's own authentication dependency to reject.
-    assert _check(None, _u(), "/api/ai/chat")[0] == "unavailable"
-    assert _check(_UserDB(), None, "/api/ai/chat") == ("pass", None)
+    assert _check(None, _u(), "/api/auth/me")[0] == "unavailable"
+    assert _check(_UserDB(), None, "/api/auth/me") == ("pass", None)
 
 
 def test_per_user_flag_revoke_blocks_only_that_user_and_feature():
     ovr = {"u1": {"flags": {"ai_chat": False}}}
     db = _UserDB(overrides=ovr)
-    # u1 is revoked from AI.
-    action, detail = _check(db, _u(uid="u1"), "/api/ai/chat")
+    # u1 is revoked from AI (member tier so only the override can block).
+    action, detail = _check(db, _u(uid="u1", feature_tier="member"), "/api/ai/chat")
     assert action == "block" and "revoked" in detail
-    # A different user is untouched.
-    assert _check(db, _u(uid="u2"), "/api/ai/chat") == ("pass", None)
-    # The revoke only covers ai_chat, not posts (member tier so the tier gate
-    # does not interfere with this assertion).
+    # A different user is untouched (same member tier, no override doc).
+    assert _check(db, _u(uid="u2", feature_tier="member"), "/api/ai/chat") == ("pass", None)
+    # The revoke only covers ai_chat, not posts.
     assert _check(db, _u(uid="u1", feature_tier="member"), "/api/more/posts") == ("pass", None)
 
 
@@ -202,21 +204,23 @@ def test_per_user_flag_grant_wins_over_platform_disable():
     # Exec disabled ai_chat platform-wide but explicitly granted it to u1.
     ovr = {"u1": {"flags": {"ai_chat": True}}}
     db = _UserDB(overrides=ovr)
-    assert _check(db, _u(uid="u1"), "/api/ai/chat") == ("allow", None)
-    # A user with no grant still gets the platform verdict from the caller.
-    assert _check(db, _u(uid="u2"), "/api/ai/chat") == ("pass", None)
+    assert _check(db, _u(uid="u1", feature_tier="member"), "/api/ai/chat") == ("allow", None)
+    # A user with no grant still gets the platform verdict from the caller
+    # (member tier: the platform flag is what would block, and here it's off
+    # at the caller's layer, so the override verdict is a plain pass).
+    assert _check(db, _u(uid="u2", feature_tier="member"), "/api/ai/chat") == ("pass", None)
 
 
 def test_ai_access_override_all_false_blocks_ai():
     ovr = {"u1": {"ai_access_override": {"all": False}}}
     db = _UserDB(overrides=ovr)
-    action, detail = _check(db, _u(uid="u1"), "/api/ai/chat")
+    action, detail = _check(db, _u(uid="u1", feature_tier="member"), "/api/ai/chat")
     assert action == "block" and "AI suite" in detail
-    # Not blocked on non-AI surfaces (member tier so posts passes its gate).
+    # Not blocked on non-AI surfaces.
     assert _check(db, _u(uid="u1", feature_tier="member"), "/api/more/posts") == ("pass", None)
     # Enabled override is a no-op (no explicit grant needed).
     db2 = _UserDB(overrides={"u1": {"ai_access_override": {"all": True}}})
-    assert _check(db2, _u(uid="u1"), "/api/ai/chat") == ("pass", None)
+    assert _check(db2, _u(uid="u1", feature_tier="member"), "/api/ai/chat") == ("pass", None)
 
 
 def test_tier_requirements_match_frontend_contract():
@@ -230,8 +234,14 @@ def test_tier_requirements_match_frontend_contract():
     assert _check(_UserDB(), _u(feature_tier="member"), "/api/modules/x")[0] == "block"
     assert _check(_UserDB(), _u(feature_tier="free"), "/api/modules/x")[0] == "block"
     assert _check(_UserDB(), _u(feature_tier="plus"), "/api/modules/x") == ("pass", None)
-    # ai_chat requires free -> never a tier block.
-    assert _check(_UserDB(), _u(feature_tier="free"), "/api/ai/chat") == ("pass", None)
+    # ai_chat requires member (owner decision 2026-10-11): free is blocked,
+    # member/plus pass, and a free BYOK holder passes via the BYOK carve-out.
+    action, detail = _check(_UserDB(), _u(feature_tier="free"), "/api/ai/chat")
+    assert action == "block" and "Member plan" in detail
+    assert _check(_UserDB(), _u(feature_tier="member"), "/api/ai/chat") == ("pass", None)
+    assert _check(_UserDB(), _u(feature_tier="plus"), "/api/ai/chat") == ("pass", None)
+    # The keyword knowledge-base Helper stays free for signed-in accounts.
+    assert _check(_UserDB(), _u(feature_tier="free"), "/api/ai/helper") == ("pass", None)
 
 
 def test_tier_instructor_and_admin_bypasses():
@@ -266,7 +276,8 @@ def test_authz_matrix_absent_defaults_to_code():
     # No matrix doc -> exactly the code defaults, for every enforced feature.
     req = asyncio.run(load_feature_tier_requirements(_UserDB()))
     assert req == FEATURE_MIN_TIER
-    assert req["ai_chat"] == "free" and req["posts"] == "member" and req["courses"] == "plus"
+    assert req["ai_chat"] == "member" and req["posts"] == "member" and req["courses"] == "plus"
+    assert req["puzzles"] == "free" and req["sovereign"] == "executive"
 
 
 def test_authz_matrix_stored_overrides_defaults():
@@ -274,7 +285,7 @@ def test_authz_matrix_stored_overrides_defaults():
     req = asyncio.run(load_feature_tier_requirements(db))
     assert req["posts"] == "pro"
     assert req["courses"] == "free"  # can also relax a gate
-    assert req["ai_chat"] == "free"  # untouched key keeps default
+    assert req["ai_chat"] == "member"  # untouched key keeps default
 
 
 def test_authz_matrix_ignores_unknown_keys_and_tiers():

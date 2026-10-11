@@ -1,6 +1,33 @@
 {
-  "total": 824,
+  "total": 960,
   "routes": [
+    {
+      "method": "DELETE",
+      "path": "/api/academy/coach/log",
+      "module": "routers.academy",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "coach_log_clear"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/academy/projects/{project_id}",
+      "module": "routers.academy",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "delete_project"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/academy/students/{student_id}",
+      "module": "routers.academy",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "archive_student"
+    },
     {
       "method": "DELETE",
       "path": "/api/admin/access/ipwhitelist/{entry_id}",
@@ -53,7 +80,7 @@
       "auth": [
         "dep"
       ],
-      "name": "exec_force_logout"
+      "name": "admin_revoke_sessions"
     },
     {
       "method": "DELETE",
@@ -126,6 +153,15 @@
         "_dep_current_user"
       ],
       "name": "creator_delete_course"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/exec/assets/{file_id}",
+      "module": "routers.exec_command",
+      "auth": [
+        "dep"
+      ],
+      "name": "exec_delete_asset"
     },
     {
       "method": "DELETE",
@@ -308,6 +344,31 @@
       "name": "delete_video_scene"
     },
     {
+      "method": "DELETE",
+      "path": "/api/workspace/items/{item_id}",
+      "module": "routers.workspace",
+      "auth": [
+        "_me"
+      ],
+      "name": "delete_item"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/workspace/saved/{item_id}",
+      "module": "routers.workspace",
+      "auth": [
+        "_me"
+      ],
+      "name": "delete_saved"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/{full_path:path}",
+      "module": "server.inline",
+      "auth": [],
+      "name": "_api_unknown_path"
+    },
+    {
       "method": "GET",
       "path": "/api/",
       "module": "server.inline",
@@ -469,6 +530,160 @@
         "dep"
       ],
       "name": "abo_verify"
+    },
+    {
+      "method": "GET",
+      "path": "/api/academy/coach/log",
+      "module": "routers.academy",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "coach_log"
+    },
+    {
+      "method": "GET",
+      "path": "/api/academy/compliance/docs",
+      "module": "routers.academy",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "list_compliance_docs"
+    },
+    {
+      "method": "GET",
+      "path": "/api/academy/courses",
+      "module": "routers.academy",
+      "auth": [],
+      "name": "list_courses"
+    },
+    {
+      "method": "GET",
+      "path": "/api/academy/courses/{slug}",
+      "module": "routers.academy",
+      "auth": [
+        "_dep_optional_current_user"
+      ],
+      "name": "course_detail"
+    },
+    {
+      "method": "GET",
+      "path": "/api/academy/courses/{slug}/learn",
+      "module": "routers.academy",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "course_learn"
+    },
+    {
+      "method": "GET",
+      "path": "/api/academy/curriculum-audit",
+      "module": "routers.academy",
+      "auth": [],
+      "name": "curriculum_audit"
+    },
+    {
+      "method": "GET",
+      "path": "/api/academy/instructor/interventions",
+      "module": "routers.academy",
+      "auth": [
+        "_dep"
+      ],
+      "name": "list_interventions"
+    },
+    {
+      "method": "GET",
+      "path": "/api/academy/instructor/learners",
+      "module": "routers.academy",
+      "auth": [
+        "_dep"
+      ],
+      "name": "instructor_learners"
+    },
+    {
+      "method": "GET",
+      "path": "/api/academy/instructor/learners/{student_id}/progress",
+      "module": "routers.academy",
+      "auth": [
+        "_dep"
+      ],
+      "name": "instructor_learner_progress"
+    },
+    {
+      "method": "GET",
+      "path": "/api/academy/messages",
+      "module": "routers.academy",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "list_academy_messages"
+    },
+    {
+      "method": "GET",
+      "path": "/api/academy/portfolio",
+      "module": "routers.academy",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "get_portfolio"
+    },
+    {
+      "method": "GET",
+      "path": "/api/academy/projects",
+      "module": "routers.academy",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "list_projects"
+    },
+    {
+      "method": "GET",
+      "path": "/api/academy/projects/kinds",
+      "module": "routers.academy",
+      "auth": [],
+      "name": "list_project_kinds"
+    },
+    {
+      "method": "GET",
+      "path": "/api/academy/projects/{project_id}",
+      "module": "routers.academy",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "get_project"
+    },
+    {
+      "method": "GET",
+      "path": "/api/academy/students",
+      "module": "routers.academy",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "list_students"
+    },
+    {
+      "method": "GET",
+      "path": "/api/academy/students/{student_id}/dashboard",
+      "module": "routers.academy",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "student_dashboard"
+    },
+    {
+      "method": "GET",
+      "path": "/api/academy/students/{student_id}/records",
+      "module": "routers.academy",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "student_records"
+    },
+    {
+      "method": "GET",
+      "path": "/api/academy/tracks",
+      "module": "routers.academy",
+      "auth": [],
+      "name": "academy_tracks"
     },
     {
       "method": "GET",
@@ -784,7 +999,16 @@
       "auth": [
         "dep"
       ],
-      "name": "exec_list_user_sessions"
+      "name": "admin_list_sessions"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/verification/pending",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "admin_list_pending_verifications"
     },
     {
       "method": "GET",
@@ -1072,6 +1296,96 @@
         "_dep_current_user"
       ],
       "name": "arcade_my_scores"
+    },
+    {
+      "method": "GET",
+      "path": "/api/arena/handoffs",
+      "module": "routers.arena",
+      "auth": [
+        "_get_user"
+      ],
+      "name": "list_handoffs"
+    },
+    {
+      "method": "GET",
+      "path": "/api/arena/handoffs/{handoff_id}",
+      "module": "routers.arena",
+      "auth": [
+        "_get_user"
+      ],
+      "name": "get_handoff"
+    },
+    {
+      "method": "GET",
+      "path": "/api/arena/history",
+      "module": "routers.arena",
+      "auth": [
+        "_get_user"
+      ],
+      "name": "arena_history"
+    },
+    {
+      "method": "GET",
+      "path": "/api/arena/personas",
+      "module": "routers.arena",
+      "auth": [
+        "_get_user"
+      ],
+      "name": "list_personas"
+    },
+    {
+      "method": "GET",
+      "path": "/api/arena/projects",
+      "module": "routers.arena",
+      "auth": [
+        "_get_user"
+      ],
+      "name": "list_projects"
+    },
+    {
+      "method": "GET",
+      "path": "/api/arena/projects/{project_id}",
+      "module": "routers.arena",
+      "auth": [
+        "_get_user"
+      ],
+      "name": "get_project"
+    },
+    {
+      "method": "GET",
+      "path": "/api/arena/sessions",
+      "module": "routers.arena",
+      "auth": [
+        "_get_user"
+      ],
+      "name": "list_sessions"
+    },
+    {
+      "method": "GET",
+      "path": "/api/arena/sessions/{session_id}",
+      "module": "routers.arena",
+      "auth": [
+        "_get_user"
+      ],
+      "name": "get_session"
+    },
+    {
+      "method": "GET",
+      "path": "/api/arena/sessions/{session_id}/results",
+      "module": "routers.arena",
+      "auth": [
+        "_get_user"
+      ],
+      "name": "get_results"
+    },
+    {
+      "method": "GET",
+      "path": "/api/arena/sessions/{session_id}/rounds",
+      "module": "routers.arena",
+      "auth": [
+        "_get_user"
+      ],
+      "name": "list_rounds"
     },
     {
       "method": "GET",
@@ -1442,6 +1756,15 @@
         "_dep_current_user"
       ],
       "name": "get_compliance"
+    },
+    {
+      "method": "GET",
+      "path": "/api/config",
+      "module": "routers.soup_partner",
+      "auth": [
+        "_partner_user"
+      ],
+      "name": "partner_config_get"
     },
     {
       "method": "GET",
@@ -1843,6 +2166,15 @@
     },
     {
       "method": "GET",
+      "path": "/api/exec/assets",
+      "module": "routers.exec_command",
+      "auth": [
+        "dep"
+      ],
+      "name": "exec_list_assets"
+    },
+    {
+      "method": "GET",
       "path": "/api/exec/audio",
       "module": "routers.exec",
       "auth": [
@@ -2195,6 +2527,15 @@
     },
     {
       "method": "GET",
+      "path": "/api/finder/search",
+      "module": "routers.finder",
+      "auth": [
+        "<lambda>"
+      ],
+      "name": "search"
+    },
+    {
+      "method": "GET",
       "path": "/api/handbooks",
       "module": "routers.handbooks",
       "auth": [],
@@ -2220,6 +2561,114 @@
       "module": "server.inline",
       "auth": [],
       "name": "health"
+    },
+    {
+      "method": "GET",
+      "path": "/api/hub/campaigns",
+      "module": "routers.resource_hub",
+      "auth": [
+        "_get_user"
+      ],
+      "name": "list_campaigns"
+    },
+    {
+      "method": "GET",
+      "path": "/api/hub/campaigns/{campaign_id}",
+      "module": "routers.resource_hub",
+      "auth": [
+        "_get_user"
+      ],
+      "name": "get_campaign"
+    },
+    {
+      "method": "GET",
+      "path": "/api/hub/dashboard",
+      "module": "routers.resource_hub",
+      "auth": [
+        "_get_user"
+      ],
+      "name": "hub_dashboard"
+    },
+    {
+      "method": "GET",
+      "path": "/api/hub/grants",
+      "module": "routers.resource_hub",
+      "auth": [
+        "_get_user"
+      ],
+      "name": "list_grants"
+    },
+    {
+      "method": "GET",
+      "path": "/api/hub/grants/{grant_id}",
+      "module": "routers.resource_hub",
+      "auth": [
+        "_get_user"
+      ],
+      "name": "get_grant"
+    },
+    {
+      "method": "GET",
+      "path": "/api/hub/grants/{grant_id}/applications",
+      "module": "routers.resource_hub",
+      "auth": [
+        "_get_user"
+      ],
+      "name": "list_grant_applications"
+    },
+    {
+      "method": "GET",
+      "path": "/api/hub/resources",
+      "module": "routers.resource_hub",
+      "auth": [
+        "_get_user"
+      ],
+      "name": "list_resources"
+    },
+    {
+      "method": "GET",
+      "path": "/api/hub/resources/{resource_id}",
+      "module": "routers.resource_hub",
+      "auth": [
+        "_get_user"
+      ],
+      "name": "get_resource"
+    },
+    {
+      "method": "GET",
+      "path": "/api/hub/workflows",
+      "module": "routers.resource_hub",
+      "auth": [
+        "_get_user"
+      ],
+      "name": "list_workflows"
+    },
+    {
+      "method": "GET",
+      "path": "/api/hybrid-nam/config",
+      "module": "routers.hybrid_nam",
+      "auth": [
+        "_require_staff"
+      ],
+      "name": "hybrid_nam_config"
+    },
+    {
+      "method": "GET",
+      "path": "/api/hybrid-nam/plans",
+      "module": "routers.hybrid_nam",
+      "auth": [
+        "_require_staff"
+      ],
+      "name": "hybrid_nam_plans"
+    },
+    {
+      "method": "GET",
+      "path": "/api/hybrid-nam/status",
+      "module": "routers.hybrid_nam",
+      "auth": [
+        "_require_staff"
+      ],
+      "name": "hybrid_nam_status"
     },
     {
       "method": "GET",
@@ -2471,6 +2920,15 @@
     },
     {
       "method": "GET",
+      "path": "/api/memory",
+      "module": "routers.soup_partner",
+      "auth": [
+        "_partner_user"
+      ],
+      "name": "partner_memory_list"
+    },
+    {
+      "method": "GET",
       "path": "/api/missing/file/{file_id}",
       "module": "routers.missing",
       "auth": [],
@@ -2631,6 +3089,24 @@
         "require_auth"
       ],
       "name": "get_constitution"
+    },
+    {
+      "method": "GET",
+      "path": "/api/nam/context",
+      "module": "routers.nam",
+      "auth": [
+        "require_auth"
+      ],
+      "name": "get_arena_context"
+    },
+    {
+      "method": "GET",
+      "path": "/api/nam/contexts",
+      "module": "routers.nam",
+      "auth": [
+        "require_auth"
+      ],
+      "name": "list_arena_contexts"
     },
     {
       "method": "GET",
@@ -2877,12 +3353,53 @@
     },
     {
       "method": "GET",
+      "path": "/api/nasa/apod",
+      "module": "routers.nasa_observatory",
+      "auth": [],
+      "name": "apod"
+    },
+    {
+      "method": "GET",
+      "path": "/api/nasa/search",
+      "module": "routers.nasa_observatory",
+      "auth": [],
+      "name": "nasa_search"
+    },
+    {
+      "method": "GET",
       "path": "/api/notifications/me",
       "module": "server.inline",
       "auth": [
         "current_user"
       ],
       "name": "my_notifications"
+    },
+    {
+      "method": "GET",
+      "path": "/api/ops/console",
+      "module": "routers.ops_admin",
+      "auth": [
+        "_exec_dep"
+      ],
+      "name": "ops_console"
+    },
+    {
+      "method": "GET",
+      "path": "/api/ops/email/status",
+      "module": "routers.ops_admin",
+      "auth": [
+        "_exec_dep"
+      ],
+      "name": "ops_email_status"
+    },
+    {
+      "method": "GET",
+      "path": "/api/ops/notifications/delivery",
+      "module": "routers.ops_admin",
+      "auth": [
+        "_exec_dep"
+      ],
+      "name": "ops_notifications_delivery"
     },
     {
       "method": "GET",
@@ -3303,6 +3820,85 @@
     },
     {
       "method": "GET",
+      "path": "/api/simulation/analytics/comparison",
+      "module": "routers.simulation",
+      "auth": [
+        "dep"
+      ],
+      "name": "get_comparison_analytics"
+    },
+    {
+      "method": "GET",
+      "path": "/api/simulation/profiles",
+      "module": "routers.simulation",
+      "auth": [
+        "dep"
+      ],
+      "name": "list_profiles"
+    },
+    {
+      "method": "GET",
+      "path": "/api/simulation/profiles/{profile_id}",
+      "module": "routers.simulation",
+      "auth": [
+        "dep"
+      ],
+      "name": "get_profile"
+    },
+    {
+      "method": "GET",
+      "path": "/api/simulation/runs",
+      "module": "routers.simulation",
+      "auth": [
+        "dep"
+      ],
+      "name": "list_runs"
+    },
+    {
+      "method": "GET",
+      "path": "/api/simulation/runs/{run_id}",
+      "module": "routers.simulation",
+      "auth": [
+        "dep"
+      ],
+      "name": "get_run"
+    },
+    {
+      "method": "GET",
+      "path": "/api/simulation/runs/{run_id}/analytics",
+      "module": "routers.simulation",
+      "auth": [
+        "dep"
+      ],
+      "name": "get_run_analytics"
+    },
+    {
+      "method": "GET",
+      "path": "/api/simulation/runs/{run_id}/events",
+      "module": "routers.simulation",
+      "auth": [
+        "dep"
+      ],
+      "name": "get_events"
+    },
+    {
+      "method": "GET",
+      "path": "/api/simulation/scenarios",
+      "module": "routers.simulation",
+      "auth": [
+        "dep"
+      ],
+      "name": "list_scenarios"
+    },
+    {
+      "method": "GET",
+      "path": "/api/site-assets",
+      "module": "routers.exec_command",
+      "auth": [],
+      "name": "public_site_assets"
+    },
+    {
+      "method": "GET",
       "path": "/api/site-guide/status",
       "module": "routers.site_guide",
       "auth": [
@@ -3474,6 +4070,15 @@
     },
     {
       "method": "GET",
+      "path": "/api/verification/status",
+      "module": "server.inline",
+      "auth": [
+        "current_user"
+      ],
+      "name": "my_verification_status"
+    },
+    {
+      "method": "GET",
       "path": "/api/verify/{code}",
       "module": "server.inline",
       "auth": [],
@@ -3556,6 +4161,24 @@
     },
     {
       "method": "GET",
+      "path": "/api/workspace/items",
+      "module": "routers.workspace",
+      "auth": [
+        "_me"
+      ],
+      "name": "list_items"
+    },
+    {
+      "method": "GET",
+      "path": "/api/workspace/saved",
+      "module": "routers.workspace",
+      "auth": [
+        "_me"
+      ],
+      "name": "list_saved"
+    },
+    {
+      "method": "GET",
       "path": "/api/xp/leaderboard",
       "module": "routers.community",
       "auth": [
@@ -3571,6 +4194,20 @@
         "_dep_current_user"
       ],
       "name": "my_xp"
+    },
+    {
+      "method": "GET",
+      "path": "/api/{full_path:path}",
+      "module": "server.inline",
+      "auth": [],
+      "name": "_api_unknown_path"
+    },
+    {
+      "method": "HEAD",
+      "path": "/api/{full_path:path}",
+      "module": "server.inline",
+      "auth": [],
+      "name": "_api_unknown_path"
     },
     {
       "method": "PATCH",
@@ -3589,6 +4226,24 @@
         "dep"
       ],
       "name": "update_deal"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/academy/projects/{project_id}",
+      "module": "routers.academy",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "update_project"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/academy/students/{student_id}",
+      "module": "routers.academy",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "update_student"
     },
     {
       "method": "PATCH",
@@ -3691,6 +4346,24 @@
     },
     {
       "method": "PATCH",
+      "path": "/api/arena/rounds/{round_id}",
+      "module": "routers.arena",
+      "auth": [
+        "_get_user"
+      ],
+      "name": "update_round_output"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/arena/sessions/{session_id}/swap",
+      "module": "routers.arena",
+      "auth": [
+        "_get_user"
+      ],
+      "name": "swap_persona"
+    },
+    {
+      "method": "PATCH",
       "path": "/api/auditor/ledger/{entry_id}",
       "module": "routers.auditor",
       "auth": [
@@ -3763,6 +4436,24 @@
     },
     {
       "method": "PATCH",
+      "path": "/api/hub/grants/applications/{app_id}",
+      "module": "routers.resource_hub",
+      "auth": [
+        "_get_user"
+      ],
+      "name": "update_grant_application"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/hub/workflows/{workflow_id}",
+      "module": "routers.resource_hub",
+      "auth": [
+        "_get_user"
+      ],
+      "name": "update_workflow"
+    },
+    {
+      "method": "PATCH",
       "path": "/api/iam/identities/{identity_id}",
       "module": "routers.iam",
       "auth": [
@@ -3778,6 +4469,15 @@
         "_dep_current_user"
       ],
       "name": "update_media_product"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/nam/context/{context_id}",
+      "module": "routers.nam",
+      "auth": [
+        "require_auth"
+      ],
+      "name": "update_arena_context"
     },
     {
       "method": "PATCH",
@@ -3924,6 +4624,22 @@
       "name": "update_video_scene"
     },
     {
+      "method": "PATCH",
+      "path": "/api/workspace/items/{item_id}",
+      "module": "routers.workspace",
+      "auth": [
+        "_me"
+      ],
+      "name": "update_item"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/{full_path:path}",
+      "module": "server.inline",
+      "auth": [],
+      "name": "_api_unknown_path"
+    },
+    {
       "method": "POST",
       "path": "/api/aawab/admin/agents/{agent_id}/override",
       "module": "routers.aawab",
@@ -4066,6 +4782,96 @@
         "dep"
       ],
       "name": "abo_source_controls_save"
+    },
+    {
+      "method": "POST",
+      "path": "/api/academy/coach/log",
+      "module": "routers.academy",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "coach_log_write"
+    },
+    {
+      "method": "POST",
+      "path": "/api/academy/compliance/generate",
+      "module": "routers.academy",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "generate_compliance_doc"
+    },
+    {
+      "method": "POST",
+      "path": "/api/academy/courses/{slug}/lessons/{lesson_slug}/attempt",
+      "module": "routers.academy",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "submit_attempt"
+    },
+    {
+      "method": "POST",
+      "path": "/api/academy/instructor/interventions",
+      "module": "routers.academy",
+      "auth": [
+        "_dep"
+      ],
+      "name": "create_intervention"
+    },
+    {
+      "method": "POST",
+      "path": "/api/academy/messages",
+      "module": "routers.academy",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "send_academy_message"
+    },
+    {
+      "method": "POST",
+      "path": "/api/academy/messages/{mid}/read",
+      "module": "routers.academy",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "read_academy_message"
+    },
+    {
+      "method": "POST",
+      "path": "/api/academy/projects",
+      "module": "routers.academy",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "create_project"
+    },
+    {
+      "method": "POST",
+      "path": "/api/academy/projects/{project_id}/submit",
+      "module": "routers.academy",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "submit_project"
+    },
+    {
+      "method": "POST",
+      "path": "/api/academy/students",
+      "module": "routers.academy",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "create_student"
+    },
+    {
+      "method": "POST",
+      "path": "/api/academy/students/{student_id}/courses",
+      "module": "routers.academy",
+      "auth": [
+        "_dep_current_user"
+      ],
+      "name": "change_enrollment"
     },
     {
       "method": "POST",
@@ -4304,7 +5110,7 @@
       "auth": [
         "dep"
       ],
-      "name": "admin_reset_password"
+      "name": "admin_reset_password_exec"
     },
     {
       "method": "POST",
@@ -4314,6 +5120,33 @@
         "dep"
       ],
       "name": "admin_unban_user"
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/verification/{uid}/approve",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "admin_approve_verification"
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/verification/{uid}/delete",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "admin_delete_flagged_account"
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/verification/{uid}/reject",
+      "module": "server.inline",
+      "auth": [
+        "dep"
+      ],
+      "name": "admin_reject_verification"
     },
     {
       "method": "POST",
@@ -4775,6 +5608,69 @@
     },
     {
       "method": "POST",
+      "path": "/api/arena/handoff",
+      "module": "routers.arena",
+      "auth": [
+        "_get_user"
+      ],
+      "name": "handoff_to_nam"
+    },
+    {
+      "method": "POST",
+      "path": "/api/arena/projects",
+      "module": "routers.arena",
+      "auth": [
+        "_get_user"
+      ],
+      "name": "create_project"
+    },
+    {
+      "method": "POST",
+      "path": "/api/arena/scores",
+      "module": "routers.arena",
+      "auth": [
+        "_get_user"
+      ],
+      "name": "submit_score"
+    },
+    {
+      "method": "POST",
+      "path": "/api/arena/sessions",
+      "module": "routers.arena",
+      "auth": [
+        "_get_user"
+      ],
+      "name": "create_session"
+    },
+    {
+      "method": "POST",
+      "path": "/api/arena/sessions/{session_id}/advance",
+      "module": "routers.arena",
+      "auth": [
+        "_get_user"
+      ],
+      "name": "advance_round"
+    },
+    {
+      "method": "POST",
+      "path": "/api/arena/sessions/{session_id}/rounds",
+      "module": "routers.arena",
+      "auth": [
+        "_get_user"
+      ],
+      "name": "start_round"
+    },
+    {
+      "method": "POST",
+      "path": "/api/arena/sessions/{session_id}/rounds/single",
+      "module": "routers.arena",
+      "auth": [
+        "_get_user"
+      ],
+      "name": "run_single_persona_round"
+    },
+    {
+      "method": "POST",
       "path": "/api/assistant/chat",
       "module": "routers.chat",
       "auth": [
@@ -5032,6 +5928,15 @@
     },
     {
       "method": "POST",
+      "path": "/api/config",
+      "module": "routers.soup_partner",
+      "auth": [
+        "_partner_user"
+      ],
+      "name": "partner_config_set"
+    },
+    {
+      "method": "POST",
       "path": "/api/consent/cookie",
       "module": "routers.misc",
       "auth": [],
@@ -5230,6 +6135,15 @@
         "dep"
       ],
       "name": "close_opportunity_won"
+    },
+    {
+      "method": "POST",
+      "path": "/api/exec/assets",
+      "module": "routers.exec_command",
+      "auth": [
+        "dep"
+      ],
+      "name": "exec_upload_asset"
     },
     {
       "method": "POST",
@@ -5681,6 +6595,114 @@
     },
     {
       "method": "POST",
+      "path": "/api/hub/campaigns",
+      "module": "routers.resource_hub",
+      "auth": [
+        "_get_user"
+      ],
+      "name": "create_campaign"
+    },
+    {
+      "method": "POST",
+      "path": "/api/hub/grants",
+      "module": "routers.resource_hub",
+      "auth": [
+        "_get_user"
+      ],
+      "name": "create_grant"
+    },
+    {
+      "method": "POST",
+      "path": "/api/hub/grants/applications",
+      "module": "routers.resource_hub",
+      "auth": [
+        "_get_user"
+      ],
+      "name": "apply_for_grant"
+    },
+    {
+      "method": "POST",
+      "path": "/api/hub/resources",
+      "module": "routers.resource_hub",
+      "auth": [
+        "_get_user"
+      ],
+      "name": "create_resource"
+    },
+    {
+      "method": "POST",
+      "path": "/api/hub/workflows",
+      "module": "routers.resource_hub",
+      "auth": [
+        "_get_user"
+      ],
+      "name": "create_workflow"
+    },
+    {
+      "method": "POST",
+      "path": "/api/hybrid-nam/chat",
+      "module": "routers.hybrid_nam",
+      "auth": [
+        "_require_staff"
+      ],
+      "name": "hybrid_nam_chat"
+    },
+    {
+      "method": "POST",
+      "path": "/api/hybrid-nam/chat/audio",
+      "module": "routers.hybrid_nam",
+      "auth": [
+        "_require_staff"
+      ],
+      "name": "hybrid_nam_chat_audio"
+    },
+    {
+      "method": "POST",
+      "path": "/api/hybrid-nam/config/rotate",
+      "module": "routers.hybrid_nam",
+      "auth": [
+        "_require_staff"
+      ],
+      "name": "hybrid_nam_rotate"
+    },
+    {
+      "method": "POST",
+      "path": "/api/hybrid-nam/plans",
+      "module": "routers.hybrid_nam",
+      "auth": [
+        "_require_staff"
+      ],
+      "name": "hybrid_nam_create_plan"
+    },
+    {
+      "method": "POST",
+      "path": "/api/hybrid-nam/plans/{plan_id}/advance",
+      "module": "routers.hybrid_nam",
+      "auth": [
+        "_require_staff"
+      ],
+      "name": "hybrid_nam_advance_plan"
+    },
+    {
+      "method": "POST",
+      "path": "/api/hybrid-nam/plans/{plan_id}/ready",
+      "module": "routers.hybrid_nam",
+      "auth": [
+        "_require_staff"
+      ],
+      "name": "hybrid_nam_ready_plan"
+    },
+    {
+      "method": "POST",
+      "path": "/api/hybrid-nam/upload",
+      "module": "routers.hybrid_nam",
+      "auth": [
+        "_require_staff"
+      ],
+      "name": "hybrid_nam_upload"
+    },
+    {
+      "method": "POST",
       "path": "/api/iam/actions",
       "module": "routers.iam",
       "auth": [
@@ -6073,6 +7095,24 @@
     },
     {
       "method": "POST",
+      "path": "/api/nam/context",
+      "module": "routers.nam",
+      "auth": [
+        "require_auth"
+      ],
+      "name": "create_arena_context"
+    },
+    {
+      "method": "POST",
+      "path": "/api/nam/context/{context_id}/action",
+      "module": "routers.nam",
+      "auth": [
+        "require_auth"
+      ],
+      "name": "record_context_action"
+    },
+    {
+      "method": "POST",
       "path": "/api/nam/development/evaluate",
       "module": "routers.nam",
       "auth": [
@@ -6307,6 +7347,15 @@
     },
     {
       "method": "POST",
+      "path": "/api/nam/orchestrate",
+      "module": "routers.nam",
+      "auth": [
+        "require_auth"
+      ],
+      "name": "orchestrate_arena"
+    },
+    {
+      "method": "POST",
       "path": "/api/nam/persona",
       "module": "routers.nam",
       "auth": [
@@ -6343,6 +7392,42 @@
     },
     {
       "method": "POST",
+      "path": "/api/ops/email/test",
+      "module": "routers.ops_admin",
+      "auth": [
+        "_exec_dep"
+      ],
+      "name": "ops_email_test"
+    },
+    {
+      "method": "POST",
+      "path": "/api/ops/notifications/send",
+      "module": "routers.ops_admin",
+      "auth": [
+        "_exec_dep"
+      ],
+      "name": "ops_notifications_send"
+    },
+    {
+      "method": "POST",
+      "path": "/api/ops/notifications/test",
+      "module": "routers.ops_admin",
+      "auth": [
+        "_exec_dep"
+      ],
+      "name": "ops_notifications_test"
+    },
+    {
+      "method": "POST",
+      "path": "/api/partner",
+      "module": "routers.soup_partner",
+      "auth": [
+        "_require_partner_ai_access"
+      ],
+      "name": "partner_chat"
+    },
+    {
+      "method": "POST",
       "path": "/api/payments/checkout",
       "module": "server.inline",
       "auth": [
@@ -6352,10 +7437,17 @@
     },
     {
       "method": "POST",
-      "path": "/api/payments/webhook",
+      "path": "/api/payments/stripe-webhook",
       "module": "server.inline",
       "auth": [],
       "name": "stripe_webhook"
+    },
+    {
+      "method": "POST",
+      "path": "/api/payments/webhook",
+      "module": "server.inline",
+      "auth": [],
+      "name": "lemon_squeezy_webhook"
     },
     {
       "method": "POST",
@@ -6501,6 +7593,15 @@
       "module": "routers.sovereign",
       "auth": [],
       "name": "puzzles_answer"
+    },
+    {
+      "method": "POST",
+      "path": "/api/report",
+      "module": "routers.soup_partner",
+      "auth": [
+        "_partner_user"
+      ],
+      "name": "partner_report"
     },
     {
       "method": "POST",
@@ -6670,6 +7771,42 @@
         "dep"
       ],
       "name": "reverse_action"
+    },
+    {
+      "method": "POST",
+      "path": "/api/simulation/profiles",
+      "module": "routers.simulation",
+      "auth": [
+        "dep"
+      ],
+      "name": "create_profile"
+    },
+    {
+      "method": "POST",
+      "path": "/api/simulation/runs",
+      "module": "routers.simulation",
+      "auth": [
+        "dep"
+      ],
+      "name": "create_run"
+    },
+    {
+      "method": "POST",
+      "path": "/api/simulation/runs/{run_id}/start",
+      "module": "routers.simulation",
+      "auth": [
+        "dep"
+      ],
+      "name": "start_run"
+    },
+    {
+      "method": "POST",
+      "path": "/api/simulation/runs/{run_id}/stop",
+      "module": "routers.simulation",
+      "auth": [
+        "dep"
+      ],
+      "name": "stop_run"
     },
     {
       "method": "POST",
@@ -6928,6 +8065,15 @@
     },
     {
       "method": "POST",
+      "path": "/api/upload",
+      "module": "routers.soup_partner",
+      "auth": [
+        "_partner_user"
+      ],
+      "name": "partner_upload"
+    },
+    {
+      "method": "POST",
       "path": "/api/users/accept-terms",
       "module": "server.inline",
       "auth": [
@@ -6948,6 +8094,15 @@
       "module": "routers.system_rollback",
       "auth": [],
       "name": "ingest_visual_state"
+    },
+    {
+      "method": "POST",
+      "path": "/api/verification/request-card",
+      "module": "server.inline",
+      "auth": [
+        "current_user"
+      ],
+      "name": "request_card_verification"
     },
     {
       "method": "POST",
@@ -7085,6 +8240,31 @@
       "name": "generate_voice"
     },
     {
+      "method": "POST",
+      "path": "/api/workspace/items",
+      "module": "routers.workspace",
+      "auth": [
+        "_me"
+      ],
+      "name": "create_item"
+    },
+    {
+      "method": "POST",
+      "path": "/api/workspace/saved",
+      "module": "routers.workspace",
+      "auth": [
+        "_me"
+      ],
+      "name": "add_saved"
+    },
+    {
+      "method": "POST",
+      "path": "/api/{full_path:path}",
+      "module": "server.inline",
+      "auth": [],
+      "name": "_api_unknown_path"
+    },
+    {
       "method": "PUT",
       "path": "/api/abo/config",
       "module": "routers.abo",
@@ -7176,6 +8356,15 @@
     },
     {
       "method": "PUT",
+      "path": "/api/exec/assets/{file_id}/assign",
+      "module": "routers.exec_command",
+      "auth": [
+        "dep"
+      ],
+      "name": "exec_assign_asset"
+    },
+    {
+      "method": "PUT",
       "path": "/api/executive/projects/{project_id}/packet",
       "module": "routers.executive_pipeline",
       "auth": [
@@ -7209,6 +8398,13 @@
         "dep"
       ],
       "name": "update_priority"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/{full_path:path}",
+      "module": "server.inline",
+      "auth": [],
+      "name": "_api_unknown_path"
     }
   ]
 }

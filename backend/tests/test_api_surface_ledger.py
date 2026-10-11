@@ -23,12 +23,16 @@ import pytest
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 # Measured 2026-09-29 against commit d2f521a; re-measured 2026-10-11 after
-# F5-F9 merged. Bump deliberately, with a
-# ledger update in the same commit, when the surface changes on purpose.
-EXPECTED_API_PATHS = 356
-EXPECTED_API_METHODS = 406
-EXPECTED_TOTAL_PATHS = 888
-EXPECTED_TOTAL_METHODS = 1016
+# F5-F9 merged; re-measured again 2026-10-11 after the Soup work merged (the
+# partner API's five routes are wrapped by _IncludedRouter and only become
+# visible to this walk through the mount that serves them, so the countable
+# delta is the JSON 404 catch-all registered for unknown /api/* paths).
+# Bump deliberately, with a ledger update in the same commit, when the surface
+# changes on purpose.
+EXPECTED_API_PATHS = 357
+EXPECTED_API_METHODS = 411
+EXPECTED_TOTAL_PATHS = 894
+EXPECTED_TOTAL_METHODS = 1027
 
 # The executive/admin surface is mounted at the root, not under /api. Its
 # disappearance would mean a whole router stopped mounting, so pin a sample

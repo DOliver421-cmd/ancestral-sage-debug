@@ -45,6 +45,11 @@ export const TIER_FOR_FEATURE = {
   projects: "member",     // "Have your M.O.R.E. team work on it"
   curriculum: "free",    // catalog directory — always visible
   courses: "plus",        // course library (content)
+  // Daily puzzle / partnership points — free. The card ships on the free
+  // StudentDashboard; points are awarded only to logged-in solves. The
+  // backend split this out of "sovereign" (2026-10-11) so the tier gate
+  // stops 403-ing every signed-in student whose dashboard renders it.
+  puzzles: "free",
   // ── "The Soup" — the Mini More Help Center archive (owner decision 2026-10-11) ──
   soup: "free",         // any signed-in account: the Soup requires registration
   soup_manual: "member", // the manual, pantheon, games, training, 60 tactics, calendar

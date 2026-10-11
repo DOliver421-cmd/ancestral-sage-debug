@@ -23,6 +23,10 @@ Current enforcement surface (paths are API prefixes, not frontend routes):
   PAGE_ACCESS_REGISTRY in routers/exec_control.py
       ai           -> /api/ai/*
 
+  The Soup         (SOUP_FILE_FEATURES / SOUP_MIN_TIER, enforced by
+                    security/soup_gate.py on the /mini-more-help-center/ prefix;
+                    overridable through the same db.authz_matrix document)
+
 Anything not in the maps below is not enforced by this module yet — that is
 deliberate: the maps are the enforcement contract, and every entry must be
 verified against the real route table before it is added.    Per-user enforcement (user_feature_overrides + feature_tier) lives in
@@ -65,7 +69,14 @@ FEATURE_API_PATHS: dict = {
     # Creator Studio's premium surfaces — Song Arrangement and Publish — come
     # first so the prefix match is specific before the whole-studio entry.
     "studio_full": ["/api/studio/lyric", "/api/studio/metadata"],
-    "sovereign": ["/api/sovereign/", "/api/puzzles/"],
+    # The daily puzzle / partnership-points game is its own FREE surface: the
+    # puzzle card lives on the free StudentDashboard and its handler contract
+    # is "public to view; points require login" (routers/sovereign.py). It used
+    # to ride on the "sovereign" key, which made every signed-in free account
+    # fail the tier gate and silently killed the card on the dashboard.
+    # Specific prefixes come before broad ones so this split stays exact.
+    "puzzles": ["/api/puzzles", "/api/puzzles/"],
+    "sovereign": ["/api/sovereign/"],
     "studio": ["/api/studio/"],
     "band": ["/api/band/"],
     "lounge": ["/api/creator-lounge/"],
@@ -216,20 +227,27 @@ AUTHZ_REQUIREMENT_TIERS = set(TIER_RANK) - {"platinum"}
 # bypass tier requirements entirely (staff, not paying customers).
 FEATURE_MIN_TIER: dict = {
     "profile": "free",
-    "ai_chat": "free",
+    # AI chat is a Member surface — the owner's "very limited AI for anonymous,
+    # paid above that" policy. This matches frontend/src/lib/tiers.js AND the
+    # handler's own guard (routers/ai.py:_ai_chat_access: member+ or an active
+    # BYOK key; staff roles bypass). The BYOK and keyword-KB-helper carve-outs
+    # live in check_user_feature_access so the middleware never blocks a path
+    # the handler intentionally serves. Anonymous callers never reach the LLM
+    # surfaces at all (those handlers require a session).
+    "ai_chat": "member",
     "curriculum": "free",  # catalog directory — never hidden
+    # The daily puzzle / partnership points game. Free: the card ships on the
+    # free StudentDashboard and points are awarded only to logged-in solves.
+    "puzzles": "free",
     "posts": "member",
     "publisher_ai": "member",
     "lounge": "member",
     "courses": "plus",
-    # NOTE: "The Soup" (Mini More Help Center) is deliberately NOT listed here.
-    # Its 16 files are static HTML served by the frontend build, gated per file
-    # at /classic/:slug in frontend/src/pages/LegacyTool.jsx from each entry's
-    # `feature` in originalTools.js — there is no /api surface to map, and
-    # FEATURE_API_PATHS only accepts /api prefixes. The tier contract for the
-    # Soup therefore lives in the frontend TIER_FOR_FEATURE map, which is where
-    # its gate is enforced and verified. Adding a key here without an API
-    # surface would fail test_tier_map_mirrors_frontend_contract.
+    # NOTE: "The Soup" (Mini More Help Center) has no /api surface, so it is not
+    # in this map — its server-side contract lives in SOUP_FILE_FEATURES /
+    # SOUP_MIN_TIER below, enforced by security/soup_gate.py on the
+    # /mini-more-help-center/ prefix. The UI mirror stays
+    # frontend/src/lib/tiers.js (soup / soup_manual / soup_full).
     "tracks": "plus",
     # Creator Studio is a paid feature: Member ($9/mo) is the entry tier, not
     # free. Free accounts get no studio access at all.
@@ -247,6 +265,130 @@ TIER_EXEMPT_ROLES = ("admin", "executive_admin")
 
 # Instructors get course/track access regardless of tier (they teach).
 FEATURE_INSTRUCTOR_BYPASS = {"courses", "tracks"}
+
+# ── AI chat carve-outs (mirror routers/ai.py:_ai_chat_access) ──────────────────
+# The keyword knowledge-base Helper answers at zero LLM cost and is documented
+# to serve anonymous AND authenticated visitors (owner policy: anonymous gets
+# "very limited AI" — the curated KB, never a provider call). It must stay
+# reachable for every signed-in account even though ai_chat itself is member.
+AI_KB_HELPER_PATHS = ("/api/ai/helper",)
+
+
+# ── "The Soup" — server-side contract (owner decision 2026-10-11) ─────────────
+# The Soup's 16 files are static assets under the /mini-more-help-center/
+# prefix. Their UI gate (frontend/src/pages/LegacyTool.jsx) is a convenience;
+# the bytes themselves are gated HERE, server-side, by security/soup_gate.py.
+# The per-file map mirrors frontend/src/lib/originalTools.js exactly, and the
+# minimum tiers mirror frontend/src/lib/tiers.js.
+SOUP_PATH_PREFIX = "/mini-more-help-center/"
+
+SOUP_FILE_FEATURES: dict = {
+    # `soup` — any signed-in account. The Soup has no anonymous entry.
+    "soup-index.html": "soup",
+    "soup-confusion.html": "soup",
+    "soup-see-through-black.html": "soup",
+    # `soup_manual` — the $9 member tier.
+    "soup-founders-manual.html": "soup_manual",
+    "soup-pantheon.html": "soup_manual",
+    "soup-games.html": "soup_manual",
+    "soup-training.html": "soup_manual",
+    "soup-tactics.html": "soup_manual",
+    "soup-calendar.html": "soup_manual",
+    # `soup_full` — the $15 plus tier (the production suite).
+    "soup-broadcast.html": "soup_full",
+    "soup-distributor.html": "soup_full",
+    "soup-publisher.html": "soup_full",
+    "soup-media.html": "soup_full",
+    "soup-partner.html": "soup_full",
+    "soup-suno.html": "soup_full",
+    "soup-workshop.html": "soup_full",
+    # Assets the soup_full pages load. Same prefix gate, same tier: an asset
+    # alone is inert, but it is still part of the paid bundle.
+    "hub_client.js": "soup_full",
+    "rule_90211.mp3": "soup_full",
+}
+
+# Minimum tier per Soup feature. Overridable from the exec console through the
+# SAME db.authz_matrix document as FEATURE_MIN_TIER (see
+# load_soup_tier_requirements) — nothing here is a hardcoded dead end.
+SOUP_MIN_TIER: dict = {
+    "soup": "free",         # signed-in only
+    "soup_manual": "member",
+    "soup_full": "plus",
+}
+
+
+def soup_feature_for_path(path: str):
+    """Feature key governing a Soup asset path, or None if it is not a known
+    Soup file (unknown files under the prefix are a 404, never a leak)."""
+    if not path.startswith(SOUP_PATH_PREFIX):
+        return None
+    filename = path[len(SOUP_PATH_PREFIX):].split("?")[0]
+    return SOUP_FILE_FEATURES.get(filename)
+
+
+async def load_soup_tier_requirements(db, *, fail_closed: bool = False):
+    """Effective Soup feature -> minimum-tier map (code default + DB overlay).
+
+    The exec console's authorization matrix (db.authz_matrix) is the single
+    override store for every gate on the platform, including the Soup: an
+    executive who edits soup/soup_manual/soup_full there changes what the
+    soup gate enforces on the next request. Unknown keys/tiers are dropped.
+    """
+    req = dict(SOUP_MIN_TIER)
+    try:
+        doc = await db.authz_matrix.find_one({"_id": "matrix"}, {"_id": 0, "requirements": 1})
+    except Exception:
+        if fail_closed:
+            raise
+        return req
+    stored = (doc or {}).get("requirements") or {}
+    for key, tier in stored.items():
+        if key in req and tier in AUTHZ_REQUIREMENT_TIERS:
+            req[key] = tier
+    return req
+
+
+async def check_soup_file_access(db, user, path: str):
+    """Per-file verdict for a Soup asset request.
+
+    Returns (action, detail):
+      ("allow", None)   — the caller may receive the bytes
+      ("block", msg)    — 403 with msg
+      ("unavailable", msg) — 503, policy could not be verified
+
+    Owner/executive admins bypass every Soup tier (nothing on this platform
+    is ever locked away from the owner), exactly like FEATURE gate enforcement.
+    """
+    feature = soup_feature_for_path(path)
+    if feature is None:
+        return ("missing", None)
+    if user is None:
+        return ("block", "Sign in to open the Soup.")
+    if user.role in TIER_EXEMPT_ROLES:
+        return ("allow", None)
+    try:
+        requirements = await load_soup_tier_requirements(db, fail_closed=True)
+    except Exception:
+        return ("unavailable", "Soup authorization unavailable — request rejected.")
+    required = requirements.get(feature)
+    if not required:
+        return ("allow", None)
+    custom_tiers = []
+    user_tier = getattr(user, "feature_tier", None) or "free"
+    if user_tier not in TIER_RANK or required not in TIER_RANK:
+        try:
+            custom_tiers = await db.tier_definitions.find(
+                {}, {"_id": 0, "tier_id": 1, "rank": 1}
+            ).to_list(100)
+        except Exception:
+            return ("unavailable", "Soup authorization unavailable — request rejected.")
+    user_rank = _tier_rank_of(user_tier, custom_tiers)
+    required_rank = TIER_RANK.get(required) or _tier_rank_of(required, custom_tiers)
+    if required_rank is None or user_rank < required_rank:
+        label = TIER_LABELS.get(required, required)
+        return ("block", f"This part of the Soup requires the {label} plan or higher.")
+    return ("allow", None)
 
 # BUSINESS_ACCESS_POLICY §7A (owner decision, August 2026): platform-funded AI
 # is reserved for admin / executive_admin staff ONLY.  Every other caller is
@@ -321,6 +463,22 @@ async def load_feature_tier_requirements(db, *, fail_closed: bool = False):
         if key in req and (tier in AUTHZ_REQUIREMENT_TIERS or tier in custom_ids):
             req[key] = tier
     return req
+
+
+async def _user_has_byok(db, user) -> bool:
+    """True when the user has an active BYOK key recorded on their document.
+
+    Read defensively: a DB failure returns False (fail closed into the tier
+    gate, which is the stricter verdict — a member still passes, and the
+    authoritative 401/403/200 still comes from the handler's own dependency).
+    """
+    if db is None or user is None:
+        return False
+    try:
+        doc = await db.users.find_one({"id": getattr(user, "id", None)}, {"_id": 0, "byok_enabled": 1})
+    except Exception:
+        return False
+    return bool((doc or {}).get("byok_enabled"))
 
 
 async def check_user_feature_access(db, user, path: str):
@@ -417,6 +575,19 @@ async def check_user_feature_access(db, user, path: str):
     # ── 4. Feature-tier requirement (editable authorization matrix) ────────────
     # The matrix is DB-backed (db.authz_matrix, edited from the exec console);
     # code defaults apply until an executive changes it.  Absent config == allow.
+    # ── 4a. AI chat carve-outs (mirror routers/ai.py:_ai_chat_access) ──────────
+    if feature == "ai_chat":
+        # (a) The keyword knowledge-base Helper answers at zero LLM cost and is
+        #     documented to serve anonymous AND authenticated visitors. It stays
+        #     reachable for every signed-in account even though ai_chat itself
+        #     is a Member surface.
+        if _path_in(path, AI_KB_HELPER_PATHS):
+            return ("pass", None)
+        # (b) An active BYOK key satisfies the Member requirement — the exact
+        #     contract the /ai/chat handler applies, so the middleware never
+        #     blocks a BYOK caller the handler would have served.
+        if await _user_has_byok(db, user):
+            return ("pass", None)
     try:
         requirements = await load_feature_tier_requirements(db, fail_closed=True)
     except Exception:

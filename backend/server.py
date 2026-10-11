@@ -270,6 +270,10 @@ _ADDITIONAL_API_ROUTER_MODULES = (
     ("arena", ""),
     ("resource_hub", ""),
     ("nasa_observatory", "/api"),
+    # The Soup's Autonomous Partner API — ports the five routes the partner
+    # page (mini-more-help-center/soup-partner.html) has always called, which
+    # previously all fell through to the SPA HTML page.
+    ("soup_partner", "/api"),
 )
 
 # ── Feature Control Center enforcement (read side) ──────────────────────────
@@ -284,6 +288,21 @@ _ADDITIONAL_API_ROUTER_MODULES = (
 # time, after the whole module has loaded).
 from security.fcc_middleware import make_fcc_middleware as _make_fcc_middleware
 app.middleware("http")(_make_fcc_middleware(
+    get_db=lambda: db,
+    get_jwt_secret=lambda: JWT_SECRET,
+    get_jwt_algo=lambda: JWT_ALGO,
+    get_user_cls=lambda: User,
+))
+
+# ── The Soup byte gate (owner decision 2026-10-11) ───────────────────────────
+# The Soup's 16 files are static assets: their raw URLs used to be reachable by
+# anyone while the tier gate lived only in the React launcher. This middleware
+# gates the BYTES server-side (security/soup_gate.py), authenticating with the
+# Authorization header OR the scoped session cookie issued at login — the
+# Soup's own pages send no header and cannot be edited to add one.
+from security.soup_gate import make_soup_gate_middleware as _make_soup_gate_middleware
+from security.session_cookie import issue_session_cookie  # noqa: F401  (login/register)
+app.middleware("http")(_make_soup_gate_middleware(
     get_db=lambda: db,
     get_jwt_secret=lambda: JWT_SECRET,
     get_jwt_algo=lambda: JWT_ALGO,
@@ -2133,7 +2152,14 @@ async def register(body: RegisterReq, request: Request):
         "flagged_reason": _flagged_reason,
     })
     # C-2: new accounts always start at token_version 0
-    return TokenResp(access_token=make_token(user.id, user.role, extra={"tv": 0}), user=user)
+    _register_token = make_token(user.id, user.role, extra={"tv": 0})
+    _register_resp = JSONResponse(content=TokenResp(
+        access_token=_register_token, user=user).model_dump(mode="json"))
+    # The Soup's pages cannot send an Authorization header (iframe document
+    # navigation + unmodifiable original HTML), so the same JWT is ALSO issued
+    # in a scoped httpOnly cookie. See security/session_cookie.py for scope.
+    issue_session_cookie(_register_resp, _register_token)
+    return _register_resp
 
 
 @api_router.post("/auth/login", response_model=TokenResp)
@@ -2221,7 +2247,14 @@ async def login(body: LoginReq, request: Request):
     _extra = {"tv": _tv}
     if _session_id:
         _extra["session_id"] = _session_id
-    return TokenResp(access_token=make_token(user.id, user.role, extra=_extra), user=user)
+    _login_token = make_token(user.id, user.role, extra=_extra)
+    _login_resp = JSONResponse(content=TokenResp(
+        access_token=_login_token, user=user).model_dump(mode="json"))
+    # The Soup's pages cannot send an Authorization header (iframe document
+    # navigation + unmodifiable original HTML), so the same JWT is ALSO issued
+    # in a scoped httpOnly cookie. See security/session_cookie.py for scope.
+    issue_session_cookie(_login_resp, _login_token)
+    return _login_resp
 
 
 @api_router.get("/auth/me", response_model=User)
@@ -10964,6 +10997,20 @@ access_gateway = _mount_access_gateway(
 )
 
 
+# Unknown /api/* paths answer JSON — never the SPA HTML page (owner-approved
+# decision #3). Registered AFTER every real route so it only ever sees paths
+# nothing matched, and for every method so a wrong-verb probe on an unknown
+# path gets an honest JSON answer too. Real routes keep FastAPI's own JSON
+# 405 for a wrong verb on a path that DOES exist.
+@app.api_route(
+    "/api/{full_path:path}",
+    methods=["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD"],
+    include_in_schema=False,
+)
+async def _api_unknown_path(full_path: str):
+    return JSONResponse(status_code=404, content={"detail": "Not Found"})
+
+
 # Flag set once _on_startup_impl() finishes (or fails), so the readiness probe
 # returns 503 before the background startup task has completed — and also if it
 # crashes. See on_startup() near the top of the module.
@@ -11027,6 +11074,12 @@ def setup_frontend_serving():
     # /static mount and root-asset route above (registration order).
     @app.get("/{full_path:path}", include_in_schema=False)
     async def _spa_catchall(full_path: str):
+        # Unknown /api/* paths must answer JSON, never the SPA HTML page: a
+        # 200 text/html response to an API probe lies about what exists
+        # (owner-approved decision #3). Real /api routes are registered above
+        # and match first, so this only sees genuinely unknown paths.
+        if full_path == "api" or full_path.startswith("api/"):
+            return JSONResponse(status_code=404, content={"detail": "Not Found"})
         # Serve real files that live under the build root (e.g. /robots.txt,
         # /sitemap.xml) before falling back to index.html for client routes.
         _base = Path(_build_dir).resolve()
