@@ -17,6 +17,8 @@ before any backend import happens — hence the import order here.
 """
 import os
 
+import pytest
+
 os.environ.setdefault("JWT_SECRET", "testsecret")
 os.environ.setdefault("MONGO_URL", "mongodb://localhost:27017")
 os.environ.setdefault("DB_NAME", "testdb_pytest")
@@ -34,6 +36,49 @@ os.environ.setdefault("REACT_APP_BACKEND_URL", "http://localhost:8001")
 # TEST_EXEC_EMAIL/TEST_EXEC_PASSWORD to point at a different seat, or a local
 # account, as the deployment requires — never the other way round.
 os.environ.setdefault("TEST_EXEC_PW", "NamOshun@WAI2026")
+
+# The live-server suites log in as the LCEWAI demo accounts (admin@lcewai.org,
+# instructor@lcewai.org, student@lcewai.org). seed_users() only creates them when
+# KEEP_TEST_DEMOS=1 — otherwise it DELETES them, by design, because a live
+# platform must not carry demo credentials. Under pytest the suites need them, so
+# the flag defaults on (setdefault: an explicit value in the environment wins).
+os.environ.setdefault("KEEP_TEST_DEMOS", "1")
+
+
+def ensure_lcewai_demo_accounts() -> None:
+    """Make sure the demo accounts the suites log in as actually exist.
+
+    Cross-suite pollution: a suite exercising user management can delete a
+    shared demo account mid-run, and seed_users() only restores it at boot, so
+    every suite that runs afterwards fails at login with 401 while nothing is
+    wrong with the product. This runs the product's own seeding (which also
+    heals role drift and reactivates deactivated demo accounts) against the
+    configured database before the suites that need it.
+    """
+    import asyncio
+
+    from motor.motor_asyncio import AsyncIOMotorClient
+
+    url = os.environ.get("MONGO_URL", "mongodb://localhost:27017")
+    db_name = os.environ.get("DB_NAME", "testdb_pytest")
+    client = AsyncIOMotorClient(url, serverSelectionTimeoutMS=5000)
+    try:
+        import server
+
+        original_db, original_client = server.db, getattr(server, "client", None)
+        server.db = client[db_name]
+        server.client = client
+        try:
+            asyncio.run(server.seed_users())
+        finally:
+            server.db, server.client = original_db, original_client
+    finally:
+        client.close()
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _seed_demo_accounts():
+    ensure_lcewai_demo_accounts()
 
 # NOTE: do NOT add defaults for keys that individual suites set themselves at
 # module import (e.g. MORE_ROLLBACK_WEBHOOK_SECRET / RAILWAY_DEPLOYMENT_ID /

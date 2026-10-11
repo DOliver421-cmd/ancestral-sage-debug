@@ -10785,6 +10785,12 @@ try:
 
     _USERS_ROUTES = [
         ("GET", "/admin/users/{uid}", _users_router.admin_get_user),
+        # Permanent account deletion. The handler has existed in routers/users.py
+        # (executive_admin only, refuses self-delete and other executives) but
+        # was missing from this registration table, so every call from four
+        # admin surfaces — ExecutiveDirectorDashboard, ExecSystem,
+        # AccountControls, AdminDashboard — answered 405 Method Not Allowed.
+        ("DELETE", "/admin/users/{uid}", _users_router.admin_delete_user),
         ("PATCH", "/admin/users/{uid}/tier", _users_router.admin_set_tier),
         ("POST", "/admin/users/{uid}/ban", _users_router.admin_ban_user),
         ("POST", "/admin/users/{uid}/unban", _users_router.admin_unban_user),
