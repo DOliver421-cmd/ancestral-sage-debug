@@ -47,7 +47,17 @@ class _FakeCollection:
             def __init__(self, docs, projection):
                 self.docs = docs
                 self.proj = projection
-            def sort(self, *a, **k):
+            def sort(self, field, direction=1):
+                # The engine chains .sort(field, dir).limit(n).to_list(n); a
+                # no-op sort left the fake's ordering arbitrary, so assertions
+                # on event order were comparing against list order.
+                self.docs = sorted(
+                    self.docs, key=lambda d: (d.get(field) is None, d.get(field)),
+                    reverse=bool(direction == -1),
+                )
+                return self
+            def limit(self, n):
+                self.docs = self.docs[:n]
                 return self
             async def to_list(self, n=None):
                 out = [self._project(d, self.proj) for d in self.docs]
@@ -135,9 +145,15 @@ async def _fake_current_user(authorization=None):
 def client():
     db = _fake_db()
     reset_engine()
-    sim_router.bind(db, _fake_current_user, None, None)
     app = FastAPI()
-    # Initialize engine with fake app
+    # Two injections the router needs and the fixture was not making:
+    #  - the app itself (bind's 4th argument).  With it None, `_get_engine()`
+    #    answers 503 "Simulation engine not initialized" for every route.
+    #  - deps.bind: the routes authorize through deps.require_rank, and without
+    #    it the shared module answers 503 "Service starting up".
+    sim_router.bind(db, _fake_current_user, None, app)
+    import deps
+    deps.bind(_fake_current_user)
     sim_router.get_engine(db, app)
     app.include_router(sim_router.router, prefix="/api")
     c = TestClient(app)

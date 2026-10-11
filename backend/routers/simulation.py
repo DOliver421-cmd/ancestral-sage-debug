@@ -51,13 +51,20 @@ async def _dep_current_user(authorization: Optional[str] = None):
 
 
 async def _get_engine() -> SimulationEngine:
-    if not hasattr(_get_engine, "_cached"):
-        if db is None or _sim_app is None:
-            raise HTTPException(503, "Simulation engine not initialized")
-        _get_engine._cached = get_engine(db, _sim_app)
-        try:
-            await _get_engine._cached.ensure_indexes()
-        except Exception as _e:
+    # Rebuild whenever the binding has changed. The engine holds the db it was
+    # created with, and the router used to cache it in a function attribute that
+    # nothing invalidated: after reset_engine()/re-bind (test runs, or any future
+    # re-initialisation) every route kept querying the PREVIOUS database, so data
+    # written through the new binding was silently invisible.
+    cached = getattr(_get_engine, "_cached", None)
+    if cached is not None and getattr(cached, "db", None) is db:
+        return cached
+    if db is None or _sim_app is None:
+        raise HTTPException(503, "Simulation engine not initialized")
+    _get_engine._cached = get_engine(db, _sim_app)
+    try:
+        await _get_engine._cached.ensure_indexes()
+    except Exception as _e:
             logger.warning("simulation ensure_indexes failed (non-fatal): %s", _e)
     return _get_engine._cached
 
@@ -291,10 +298,16 @@ async def get_comparison_analytics(user=Depends(require_rank("admin")), course_s
     # Progress stats
     real_progress = await db.academy_progress.count_documents({})
     sim_students = await db.academy_students.count_documents({"parent_user_id": {"$regex": "^sim_"}})
+    # Wrapped in an "analytics" envelope to match the sibling analytics route
+    # (/simulation/runs/{id}/analytics) and the other collection routes in this
+    # router; this endpoint was the only flat one, so a client reading
+    # r.json()["analytics"] found nothing.
     return {
-        "real_events": real_events,
-        "simulated_events": sim_events,
-        "real_completed_runs": real_runs,
-        "real_progress_records": real_progress,
-        "simulated_student_profiles": sim_students,
+        "analytics": {
+            "real_events": real_events,
+            "simulated_events": sim_events,
+            "real_completed_runs": real_runs,
+            "real_progress_records": real_progress,
+            "simulated_student_profiles": sim_students,
+        }
     }
