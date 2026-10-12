@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { WAI_LOGO, BRAND } from "../lib/brand";
-import { Heart, BookOpen, Users, Award, Zap, ArrowRight, MessageSquare, DollarSign, Shield, Menu, X } from "lucide-react";
+import { Heart, BookOpen, Users, Award, Zap, ArrowRight, MessageSquare, DollarSign, Shield, Menu, X, GraduationCap, Wrench, FileText } from "lucide-react";
 import BugReportModal from "../components/BugReportModal";
 import { api } from "../lib/api";
 
@@ -11,6 +11,7 @@ export default function Landing() {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const LINKS = [
+    { href: "#academy", label: "Homeschool Academy" },
     { href: "#services", label: "Services" },
     { href: "#for-creators", label: "For Creators" },
     { href: "#community", label: "Community" },
@@ -79,6 +80,7 @@ export default function Landing() {
 
           {/* Desktop nav */}
           <nav className="hidden md:flex items-center gap-4">
+            <a href="#academy" className="text-sm font-medium hover:text-copper">Homeschool Academy</a>
             <a href="#services" className="text-sm font-medium hover:text-copper">Services</a>
             <a href="#for-creators" className="text-sm font-medium hover:text-copper">For Creators</a>
             <a href="#community" className="text-sm font-medium hover:text-copper">Community</a>
@@ -157,7 +159,10 @@ export default function Landing() {
             </p>
 
             <div className="flex flex-wrap justify-center gap-4 mb-16">
-              <Link to="/register" className="btn-primary inline-flex items-center gap-2">
+              <Link to="/HomeschoolAcademy" className="btn-primary inline-flex items-center gap-2">
+                <GraduationCap className="w-4 h-4" /> Start Homeschooling Free
+              </Link>
+              <Link to="/register" className="btn-copper inline-flex items-center gap-2">
                 Become A Creator <ArrowRight className="w-4 h-4" />
               </Link>
               <Link to="/more" className="btn-copper inline-flex items-center gap-2">
@@ -183,6 +188,51 @@ export default function Landing() {
                 <h3 className="font-bold text-lg mb-2">Built BY Us, Not FOR Us</h3>
                 <p className="text-sm text-ink/60">You decide what gets built. We move at community speed, not venture speed.</p>
               </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ACADEMY: the $0 doorway — the hook (owner decision 2026-10-12) */}
+      <section id="academy" className="bg-ink text-white relative overflow-hidden">
+        <div className="absolute inset-0 opacity-[0.07]" style={{ backgroundImage: "radial-gradient(circle at 1px 1px, #fff 1px, transparent 0)", backgroundSize: "28px 28px" }} />
+        <div className="relative max-w-7xl mx-auto px-6 py-20">
+          <div className="grid lg:grid-cols-2 gap-12 items-center">
+            <div>
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-signal/40 bg-signal/10 text-signal text-xs font-black uppercase tracking-widest mb-6">
+                <GraduationCap className="w-3.5 h-3.5" /> The $0 doorway
+              </div>
+              <h2 className="font-heading text-5xl md:text-6xl font-black leading-[1.02] mb-5">
+                Homeschool, <span className="text-signal">done right.</span>
+              </h2>
+              <p className="text-white/70 text-xl leading-relaxed max-w-xl mb-8">
+                A sequenced K–12 academy for your family — real academics, trade
+                tracks, and printable records. One free account runs every
+                learner in your household: you pick the grade, the track, and
+                the pace, and lessons unlock as your child earns mastery.
+              </p>
+              <div className="flex flex-wrap items-center gap-4">
+                <Link to="/HomeschoolAcademy" className="inline-flex items-center gap-2 px-7 py-3.5 bg-signal text-ink font-black hover:bg-signal/85 transition-all shadow-[4px_4px_0_rgba(255,255,255,0.15)]">
+                  Start Homeschooling Free <ArrowRight className="w-4 h-4" />
+                </Link>
+                <Link to="/academy/curriculum" className="inline-flex items-center gap-2 px-7 py-3.5 border-2 border-white/30 text-white font-bold hover:bg-white/10 transition-colors">
+                  See the Curriculum
+                </Link>
+              </div>
+            </div>
+            <div className="grid sm:grid-cols-2 gap-3">
+              {[
+                { icon: BookOpen, title: "Sequenced K–12", desc: "ELA, Math, Science and Social Studies, grade by grade." },
+                { icon: Wrench, title: "Trade tracks", desc: "Builder, Artist, Scholar, Adult Ed, Life Skills, Leadership, Career, Entrepreneurship." },
+                { icon: Users, title: "Run by the parent", desc: "One account, multiple learners, no per-child logins." },
+                { icon: FileText, title: "Printable records", desc: "Progress, mastery scores and dates, ready to file." },
+              ].map((c) => (
+                <div key={c.title} className="bg-white/5 border border-white/10 rounded-lg p-5">
+                  <c.icon className="w-6 h-6 text-signal mb-3" />
+                  <div className="font-bold text-white mb-1">{c.title}</div>
+                  <p className="text-sm text-white/60 leading-relaxed">{c.desc}</p>
+                </div>
+              ))}
             </div>
           </div>
         </div>
@@ -216,12 +266,12 @@ export default function Landing() {
               <div className="w-12 h-12 bg-copper/10 rounded-lg flex items-center justify-center mb-4 group-hover:bg-copper group-hover:text-white transition-colors">
                 <BookOpen className="w-6 h-6 text-copper group-hover:text-white" />
               </div>
-              <h3 className="font-bold text-xl mb-3">Education On Your Terms</h3>
+              <h3 className="font-bold text-xl mb-3">Homeschool Academy</h3>
               <p className="text-sm text-ink/60 mb-4">
-                Learning that speaks to your reality. Modules designed by your community, for your community.
+                A sequenced K–12 academy with trade tracks, parent-managed learners, and printable records — free to start.
               </p>
-              <Link to="/modules" className="text-sm font-bold text-copper hover:text-copper/80">
-                Access Courses →
+              <Link to="/HomeschoolAcademy" className="text-sm font-bold text-copper hover:text-copper/80">
+                Start Homeschooling Free →
               </Link>
             </div>
 

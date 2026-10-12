@@ -311,11 +311,12 @@ async def persona_speak(
     vid              = config["elevenlabs_voice_id"]
     openai_voice     = config["openai_voice"]
     voice_settings   = PERSONA_VOICE_SETTINGS.get(persona, {})
-    budget_remaining = await _get_remaining_chars(db, persona) if db else config["monthly_cap"]
+    # NOTE: `if db` raises on a Motor Database (no truth value) — compare with None.
+    budget_remaining = await _get_remaining_chars(db, persona) if db is not None else config["monthly_cap"]
     cache_key        = _tts_cache_key(persona, clean_text, vid)
 
     # ── Cache check ───────────────────────────────────────────────────────────
-    if db and force_tier not in ("text", "openai"):
+    if db is not None and force_tier not in ("text", "openai"):
         cached = await _get_cached(db, persona, cache_key)
         if cached:
             logger.info("persona_tts cache hit [%s]: %d bytes", persona, len(cached))
@@ -329,11 +330,11 @@ async def persona_speak(
 
     # ── Tier 1: ElevenLabs ────────────────────────────────────────────────────
     if force_tier in ("", "elevenlabs") and ELEVENLABS_API_KEY and vid:
-        charged = await _charge_persona_budget(db, persona, len(clean_text)) if db else True
+        charged = await _charge_persona_budget(db, persona, len(clean_text)) if db is not None else True
         if charged:
             audio = await _elevenlabs_call(clean_text, vid, voice_settings)
             if audio:
-                if db:
+                if db is not None:
                     await _cache_audio(db, persona, cache_key, audio)
                 logger.info("persona_tts T1 ElevenLabs [%s]: %d bytes", persona, len(audio))
                 return {

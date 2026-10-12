@@ -108,7 +108,9 @@ async def reload_payment_keys(db=None) -> int:
         fernet = None
     global STRIPE_ENABLED, STRIPE_SECRET_KEY, STRIPE_PUBLISHABLE_KEY, STRIPE_WEBHOOK_SECRET
     global LEMON_SQUEEZY_API_KEY, LEMON_SQUEEZY_STORE_ID, GUMROAD_API_KEY, PAYMENTS_ENABLED
-    if not db:
+    # NOTE: `if db:` cannot be used here — pymongo/motor Database objects raise
+    # NotImplementedError on truth-value testing. Compare with None explicitly.
+    if db is None:
         try:
             from deps import get_db as _get_db
             db = _get_db()
