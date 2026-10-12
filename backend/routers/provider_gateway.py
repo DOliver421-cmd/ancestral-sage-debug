@@ -33,6 +33,30 @@ PROVIDERS = {
     "sambanova": ("SambaNova", "Llama-3.3-70B", "https://sambanova.ai"),
     "openrouter": ("OpenRouter", "free models", "https://openrouter.ai"),
     "huggingface": ("HuggingFace", "inference", "https://huggingface.co"),
+    # ── Zero-cost failover expansion (owner decision 2026-10-12) ─────────────
+    # All five were verified from this workspace with NO credentials: NVIDIA
+    # NIM, DeepInfra and Novita answer /models with a real OpenAI-format
+    # catalogue (80 / 177 / 94 models); Hyperbolic and Perplexity answer on
+    # their endpoints and are validated for real at key-save time. Each is
+    # email sign-up, no card, $0 to the platform, usable from Tampa FL.
+    "nvidia": ("NVIDIA NIM", "deepseek-v4.1-flash", "https://build.nvidia.com"),
+    "deepinfra": ("DeepInfra", "Llama-3.3-70B-Instruct-Turbo", "https://deepinfra.com"),
+    "novita": ("Novita AI", "llama-3.3-70b-instruct", "https://novita.ai"),
+    "hyperbolic": ("Hyperbolic", "Llama-3.3-70B-Instruct", "https://hyperbolic.xyz"),
+    "perplexity": ("Perplexity", "sonar", "https://perplexity.ai"),
+    # ── Specialty media keys (owner decision 2026-10-12) ─────────────────────
+    # Zero-cost media providers: stored in the same encrypted vault and shown
+    # in the exec console with real status. The image/sound/video generation
+    # endpoints land in the specialty-tools release (G5); storing the key now
+    # is what makes that a paste-free step later. Every entry below is a real,
+    # reachable provider (checked 2026-10-12); anything unverified was NOT
+    # added — see docs/SESSION_HANDOFF.md.
+    "pollinations": ("Pollinations.ai", "flux image (no key needed)", "https://pollinations.ai"),
+    "elevenlabs": ("ElevenLabs", "tts (10k chars/mo free)", "https://elevenlabs.io"),
+    "deepgram": ("Deepgram", "stt + tts aura", "https://deepgram.com"),
+    "luma": ("Luma AI", "dream machine video", "https://lumalabs.ai"),
+    "replicate": ("Replicate", "video + multimodal", "https://replicate.com"),
+    "fal": ("Fal.ai", "ltx-video / cogvideox", "https://fal.ai"),
 }
 
 class QuickSetupRequest(BaseModel):
@@ -172,7 +196,15 @@ async def quick_setup(body: QuickSetupRequest, user=Depends(_user)):
         {"$set": upd, "$setOnInsert": {"id": str(uuid.uuid4()), "created_at": now}},
         upsert=True,
     )
-    if provider_type in ("groq", "cerebras", "gemini", "mistral", "cohere", "together", "xai", "openai", "deepseek"):
+    if provider_type in (
+        "groq", "cerebras", "gemini", "mistral", "cohere", "together", "xai",
+        "openai", "deepseek", "sambanova", "openrouter", "huggingface",
+        # Zero-cost expansion (2026-10-12) + specialty media keys: reload the
+        # gateway globals so the pasted key serves the next request. Types the
+        # gateway does not map are skipped inside reload_provider_keys.
+        "nvidia", "deepinfra", "novita", "hyperbolic", "perplexity",
+        "pollinations", "elevenlabs", "deepgram", "luma", "replicate", "fal",
+    ):
         from ai.llm_gateway import reload_provider_keys
         await reload_provider_keys(db)
     else:

@@ -17,6 +17,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from types import SimpleNamespace
 
 from security.feature_control import (  # noqa: E402
+    AI_NO_COST_PATHS,
     FEATURE_API_PATHS,
     FEATURE_MIN_TIER,
     PAGE_API_PATHS,
@@ -234,14 +235,21 @@ def test_tier_requirements_match_frontend_contract():
     assert _check(_UserDB(), _u(feature_tier="member"), "/api/modules/x")[0] == "block"
     assert _check(_UserDB(), _u(feature_tier="free"), "/api/modules/x")[0] == "block"
     assert _check(_UserDB(), _u(feature_tier="plus"), "/api/modules/x") == ("pass", None)
-    # ai_chat requires member (owner decision 2026-10-11): free is blocked,
-    # member/plus pass, and a free BYOK holder passes via the BYOK carve-out.
-    action, detail = _check(_UserDB(), _u(feature_tier="free"), "/api/ai/chat")
+    # ai_chat requires member (owner decision 2026-10-11). /api/ai/chat is
+    # handler-enforced (the crisis short-circuit must precede the paywall), so
+    # the middleware passes it and routers/ai.py applies the same rule with a
+    # 402; every other model-bearing ai path stops at the middleware.
+    assert _check(_UserDB(), _u(feature_tier="free"), "/api/ai/chat") == ("pass", None)
+    action, detail = _check(_UserDB(), _u(feature_tier="free"), "/api/ai/tool-chat")
     assert action == "block" and "Member plan" in detail
-    assert _check(_UserDB(), _u(feature_tier="member"), "/api/ai/chat") == ("pass", None)
-    assert _check(_UserDB(), _u(feature_tier="plus"), "/api/ai/chat") == ("pass", None)
-    # The keyword knowledge-base Helper stays free for signed-in accounts.
-    assert _check(_UserDB(), _u(feature_tier="free"), "/api/ai/helper") == ("pass", None)
+    # The no-cost AI surface stays free for every signed-in account: the
+    # keyword knowledge-base Helper, the consent record, the integrity check,
+    # and deterministic mode routing.
+    for path in AI_NO_COST_PATHS:
+        assert _check(_UserDB(), _u(feature_tier="free"), path) == ("pass", None), path
+    # A BYOK holder still satisfies the member requirement everywhere — the
+    # full path (db.users lookup included) is covered in
+    # tests/test_soup_and_tier_contracts.py.
 
 
 def test_tier_instructor_and_admin_bypasses():

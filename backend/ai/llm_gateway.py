@@ -51,6 +51,26 @@ TOGETHER_API_KEY    = os.environ.get("TOGETHER_API_KEY", "")
 OPENROUTER_API_KEY  = os.environ.get("OPENROUTER_API_KEY", "")
 HUGGINGFACE_API_KEY = os.environ.get("HUGGINGFACE_API_KEY", os.environ.get("HF_API_KEY", ""))
 
+# ── Zero-cost failover expansion (owner decision 2026-10-12) ──────────────────
+# Every provider below was approved by the owner under one hard rule: NO cost
+# to the platform now — email sign-up only, no card, usable from Tampa, FL.
+# They sit AFTER the long-standing free chain, so they add redundancy without
+# changing which provider answers a request while any existing key is healthy.
+# With no key configured they are inert (the block is skipped entirely).
+#
+# VERIFIED 2026-10-12 from the workspace, no key required:
+#   NVIDIA NIM   GET /v1/models  -> 200 with the real OpenAI-format catalogue
+#   DeepInfra    GET /v1/openai/models -> 200, real catalogue
+#   Novita       GET /v3/openai/models  -> 200, real catalogue
+#   Hyperbolic   /v1/models -> 401 (endpoint alive, auth-gated)
+#   Perplexity   api.perplexity.ai responds (root 404 is normal for their API)
+# Model IDs below were read out of the live catalogues where one was readable.
+NVIDIA_API_KEY       = os.environ.get("NVIDIA_API_KEY", "")
+DEEPINFRA_API_KEY    = os.environ.get("DEEPINFRA_API_KEY", "")
+NOVITA_API_KEY       = os.environ.get("NOVITA_API_KEY", "")
+HYPERBOLIC_API_KEY   = os.environ.get("HYPERBOLIC_API_KEY", "")
+PERPLEXITY_API_KEY   = os.environ.get("PERPLEXITY_API_KEY", "")
+
 # ── DB key reload — called at startup and after Provider Gateway saves a key ──
 # Maps provider_type values from the Provider Gateway UI to gateway globals.
 _PROVIDER_TYPE_TO_GLOBAL = {
@@ -67,6 +87,14 @@ _PROVIDER_TYPE_TO_GLOBAL = {
     "huggingface": "HUGGINGFACE_API_KEY",
     "openai":      "OPENAI_API_KEY",
     "deepseek":    "DEEPSEEK_API_KEY",
+    # Zero-cost expansion (owner decision 2026-10-12). A key pasted in the
+    # exec Provider Gateway for any of these types loads into the gateway
+    # global of the same name and joins the chain on the next request.
+    "nvidia":      "NVIDIA_API_KEY",
+    "deepinfra":   "DEEPINFRA_API_KEY",
+    "novita":      "NOVITA_API_KEY",
+    "hyperbolic":  "HYPERBOLIC_API_KEY",
+    "perplexity":  "PERPLEXITY_API_KEY",
 }
 
 async def reload_provider_keys(db) -> int:
@@ -142,6 +170,23 @@ TOGETHER_BASE     = "https://api.together.xyz/v1"
 OPENROUTER_MODEL  = "google/gemini-2.0-flash-lite:free"
 OPENROUTER_BASE   = "https://openrouter.ai/api/v1"
 
+# ── Zero-cost expansion — bases and default models (2026-10-12) ────────────────
+# Every default model ID here was read from the provider's LIVE catalogue
+# during verification, except Hyperbolic (their /v1/models needs a key) and
+# Perplexity (their model name is fixed by their docs). Any of them can be
+# pointed at a different model with a single env var — the same override every
+# other provider in this file supports.
+NVIDIA_MODEL       = os.environ.get("NVIDIA_MODEL", "deepseek-ai/deepseek-v4.1-flash")
+NVIDIA_BASE        = "https://integrate.api.nvidia.com/v1"
+DEEPINFRA_MODEL    = os.environ.get("DEEPINFRA_MODEL", "meta-llama/Llama-3.3-70B-Instruct-Turbo")
+DEEPINFRA_BASE     = "https://api.deepinfra.com/v1/openai"
+NOVITA_MODEL       = os.environ.get("NOVITA_MODEL", "meta-llama/llama-3.3-70b-instruct")
+NOVITA_BASE        = "https://api.novita.ai/v3/openai"
+HYPERBOLIC_MODEL   = os.environ.get("HYPERBOLIC_MODEL", "meta-llama/Llama-3.3-70B-Instruct")
+HYPERBOLIC_BASE    = "https://api.hyperbolic.xyz/v1"
+PERPLEXITY_MODEL   = os.environ.get("PERPLEXITY_MODEL", "sonar")
+PERPLEXITY_BASE    = "https://api.perplexity.ai"
+
 # Hourly token cap — configurable in Railway.
 # Default 200k/hour ≈ $1/hour max at Sonnet pricing.
 # Lower to 50000 during pre-revenue period if desired.
@@ -163,6 +208,13 @@ _PROVIDER_KEY_POOLS = {
                                          os.environ.get("SAMBANOVA_KEY_1"), os.environ.get("SAMBANOVA_KEY_2")), KEY_COOLDOWN_SEC),
     "gemini": KeyPool(parse_key_list(os.environ.get("GEMINI_API_KEYS"), GEMINI_API_KEY,
                                       os.environ.get("GEMINI_KEY_1"), os.environ.get("GEMINI_KEY_2")), KEY_COOLDOWN_SEC),
+    # Zero-cost expansion (2026-10-12): same multi-key rotation as the rest —
+    # paste one key in the Provider Gateway or a key list in the environment.
+    "nvidia": KeyPool(parse_key_list(os.environ.get("NVIDIA_API_KEYS"), NVIDIA_API_KEY), KEY_COOLDOWN_SEC),
+    "deepinfra": KeyPool(parse_key_list(os.environ.get("DEEPINFRA_API_KEYS"), DEEPINFRA_API_KEY), KEY_COOLDOWN_SEC),
+    "novita": KeyPool(parse_key_list(os.environ.get("NOVITA_API_KEYS"), NOVITA_API_KEY), KEY_COOLDOWN_SEC),
+    "hyperbolic": KeyPool(parse_key_list(os.environ.get("HYPERBOLIC_API_KEYS"), HYPERBOLIC_API_KEY), KEY_COOLDOWN_SEC),
+    "perplexity": KeyPool(parse_key_list(os.environ.get("PERPLEXITY_API_KEYS"), PERPLEXITY_API_KEY), KEY_COOLDOWN_SEC),
 }
 
 # ── Last-resort tier switch (DEFAULT ON) ─────────────────────────────────────
@@ -856,6 +908,37 @@ async def call_llm(
         except Exception as e:
             logger.warning("LLM Gateway T8 HuggingFace failed (%s): %s", persona_label, e)
 
+    # ── Tier 8b: the zero-cost failover expansion (owner decision 2026-10-12) ──
+    # Five more email-sign-up, no-card providers, all $0 to the platform. They
+    # sit AFTER the long-standing free chain so a healthy existing provider
+    # keeps answering first; they exist so the chain never bottoms out in
+    # canned KB text just because one or two providers were rate-limited.
+    #
+    # A provider with no key configured is skipped without a network call
+    # (KeyPool.acquire() returns None), so this block costs nothing until the
+    # owner pastes a key in the exec Provider Gateway or sets the env var.
+    #
+    # Verified 2026-10-12 with no credentials from this workspace: NVIDIA NIM,
+    # DeepInfra and Novita all answered GET /models with real OpenAI-format
+    # catalogues (80 / 177 / 94 models); Hyperbolic and Perplexity answer on
+    # their endpoints and are validated when a key is saved.
+    for _expand in (
+        ("nvidia", NVIDIA_BASE, NVIDIA_MODEL),
+        ("deepinfra", DEEPINFRA_BASE, DEEPINFRA_MODEL),
+        ("novita", NOVITA_BASE, NOVITA_MODEL),
+        ("hyperbolic", HYPERBOLIC_BASE, HYPERBOLIC_MODEL),
+        ("perplexity", PERPLEXITY_BASE, PERPLEXITY_MODEL),
+    ):
+        _p, _b, _m = _expand
+        if not _PROVIDER_KEY_POOLS[_p].size:
+            continue
+        try:
+            _result = await _rotated_oai(_p, _b, _m, tools, False)
+            if _result is not None:
+                return _result
+        except Exception as e:
+            logger.warning("LLM Gateway T8b %s failed (%s): %s", _p, persona_label, e)
+
     # ── Shared site-support BYOK pool — free keys the platform may use ──────
     # Site Support team members share their free BYOK key with the platform:
     # when every free provider fails, the gateway serves the request on a
@@ -969,6 +1052,13 @@ def gateway_status() -> dict:
             "together":     {"tier": 6,    "primary": False, "available": bool(TOGETHER_API_KEY),     "key_set": bool(TOGETHER_API_KEY),     "cost": "free_credit",   "tool_calling": False},
             "openrouter":   {"tier": 7,    "primary": False, "available": bool(OPENROUTER_API_KEY),   "key_set": bool(OPENROUTER_API_KEY),   "cost": "free",          "tool_calling": False},
             "huggingface":  {"tier": 8,    "primary": False, "available": bool(HUGGINGFACE_API_KEY),  "key_set": bool(HUGGINGFACE_API_KEY),  "cost": "free_slow",     "tool_calling": False},
+            # Zero-cost expansion (owner decision 2026-10-12) — email sign-up,
+            # no card, $0 to the platform. Each is skipped when unconfigured.
+            "nvidia":       {"tier": "8b", "primary": False, "available": bool(NVIDIA_API_KEY),       "key_set": bool(NVIDIA_API_KEY),       "cost": "free",          "tool_calling": True},
+            "deepinfra":    {"tier": "8b", "primary": False, "available": bool(DEEPINFRA_API_KEY),    "key_set": bool(DEEPINFRA_API_KEY),    "cost": "free",          "tool_calling": True},
+            "novita":       {"tier": "8b", "primary": False, "available": bool(NOVITA_API_KEY),       "key_set": bool(NOVITA_API_KEY),       "cost": "free",          "tool_calling": True},
+            "hyperbolic":   {"tier": "8b", "primary": False, "available": bool(HYPERBOLIC_API_KEY),   "key_set": bool(HYPERBOLIC_API_KEY),   "cost": "free",          "tool_calling": True},
+            "perplexity":   {"tier": "8b", "primary": False, "available": bool(PERPLEXITY_API_KEY),   "key_set": bool(PERPLEXITY_API_KEY),   "cost": "free_trial",    "tool_calling": False},
             "kb_fallback":  {"tier": 9,    "primary": False, "available": True,                       "key_set": True,                       "cost": "zero",          "tool_calling": False},
             "byok_shared":  {"tier": "shared", "primary": False, "available": bool(_SHARED_BYOK_POOL), "key_set": bool(_SHARED_BYOK_POOL), "cost": "free_shared", "tool_calling": True,
                              "note": "Site support team keys shared with the platform (used when all free providers fail)"},
@@ -985,6 +1075,8 @@ def gateway_status() -> dict:
             GROQ_API_KEY, CEREBRAS_API_KEY, SAMBANOVA_API_KEY, GEMINI_API_KEY,
             XAI_API_KEY, COHERE_API_KEY, MISTRAL_API_KEY, TOGETHER_API_KEY,
             OPENROUTER_API_KEY, HUGGINGFACE_API_KEY,
+            NVIDIA_API_KEY, DEEPINFRA_API_KEY, NOVITA_API_KEY,
+            HYPERBOLIC_API_KEY, PERPLEXITY_API_KEY,
         ] if v) + (1 if _SHARED_BYOK_POOL else 0),
         # All provider keys actually usable for text, including owner keys
         # (OpenAI + DeepSeek). Surfaces should prefer this to decide if AI is
@@ -993,5 +1085,7 @@ def gateway_status() -> dict:
             OPENAI_API_KEY, DEEPSEEK_API_KEY, GROQ_API_KEY, CEREBRAS_API_KEY, SAMBANOVA_API_KEY,
             GEMINI_API_KEY, XAI_API_KEY, COHERE_API_KEY, MISTRAL_API_KEY, TOGETHER_API_KEY,
             OPENROUTER_API_KEY, HUGGINGFACE_API_KEY,
+            NVIDIA_API_KEY, DEEPINFRA_API_KEY, NOVITA_API_KEY,
+            HYPERBOLIC_API_KEY, PERPLEXITY_API_KEY,
         ] if v) + (1 if _SHARED_BYOK_POOL else 0),
     }

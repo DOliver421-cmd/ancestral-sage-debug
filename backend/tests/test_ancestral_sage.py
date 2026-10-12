@@ -17,6 +17,7 @@ equivalent for ancestral_sage once gating passes.
 import os
 import uuid
 
+import pytest
 import requests
 
 BASE = os.environ["REACT_APP_BACKEND_URL"].rstrip("/")
@@ -45,6 +46,45 @@ def _login(email, password):
 
 def _auth(token):
     return {"Authorization": f"Bearer {token}"}
+
+
+def _grant_member(email: str) -> None:
+    """Give the shared demo account member entitlement for one test.
+
+    The consent-layer tests need an entitled account; the paywall is asserted
+    separately in tests/test_soup_and_tier_contracts.py. Always paired with
+    _revoke_member in a finally block so no suite inherits the change.
+    """
+    from motor.motor_asyncio import AsyncIOMotorClient
+    import asyncio
+
+    async def _set():
+        client = AsyncIOMotorClient(os.environ.get("MONGO_URL", "mongodb://127.0.0.1:27017"))
+        try:
+            await client[os.environ.get("DB_NAME", "phase0_dev")].users.update_one(
+                {"email": email}, {"$set": {"feature_tier": "member"}}
+            )
+        finally:
+            client.close()
+
+    asyncio.run(_set())
+
+
+def _revoke_member(email: str) -> None:
+    """Restore the demo account to its seeded (unentitled) state."""
+    from motor.motor_asyncio import AsyncIOMotorClient
+    import asyncio
+
+    async def _set():
+        client = AsyncIOMotorClient(os.environ.get("MONGO_URL", "mongodb://127.0.0.1:27017"))
+        try:
+            await client[os.environ.get("DB_NAME", "phase0_dev")].users.update_one(
+                {"email": email}, {"$unset": {"feature_tier": ""}}
+            )
+        finally:
+            client.close()
+
+    asyncio.run(_set())
 
 
 # ---------------------------------------------------------------------------
@@ -163,15 +203,24 @@ class TestAncestralSageGating:
         )
 
     def test_deep_intensity_without_consent_is_403(self):
-        r = self._chat({
-            "session_id": self.sid,
-            "message": "Guide me into deep visualization.",
-            "mode": "ancestral_sage",
-            "intensity": "deep",
-            "safety_level": "standard",
-        })
-        assert r.status_code == 403, r.text
-        assert "consent" in r.json()["detail"].lower()
+        # This test covers the CONSENT layer, which sits behind the AI Tutor
+        # paywall: an unentitled account is stopped before consent matters.
+        # So the account is granted member entitlement for the duration of
+        # this one test and restored immediately afterwards (self-cleaning —
+        # no cross-suite state), then the assertion is about consent alone.
+        _grant_member(STUDENT_EMAIL)
+        try:
+            r = self._chat({
+                "session_id": self.sid,
+                "message": "Guide me into deep visualization.",
+                "mode": "ancestral_sage",
+                "intensity": "deep",
+                "safety_level": "standard",
+            })
+            assert r.status_code == 403, r.text
+            assert "consent" in r.json()["detail"].lower()
+        finally:
+            _revoke_member(STUDENT_EMAIL)
 
     def test_exploratory_safety_without_consent_is_403(self):
         r = self._chat({
@@ -240,9 +289,16 @@ class TestAncestralSageGating:
             "intensity": "gentle",
             "safety_level": "conservative",
         })
-        # Acceptable: 200 (LLM responded) OR 5xx (LLM unreachable in CI).
-        # Unacceptable: 403 consent gate would mean gating logic regressed.
-        assert r.status_code != 403, f"unexpected consent gate trip: {r.text}"
+        # Acceptable: 200 (LLM responded), 5xx (LLM unreachable in CI), or a
+        # paywall for an unentitled account. Unacceptable: a 403 CONSENT
+        # rejection — that would mean the gentle/conservative path started
+        # demanding a consent payload it does not need.
+        detail = (r.json().get("detail") or "").lower() if r.headers.get(
+            "content-type", ""
+        ).startswith("application/json") else ""
+        assert not (r.status_code == 403 and "consent" in detail), (
+            f"unexpected consent gate trip: {r.text}"
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -287,7 +343,15 @@ class TestAncestralSageConsentedChat:
             },
             timeout=60,
         )
-        # Must NOT be 403 consent error. Anything else (200 happy-path,
-        # 5xx if LLM is throttled/down in CI) is acceptable and out of
-        # scope for this gating-focused test.
-        assert r.status_code != 403, f"consent gate regressed: {r.text}"
+        # Must NOT be a consent-gate rejection. The consent record is what
+        # this test is about, and the consent layer is deliberately outside
+        # the AI tier gate (security/feature_control.AI_NO_COST_PATHS) so an
+        # account can always give consent. A free student may still be stopped
+        # by the AI Tutor's own entitlement check (402 member/BYOK) — that is
+        # the paywall, not the consent gate, and is asserted elsewhere.
+        detail = (r.json().get("detail") or "").lower() if r.headers.get(
+            "content-type", ""
+        ).startswith("application/json") else ""
+        assert not (r.status_code == 403 and "consent" in detail), (
+            f"consent gate regressed: {r.text}"
+        )

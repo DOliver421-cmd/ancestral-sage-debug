@@ -4503,6 +4503,24 @@ def _lesson_grounded_reply(question: str, context: str) -> Optional[str]:
 
 @api_router.post("/ai/chat")
 async def ai_chat(body: AIChatReq, user: User = Depends(current_user)):
+    # ---- Crisis short-circuit — runs before EVERY other check ------------
+    # Spec-mandated and zero LLM cost: a crisis message must reach a person in
+    # danger. This check used to sit after the entitlement and consent gates,
+    # so an account without consent (or without a paid tier) typing a crisis
+    # message got a form or a paywall instead of the 988 template. That is a
+    # safety defect, not a billing preference — and the answer costs nothing.
+    if body.mode == "ancestral_sage" and _detect_crisis(body.message):
+        await db.chat_history.insert_one({
+            "id": str(uuid.uuid4()),
+            "user_id": user.id,
+            "session_id": body.session_id,
+            "mode": body.mode,
+            "user_msg": body.message,
+            "assistant_msg": CRISIS_REPLY,
+            "refusal_reason": "crisis_safety_template",
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        })
+        return {"reply": CRISIS_REPLY, "safety_intervention": True}
     # ---- Ancestral Sage gating (runs BEFORE any LLM cost) ---------------
     is_sage = body.mode == "ancestral_sage"
 
@@ -4584,20 +4602,6 @@ async def ai_chat(body: AIChatReq, user: User = Depends(current_user)):
                 "Consent required for this practice. Please complete the consent "
                 "flow (POST /api/ai/consent) before continuing.",
             )
-
-    # ---- Crisis short-circuit (no LLM cost; spec-mandated) --------------
-    if is_sage and _detect_crisis(body.message):
-        await db.chat_history.insert_one({
-            "id": str(uuid.uuid4()),
-            "user_id": user.id,
-            "session_id": body.session_id,
-            "mode": body.mode,
-            "user_msg": body.message,
-            "assistant_msg": CRISIS_REPLY,
-            "refusal_reason": "crisis_safety_template",
-            "created_at": datetime.now(timezone.utc).isoformat(),
-        })
-        return {"reply": CRISIS_REPLY, "safety_intervention": True}
 
     ctx = ""
     if body.module_slug:

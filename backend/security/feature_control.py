@@ -266,12 +266,46 @@ TIER_EXEMPT_ROLES = ("admin", "executive_admin")
 # Instructors get course/track access regardless of tier (they teach).
 FEATURE_INSTRUCTOR_BYPASS = {"courses", "tracks"}
 
-# ── AI chat carve-outs (mirror routers/ai.py:_ai_chat_access) ──────────────────
-# The keyword knowledge-base Helper answers at zero LLM cost and is documented
-# to serve anonymous AND authenticated visitors (owner policy: anonymous gets
-# "very limited AI" — the curated KB, never a provider call). It must stay
-# reachable for every signed-in account even though ai_chat itself is member.
-AI_KB_HELPER_PATHS = ("/api/ai/helper",)
+# ── AI chat carve-outs (mirror routers/ai.py:_ai_access) ────────────────────
+# Paths under the ai_chat feature that make NO provider call and therefore
+# cost nothing, so a paid tier must never stand between an account and them:
+#
+#   /api/ai/helper           keyword knowledge base — the documented free
+#                            "very limited AI" surface for every account
+#   /api/ai/consent          the safety-consent record. Consent is a
+#                            PREREQUISITE for the consent-gated personas: an
+#                            account must be able to give or withhold consent
+#                            before it has any entitlement to spend on.
+#                            Also covers /api/ai/consent/health.
+#   /api/ai/sage/resolve_mode deterministic mode routing (no LLM call)
+#   /api/ai/sage/integrity   prompt-integrity/consent-state check the UI
+#                            reads to decide whether to show its consent
+#                            banner ("anyone signed in can view this")
+#
+# HANDLER_ENFORCED_PATHS are the paths where the handler — not the middleware —
+# must own the tier decision, because the handler has ordering requirements the
+# middleware cannot see:
+#
+#   /api/ai/chat   its crisis short-circuit (zero cost, spec-mandated) must run
+#                  BEFORE any paywall: a person typing a crisis message gets
+#                  the 988 safety template whether or not their account is
+#                  entitled. The handler applies its own 402 entitlement
+#                  check immediately after that safety block
+#                  (routers/ai.py:_ai_chat_access), so nothing is left
+#                  ungated — the requirement is enforced, one layer down,
+#                  with the correct precedence.
+AI_HANDLER_ENFORCED_PATHS = ("/api/ai/chat",)
+#
+# The model-bearing endpoints (/ai/chat, /ai/tool-chat, /ai/orchestrator, the
+# persona routes) keep the member requirement here AND carry the handler's own
+# 402 entitlement check in routers/ai.py — the middleware is the exec-editable
+# global control, the handler is the precise one.
+AI_NO_COST_PATHS = (
+    "/api/ai/helper",
+    "/api/ai/consent",
+    "/api/ai/sage/resolve_mode",
+    "/api/ai/sage/integrity",
+)
 
 
 # ── "The Soup" — server-side contract (owner decision 2026-10-11) ─────────────
@@ -577,11 +611,18 @@ async def check_user_feature_access(db, user, path: str):
     # code defaults apply until an executive changes it.  Absent config == allow.
     # ── 4a. AI chat carve-outs (mirror routers/ai.py:_ai_chat_access) ──────────
     if feature == "ai_chat":
-        # (a) The keyword knowledge-base Helper answers at zero LLM cost and is
-        #     documented to serve anonymous AND authenticated visitors. It stays
-        #     reachable for every signed-in account even though ai_chat itself
-        #     is a Member surface.
-        if _path_in(path, AI_KB_HELPER_PATHS):
+        # (a) The no-cost AI surface — the keyword knowledge-base Helper, the
+        #     safety-consent record, the integrity check, and deterministic
+        #     mode routing — stays reachable for every signed-in account.
+        #     These make no provider call, and consent is a prerequisite for
+        #     the consent-gated personas, so a paid tier must never gate them.
+        if _path_in(path, AI_NO_COST_PATHS):
+            return ("pass", None)
+        # (b) /ai/chat is enforced by its own handler one layer down, so the
+        #     crisis short-circuit can precede the paywall (see the comment on
+        #     AI_HANDLER_ENFORCED_PATHS). /ai/chat's handler then applies the
+        #     same member+or-BYOK rule the map declares here.
+        if _path_in(path, AI_HANDLER_ENFORCED_PATHS):
             return ("pass", None)
         # (b) An active BYOK key satisfies the Member requirement — the exact
         #     contract the /ai/chat handler applies, so the middleware never
