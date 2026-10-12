@@ -71,7 +71,13 @@ server {
     }
 
     # ── React SPA ─────────────────────────────────────────────────────────────
+    # The SPA fallback serves index.html for every client route. It carries the
+    # same no-store rule as the explicit /index.html location above: a cached
+    # copy references a RETIRED bundle hash, which is how a browser stays on a
+    # crashed build long after the deploy (the owner's exact symptom).
     location / {
+        add_header Cache-Control "no-cache, no-store, must-revalidate";
+        expires -1;
         try_files $uri $uri/ /index.html;
     }
 }
