@@ -25,21 +25,34 @@ self.addEventListener("fetch", (event) => {
   const req = event.request;
   if (req.method !== "GET") return;
 
-  // Only http(s) URLs can go into the Cache API. Requests with other schemes
-  // (chrome-extension://, chrome://, data:, blob:) would make cache.put() throw
-  // "Request scheme 'X' is unsupported" — exactly the console error seen in prod.
   const url = new URL(req.url);
   if (url.protocol !== "http:" && url.protocol !== "https:") return;
 
+  // FIRST-PARTY ONLY. The handler used to intercept every cross-origin GET as
+  // well (Google Fonts, Fontshare, Pexels images, the conference-bridge
+  // script). Those requests are blocked by the page's own connect-src CSP, the
+  // rejection was caught, `cached` was undefined, and the handler resolved to
+  // `undefined` — which makes respondWith throw "Failed to convert value to
+  // 'Response'" and the fetch fails. Letting the browser serve cross-origin
+  // requests itself is both correct and CSP-honest; this worker caches our own
+  // app shell and assets.
+  if (url.origin !== self.location.origin) return;
+
   event.respondWith(
     caches.match(req).then((cached) => {
-      const fetched = fetch(req).then((response) => {
-        if (response.ok) {
-          const clone = response.clone();
-          caches.open(CACHE).then((cache) => cache.put(req, clone));
-        }
-        return response;
-      }).catch(() => cached);
+      const fetched = fetch(req)
+        .then((response) => {
+          if (response.ok) {
+            const clone = response.clone();
+            caches.open(CACHE).then((cache) => cache.put(req, clone));
+          }
+          return response;
+        })
+        // A network failure with nothing cached must resolve to a real
+        // Response, never undefined (see the comment above).
+        .catch(() => cached || new Response("", {
+          status: 504, statusText: "Offline",
+        }));
       return fetched;
     })
   );
