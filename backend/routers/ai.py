@@ -1103,6 +1103,25 @@ async def _apply_sage_safety_gates(response_text: str, user_tier: str) -> tuple:
 
 @router.post("/ai/chat")
 async def ai_chat(body: AIChatReq, user: User = Depends(_dep_current_user)):
+    # ---- Crisis short-circuit — runs before EVERYTHING -----------------------
+    # Spec-mandated and zero LLM cost: a crisis message must reach a person in
+    # danger. This check used to sit after the entitlement and consent gates,
+    # so an unentitled or un-consented account typing a crisis message got a
+    # paywall or a consent form instead of the 988 template. That is a safety
+    # defect, not a billing preference — and answering costs nothing. It now
+    # precedes rate limiting, tiers, consent, and persona checks alike.
+    if body.mode == "ancestral_sage" and _detect_crisis(body.message):
+        await db.chat_history.insert_one({
+            "id": str(uuid.uuid4()),
+            "user_id": user.id,
+            "session_id": body.session_id,
+            "mode": body.mode,
+            "user_msg": body.message,
+            "assistant_msg": CRISIS_REPLY,
+            "refusal_reason": "crisis_safety_template",
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        })
+        return {"reply": CRISIS_REPLY, "safety_intervention": True}
     # Owner/executive_admin: no per-minute cap — they own the platform.
     _rank = ROLE_RANK.get(getattr(user, 'role', ''), 0)
     if _rank < ROLE_RANK.get('admin', 6):
@@ -1203,20 +1222,6 @@ async def ai_chat(body: AIChatReq, user: User = Depends(_dep_current_user)):
                 "Consent required for this practice. Please complete the consent "
                 "flow (POST /api/ai/consent) before continuing.",
             )
-
-    # ---- Crisis short-circuit (no LLM cost; spec-mandated) --------------
-    if is_sage and _detect_crisis(body.message):
-        await db.chat_history.insert_one({
-            "id": str(uuid.uuid4()),
-            "user_id": user.id,
-            "session_id": body.session_id,
-            "mode": body.mode,
-            "user_msg": body.message,
-            "assistant_msg": CRISIS_REPLY,
-            "refusal_reason": "crisis_safety_template",
-            "created_at": datetime.now(timezone.utc).isoformat(),
-        })
-        return {"reply": CRISIS_REPLY, "safety_intervention": True}
 
     ctx = ""
     if body.module_slug:

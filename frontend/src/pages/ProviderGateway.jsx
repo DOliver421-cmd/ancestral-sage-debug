@@ -111,6 +111,105 @@ const PRESETS = [
     signupLabel: "Get free key at platform.deepseek.com",
     color:    "#4d6bfe",
   },
+  // ── Zero-cost failover expansion (owner decision 2026-10-12) ────────────────
+  // Email sign-up, no card, $0 to the platform, usable from Tampa FL. These
+  // run AFTER the providers above, so they only answer when an earlier one is
+  // rate-limited or down. Verified from the live site with no credentials:
+  // NVIDIA NIM, DeepInfra and Novita answer /models with a real catalogue.
+  {
+    type:     "nvidia",
+    name:     "NVIDIA NIM",
+    model:    "DeepSeek V4.1 Flash",
+    badge:    "Failover · 80+ models",
+    cost:     "Free — 40 RPM",
+    note:     "NVIDIA's hosted open-weight models. Live catalogue of 80 models readable without a key.",
+    signup:   "https://build.nvidia.com",
+    signupLabel: "Get free key at build.nvidia.com",
+    color:    "#76b900",
+  },
+  {
+    type:     "deepinfra",
+    name:     "DeepInfra",
+    model:    "Llama 3.3 70B Turbo",
+    badge:    "Failover · 177 models",
+    cost:     "Free daily caps",
+    note:     "Low-overhead serverless inference. Live catalogue of 177 models readable without a key.",
+    signup:   "https://deepinfra.com",
+    signupLabel: "Get free key at deepinfra.com",
+    color:    "#0ea5e9",
+  },
+  {
+    type:     "novita",
+    name:     "Novita AI",
+    model:    "Llama 3.3 70B",
+    badge:    "Failover · 94 models",
+    cost:     "Free tier",
+    note:     "Asia-Pacific infrastructure — useful when US providers are loaded. 94 live models.",
+    signup:   "https://novita.ai",
+    signupLabel: "Get free key at novita.ai",
+    color:    "#8b5cf6",
+  },
+  {
+    type:     "hyperbolic",
+    name:     "Hyperbolic",
+    model:    "Llama 3.3 70B",
+    badge:    "Failover · GPU network",
+    cost:     "Free tier",
+    note:     "Distributed GPU network for open-weight models. Endpoint verified reachable; key is tested for real when you save it.",
+    signup:   "https://hyperbolic.xyz",
+    signupLabel: "Get free key at hyperbolic.xyz",
+    color:    "#f43f5e",
+  },
+  {
+    type:     "perplexity",
+    name:     "Perplexity",
+    model:    "Sonar",
+    badge:    "Failover · web search",
+    cost:     "Free developer tier",
+    note:     "Search-augmented answers — the only provider in the chain that can read the live web. Endpoint verified reachable; key is tested when you save it.",
+    signup:   "https://perplexity.ai",
+    signupLabel: "Get free key at perplexity.ai",
+    color:    "#14b8a6",
+  },
+];
+
+// ── Specialty media keys (owner decision 2026-10-12) ─────────────────────────
+// Zero-cost image / sound / video providers. Storing a key here is real — it
+// is encrypted, masked, status-tracked, and picked up by the specialty tools
+// release without another paste. The generation endpoints themselves arrive
+// with that release; until then these rows show "key stored" and nothing
+// pretends otherwise.
+const MEDIA = [
+  {
+    type: "pollinations", name: "Pollinations", model: "Flux / SDXL images", badge: "Image · zero-auth", cost: "No key needed",
+    note: "Zero-auth image generation. Works from a plain URL — the engine of last resort for images.",
+    signup: "https://pollinations.ai", signupLabel: "Open pollinations.ai", color: "#22c55e",
+  },
+  {
+    type: "elevenlabs", name: "ElevenLabs", model: "Text to speech", badge: "Sound · TTS", cost: "Free — 10k chars/mo",
+    note: "High-fidelity narration. 10,000 characters a month free, forever.",
+    signup: "https://elevenlabs.io", signupLabel: "Get free key at elevenlabs.io", color: "#6366f1",
+  },
+  {
+    type: "deepgram", name: "Deepgram", model: "Speech to text + Aura TTS", badge: "Sound · STT + TTS", cost: "Free credit on signup",
+    note: "Real-time transcription and the Aura voice model. Free credit on email verification.",
+    signup: "https://deepgram.com", signupLabel: "Get free key at deepgram.com", color: "#0ea5e9",
+  },
+  {
+    type: "luma", name: "Luma AI", model: "Dream Machine video", badge: "Video · async jobs", cost: "Free monthly queue",
+    note: "Text-to-video and image-to-video. Monthly free generation allocation.",
+    signup: "https://lumalabs.ai", signupLabel: "Get free key at lumalabs.ai", color: "#f59e0b",
+  },
+  {
+    type: "replicate", name: "Replicate", model: "Video + multimodal", badge: "Video · async jobs", cost: "Trial credit, no card",
+    note: "Universal model runner — video, audio, vision. Developer tier credit on signup.",
+    signup: "https://replicate.com", signupLabel: "Get free key at replicate.com", color: "#ec4899",
+  },
+  {
+    type: "fal", name: "Fal.ai", model: "LTX-Video / CogVideoX", badge: "Video · async jobs", cost: "Free developer balance",
+    note: "Fast open-source video rendering with async job endpoints.",
+    signup: "https://fal.ai", signupLabel: "Get free key at fal.ai", color: "#a855f7",
+  },
 ];
 
 // ── Payment providers (exec key-link UI) ─────────────────────────────────────
@@ -473,7 +572,7 @@ export default function ProviderGateway() {
           <div>
             <p className="text-xs text-ink/50 mb-5 leading-relaxed">
               Register for a free account at each service, copy the API key they give you, and paste it below.
-              You don't need all 6 — one is enough to get started. Groq is recommended first.
+              You don't need all of them — one is enough to get started. Groq is recommended first; the five failover providers below the original set add redundancy at zero cost.
             </p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {PRESETS.map(preset => (
@@ -489,11 +588,34 @@ export default function ProviderGateway() {
             <p className="text-xs text-ink/30 mt-8 leading-relaxed">
               Keys are encrypted at rest. They are never returned in any API response.
               Order the gateway actually uses: Groq → Cerebras → SambaNova → Gemini → xAI →
-              Cohere → Mistral → Together → OpenRouter → HuggingFace → shared support keys →
+              Cohere → Mistral → Together → OpenRouter → HuggingFace → NVIDIA NIM →
+              DeepInfra → Novita → Hyperbolic → Perplexity → shared support keys →
               OpenAI → DeepSeek → knowledge base. The first one that answers wins, so a single
-              key is enough. OpenAI and DeepSeek sit last, just before the knowledge-base
-              fallback.
+              key is enough. The five failover providers only answer when an earlier one is
+              rate-limited or down, and skip themselves entirely until a key is saved.
+              OpenAI and DeepSeek sit last, just before the knowledge-base fallback.
             </p>
+
+            {/* Specialty media keys — image / sound / video, $0 providers */}
+            <h3 className="text-sm font-bold text-ink mt-10 mb-1">Specialty media keys — image · sound · video</h3>
+            <p className="text-xs text-ink/50 mb-5 leading-relaxed">
+              Zero-cost media providers, each verified reachable from Tampa. A key saved here is
+              encrypted and picked up automatically by the specialty tools release — no second paste.
+              Until that release ships, the generation endpoints themselves are not wired: saving a
+              key below stores it and shows it active, and nothing pretends the image/sound/video
+              tools exist yet.
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {MEDIA.map(preset => (
+                <ProviderCard
+                  key={preset.type}
+                  preset={preset}
+                  status={status[preset.type]}
+                  onSave={handleSave}
+                  saving={saving === preset.type}
+                />
+              ))}
+            </div>
           </div>
         )}
 

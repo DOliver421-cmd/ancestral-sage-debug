@@ -231,9 +231,16 @@ def _check(db, user, path):
     return asyncio.run(fc.check_user_feature_access(db, user, path))
 
 
-def test_ai_chat_free_user_is_blocked():
+def test_ai_chat_declared_member_and_handler_enforced():
+    """The map declares member — the contract the exec console edits and the
+    frontend mirrors — while the middleware defers /api/ai/chat to the handler
+    so the crisis short-circuit can precede the paywall (see
+    AI_HANDLER_ENFORCED_PATHS). A single gate, two layers, one rule."""
+    assert fc.FEATURE_MIN_TIER["ai_chat"] == "member"
     db = _FakeDB(users=[{"id": "u1", "byok_enabled": False}])
-    action, detail = _check(db, _u(feature_tier="free"), "/api/ai/chat")
+    assert _check(db, _u(feature_tier="free"), "/api/ai/chat") == ("pass", None)
+    # Other model-bearing ai paths still stop at the middleware.
+    action, detail = _check(db, _u(feature_tier="free"), "/api/ai/tool-chat")
     assert action == "block" and "Member plan" in detail
 
 
