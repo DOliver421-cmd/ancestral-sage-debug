@@ -175,7 +175,49 @@ Manual probe traffic can lock these out for 30 minutes — keep it light.
 | Frontend guards | route / nav / academy-access all pass |
 | CRA build | succeeds; soup assets present in `frontend/build/mini-more-help-center/` |
 
-## 6. WHAT WAS NOT DONE (on purpose)
+## 7. VERIFICATION PASS — 2026-10-12 (owner: "verify secure, protected, AI-compliant with full human oversight")
+
+The owner's initial goal was **executed end to end** with a real, newly
+registered account (not inspected): register → add learner (grade + track) →
+catalog (97 rows, 96 published, grade-4 courses auto-enrolled) → learner
+dashboard (courses + records summary) → lesson payload (units, `learn`, `check`)
+→ attempt scored 100% with the next lesson unlocked → records page → F.S.
+§1002.41 Notice of Intent generated → another parent refused with 403 (tenant
+isolation). Profile: PATCH /auth/me persists, sessions listed (ip, user agent,
+last seen), account export returns the real 4.5 KB payload, password change
+rotates the credential.
+
+Security probes executed: anonymous → 401 on every protected surface; login
+rate limit trips at the 6th attempt (429); `/api/health` leaks no secrets; BYOK
+keys never returned raw and activation gated with a clear 402; a free student
+is refused member AI surfaces with the upgrade message while the no-cost
+surfaces (consent, resolve_mode, integrity, keyword KB) stay reachable; the
+crisis message returns the 988 template even for an unentitled account.
+
+**Two real defects found in the oversight path and fixed** (both would have
+made "human oversight" decorative): the Feature Control Center could neither
+save nor read (three stacked defects — an unannotated `request` query param, a
+`Depends(None)` captured at import time before `bind()`, and a dict-style
+`.get()` on a pydantic User), and the Soup had no nav entry at all. Both fixed,
+tested live (an exec flip of a feature really returns 403 and re-enabling
+returns 200; the flip is audit-logged), and pinned by
+`backend/tests/test_oversight_controls.py`.
+
+**The Student & Family Support Center** is built on the Helper page: the five
+utility engines (Letter & Legal Reader, Bill Breakdown, Scam & Fraud Shield,
+Custody & Housing, Medication & Health) plus a Media & Accessibility tab (voice
+dictation, document capture with camera or text file, read-aloud TTS, one-click
+printable summary sheet). Zero new dependencies, zero new collections; all
+analysis runs through the existing BYOK-or-KB path, so it costs the platform
+nothing.
+
+Suite: **733 passed, 4 skipped, 0 failed** on a clean database.
+
+Everything found but deliberately outside the initial goal is recorded in
+`docs/REMEDIATION_PLAN.md` — head of the list: a password change does not end
+existing sessions (A1), and the AI Coach's parent switch is UI-only (A2).
+
+## 8. WHAT WAS NOT DONE (on purpose)
 
 - The Soup's 16 files were not modified (read-only content; owner rule).
 - No Anthropic anything.
