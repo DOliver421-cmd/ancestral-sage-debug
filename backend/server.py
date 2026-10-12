@@ -11167,7 +11167,12 @@ def setup_frontend_serving():
             return JSONResponse(status_code=404, content={"detail": "Not Found"})
         if full_path and _candidate.is_file():
             return FileResponse(str(_candidate))
-        return FileResponse(str(Path(_build_dir) / "index.html"))
+        # The shell references hashed bundles: never let a proxy or browser keep
+        # a stale copy (that is how a retired, crashing build stays on screen).
+        return FileResponse(
+            str(Path(_build_dir) / "index.html"),
+            headers={"Cache-Control": "no-cache, no-store, must-revalidate"},
+        )
 
     logger.info(
         "FRONTEND: Serving React build from %s (static + root assets registered at import)", _bp

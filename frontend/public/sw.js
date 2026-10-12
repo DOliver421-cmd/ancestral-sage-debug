@@ -3,7 +3,7 @@
 // Stale service workers + cached index.html are how users stay stuck on old builds.
 // NOTE: every PRECACHE entry must be a real, existing route. There is no
 // /offline page — including it made `install` fail on a 404.
-const CACHE = "wai-v4";
+const CACHE = "wai-v6";
 const PRECACHE = ["/", "/login", "/help-center"];
 
 self.addEventListener("install", (event) => {
@@ -18,7 +18,15 @@ self.addEventListener("install", (event) => {
 });
 
 self.addEventListener("activate", (event) => {
-  event.waitUntil(clients.claim());
+  event.waitUntil((async () => {
+    // Drop every cache that is not the current version. Without this, a
+    // version bump leaves the previous generation's entries — including its
+    // index.html pointing at a retired bundle hash — in place forever, and a
+    // browser that already registered that worker keeps loading the old shell.
+    const names = await caches.keys();
+    await Promise.all(names.filter((n) => n !== CACHE).map((n) => caches.delete(n)));
+    await clients.claim();
+  })());
 });
 
 self.addEventListener("fetch", (event) => {
