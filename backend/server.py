@@ -687,6 +687,10 @@ class AIChatReq(BaseModel):
     session_id: str
     message: str
     module_slug: Optional[str] = None
+    # Homeschool Academy: which learner this message is for. Only the academy
+    # coach reads it — so the server can honour the parent's coach switch for
+    # THAT learner instead of trusting the client to have disabled the button.
+    student_id: Optional[str] = None
     mode: Literal[
         "tutor",
         "academy_coach",
@@ -3047,10 +3051,18 @@ async def exec_system_info(user: User = Depends(require_role("executive_admin"))
 
 
 @api_router.post("/auth/change-password")
-async def change_password(body: ChangePasswordReq, user: User = Depends(current_user)):
+async def change_password(body: ChangePasswordReq, request: Request,
+                          user: User = Depends(current_user)):
     """Any authenticated user can change their own password.
     Returns a fresh token + updated user so the client can update its cache
-    immediately without relying on a follow-up /auth/me call."""
+    immediately without relying on a follow-up /auth/me call.
+
+    A password change is also a SESSION REVOCATION POINT: the usual reason
+    someone changes their password is that they believe someone else has
+    access. Bumping token_version invalidates every JWT issued before the
+    change (current_user() rejects any tv != the stored value) and the session
+    rows are cleared; the caller's own device is re-issued with the new tv, so
+    only their client keeps working."""
     # 8-char floor to match registration. ChangePasswordReq already rejects <8
     # during model validation (min_length=8), so this guard is not the binding
     # check on this path; it keeps the 400 contract if that ever changes.
@@ -3061,16 +3073,37 @@ async def change_password(body: ChangePasswordReq, user: User = Depends(current_
     await db.users.update_one({"id": user.id}, {"$set": {
         "password_hash": hash_pw(body.new_password),
         "must_change_password": False,
-    }})
-    await audit(user.id, "auth.password_changed")
-    # Fetch fresh user doc (must_change_password now False) and issue new token
+    }, "$inc": {"token_version": 1}})
+    # Clear every session record so the session list shows only live devices.
+    await db.auth_sessions.delete_many({"user_id": user.id})
+    await audit(user.id, "auth.password_changed", meta={"sessions_revoked": True})
+    # Fetch fresh user doc and issue a new token carrying the BUMPED
+    # token_version, so this device stays signed in while every other device
+    # (whose JWT still carries the old tv) is signed out.
     fresh_doc = await db.users.find_one({"id": user.id}, {"_id": 0, "password_hash": 0})
     if fresh_doc and isinstance(fresh_doc.get("created_at"), str):
         fresh_doc["created_at"] = datetime.fromisoformat(fresh_doc["created_at"])
     fresh_user = User(**(fresh_doc or {}))
+    # Re-record this device as the one live session, mirroring login.
+    _session_id = str(uuid.uuid4())
+    try:
+        await db.auth_sessions.insert_one({
+            "session_id": _session_id,
+            "user_id": user.id,
+            "user_agent": request.headers.get("user-agent", "")[:200],
+            "ip": request.client.host if request.client else None,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "last_seen": datetime.now(timezone.utc).isoformat(),
+        })
+    except Exception:
+        logger.warning("change-password: session re-record failed (non-fatal)")
+        _session_id = None
+    _extra = {"tv": int(fresh_doc.get("token_version", 0) or 0)}
+    if _session_id:
+        _extra["session_id"] = _session_id
     return {
         "ok": True,
-        "access_token": make_token(fresh_user.id, fresh_user.role),
+        "access_token": make_token(fresh_user.id, fresh_user.role, extra=_extra),
         "user": fresh_user.model_dump(),
     }
 
@@ -4620,7 +4653,28 @@ async def ai_chat(body: AIChatReq, user: User = Depends(current_user)):
     # from the lesson text the student is reading rather than failing. This is
     # what makes the "free" claim true for a family with no API key.
     _coach_reply = None
+    # Set before the branch: the variable is assigned again in the
+    # provider-failure path, and read unconditionally after the branch. It used
+    # to be assigned ONLY there, so a successful coach reply (any configured
+    # key or BYOK) hit `UnboundLocalError` and 500'd — invisible on a
+    # deployment with no provider keys, where every call takes the fallback.
+    _coach_grounded = False
     if body.mode == "academy_coach":
+        # REMEDIATION A2: the parent's coach switch, enforced HERE.
+        # The UI already disables the coach panel when a parent turns the
+        # switch off — but a UI-only gate is decoration: a direct API call used
+        # to reach the coach anyway. The switch is now read from the learner's
+        # own document (ownership-checked against this parent) BEFORE any
+        # provider call, so a parent's decision cannot be bypassed.
+        if body.student_id:
+            _learner = await db.academy_students.find_one(
+                {"id": body.student_id, "parent_user_id": user.id}, {"_id": 0})
+            if _learner is not None and _learner.get("coach_enabled") is False:
+                raise HTTPException(
+                    403,
+                    "The AI Coach is switched off for this learner. A parent can "
+                    "turn it back on from the Academy parent dashboard.",
+                )
         _ctx = getattr(body, "module_slug", None) or ""
         _coach_reply = _lesson_grounded_reply(body.message, body.message)
         try:

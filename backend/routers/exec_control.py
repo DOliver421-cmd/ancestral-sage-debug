@@ -1280,56 +1280,10 @@ ROUTE_ACCESS_REGISTRY = [
 ]
 
 
-@router.get("/exec/control/route-access")
-async def ec_route_access(actor: User = Depends(_require_rank("executive_admin"))):
-    """Route access overview — every API route, its required role, and
-    its current enforcement status.  The executive console renders this
-    as a table so the exec can see at a glance which routes are locked
-    and which are open.
-
-    NOTE: This endpoint is SHADOWED by security/access_control/dashboard.py's
-    route_access_overview, which is included first and returns the live
-    gateway matrix instead. Both require executive_admin (no authz hazard),
-    but only the dashboard.py version responds at this path. The override
-    feature below (route_access_overrides) is currently unreachable via this
-    endpoint. See REMEDIATION_PLAN.md Part 4 (duplicate routes).
-    """
-    # Fetch current access overrides from DB
-    overrides = {}
-    try:
-        docs = await db.route_access_overrides.find({}, {"_id": 0}).to_list(500)
-        overrides = {d["path"]: d for d in docs}
-    except Exception:
-        pass
-    routes = []
-    for reg in ROUTE_ACCESS_REGISTRY:
-        ov = overrides.get(reg["path"], {})
-        routes.append({
-            **reg,
-            "enforced": ov.get("enforced", True),
-            "override_role": ov.get("override_role"),
-            "updated_by": ov.get("updated_by"),
-            "updated_at": ov.get("updated_at"),
-        })
-    # Group by area for the UI
-    areas = {}
-    for r in routes:
-        area = r["area"]
-        if area not in areas:
-            areas[area] = []
-        areas[area].append(r)
-    return {
-        "routes": routes,
-        "areas": areas,
-        "total": len(routes),
-        "fetched_at": datetime.now(timezone.utc).isoformat(),
-    }
-
-
 class _RouteAccessOverrideReq(BaseModel):
     path: str = Field(..., min_length=1, max_length=200)
     enforced: bool = True
-    override_role: Optional[str] = None  # None = use default from registry
+    override_role: Optional[str] = None  # None = use default from the gateway
     reason: str = Field("", max_length=500)
 
 
@@ -1340,20 +1294,48 @@ async def ec_set_route_access(body: _RouteAccessOverrideReq, request: Request,
     Can mark a route as enforced/not-enforced, or override its required role.
     executive_admin only.
     """
-    if not any(r["path"] == body.path for r in ROUTE_ACCESS_REGISTRY):
+    entries = [r for r in ROUTE_ACCESS_REGISTRY if r["path"] == body.path]
+    if not entries:
         raise HTTPException(400, f"Unknown route path '{body.path}'")
     now_iso = datetime.now(timezone.utc).isoformat()
-    update = {
-        "path": body.path,
-        "enforced": body.enforced,
-        "override_role": body.override_role,
-        "updated_by": actor.id,
-        "updated_at": now_iso,
-    }
+    # The gateway enforces from `db.route_access` (security/access_control/
+    # gateway.py:_load_route_policy), keyed by route_key = "METHOD /api/path".
+    # This console used to write a SEPARATE `route_access_overrides` collection
+    # that nothing read — a save looked successful and changed no decision.
+    # Write the collection the gateway actually reads, one document per
+    # method registered for this path, and say so in the response.
+    written = []
+    for reg in entries:
+        route_key = f"{reg['method']} {reg['path']}"
+        doc = {
+            "route_key": route_key,
+            "method": reg["method"],
+            "path_pattern": reg["path"],
+            "enabled": body.enforced,
+            "updated_by": actor.id,
+            "updated_at": now_iso,
+            "reason": body.reason,
+        }
+        if body.override_role:
+            doc["allowed_roles"] = [body.override_role]
+        await db.route_access.update_one(
+            {"route_key": route_key}, {"$set": doc}, upsert=True)
+        written.append(route_key)
+    # Keep the legacy store in step so an older console version reading it
+    # still sees the same truth (no second source of disagreement).
     await db.route_access_overrides.update_one(
-        {"path": body.path}, {"$set": update}, upsert=True)
+        {"path": body.path},
+        {"$set": {
+            "path": body.path, "enforced": body.enforced,
+            "override_role": body.override_role,
+            "updated_by": actor.id, "updated_at": now_iso,
+            "route_keys": written,
+        }}, upsert=True)
     await _exec_audit(actor, "exec.route_access.updated", request=request,
                       after={"path": body.path, "enforced": body.enforced,
-                             "override_role": body.override_role},
+                             "override_role": body.override_role,
+                             "route_keys": written},
                       note=body.reason)
-    return {"ok": True, "path": body.path, "enforced": body.enforced}
+    return {"ok": True, "path": body.path, "enforced": body.enforced,
+            "route_keys": written,
+            "enforced_by": "db.route_access (the store the gateway reads)"}
