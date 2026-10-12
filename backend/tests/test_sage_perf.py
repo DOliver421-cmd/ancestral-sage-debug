@@ -34,6 +34,27 @@ EXEC_EMAIL = os.environ.get("TEST_EXEC_EMAIL", "youpickeddoliver@gmail.com")
 EXEC_PW = os.environ.get("TEST_EXEC_PW", "")
 
 
+def _set_student_tier(tier):
+    """Set the shared demo student's tier in the LOCAL test database.
+
+    /api/ai/sage/tts is `publisher_ai` = member (security/feature_control.py:
+    the Sage voice is part of the Creator Suite, Member tier). A free student
+    is correctly refused with 403 ACCESS_ENFORCED, so these tests run an
+    entitled account. Always paired with a restore.
+    """
+    from pymongo import MongoClient
+    url = os.environ.get("MONGO_URL", "mongodb://localhost:27017")
+    db_name = os.environ.get("DB_NAME", "phase0_dev")
+    c = MongoClient(url, serverSelectionTimeoutMS=5000)
+    try:
+        if tier:
+            c[db_name].users.update_one({"email": STUDENT_EMAIL}, {"$set": {"feature_tier": tier}})
+        else:
+            c[db_name].users.update_one({"email": STUDENT_EMAIL}, {"$unset": {"feature_tier": ""}})
+    finally:
+        c.close()
+
+
 def _login(email, password, attempts=3):
     """Session-cached login via the shared helper (see tests/conftest.py).
 
@@ -64,6 +85,15 @@ def exec_token():
 @pytest.fixture(scope="module")
 def student_token():
     return _login(STUDENT_EMAIL, STUDENT_PW)
+
+
+@pytest.fixture(scope="module", autouse=True)
+def _entitled_student():
+    """The Sage voice endpoints are Member-gated (publisher_ai); promote the
+    shared demo student for this module and restore the seeded tier after."""
+    _set_student_tier("member")
+    yield
+    _set_student_tier(None)
 
 
 # ---------------------------------------------------------------------------

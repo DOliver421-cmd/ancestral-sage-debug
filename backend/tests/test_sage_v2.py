@@ -42,6 +42,27 @@ EXEC_PW = os.environ.get("TEST_EXEC_PW", "")
 COMPREHENSION = "I understand and accept the risks of this practice."
 
 
+def _set_student_tier(tier):
+    """Set the shared demo student's tier in the LOCAL test database.
+
+    /api/ai/sage/tts is `publisher_ai` = member (security/feature_control.py:
+    the Sage voice is part of the Creator Suite, Member tier). A free student
+    is correctly refused with 403 ACCESS_ENFORCED, so these tests run an
+    entitled account. Always paired with a restore.
+    """
+    from pymongo import MongoClient
+    url = os.environ.get("MONGO_URL", "mongodb://localhost:27017")
+    db_name = os.environ.get("DB_NAME", "phase0_dev")
+    c = MongoClient(url, serverSelectionTimeoutMS=5000)
+    try:
+        if tier:
+            c[db_name].users.update_one({"email": STUDENT_EMAIL}, {"$set": {"feature_tier": tier}})
+        else:
+            c[db_name].users.update_one({"email": STUDENT_EMAIL}, {"$unset": {"feature_tier": ""}})
+    finally:
+        c.close()
+
+
 def _login(email, password):
     """Session-cached login via the shared helper (see tests/conftest.py).
 
@@ -180,7 +201,13 @@ class TestLayeredConsent:
 class TestSageTTS:
 
     def setup_method(self):
+        # The Sage voice is a Member surface (publisher_ai), so this class runs
+        # an entitled account and puts the shared demo student back afterwards.
+        _set_student_tier("member")
         self.token = _login(STUDENT_EMAIL, STUDENT_PW)
+
+    def teardown_method(self):
+        _set_student_tier(None)
 
     def test_text_required(self):
         r = requests.post(
