@@ -1,4 +1,5 @@
 """Provider Gateway endpoints for the executive shared AI key pool."""
+import logging
 import os
 import uuid
 from datetime import datetime, timezone
@@ -8,6 +9,8 @@ from fastapi import APIRouter, Depends, Header, HTTPException
 from pydantic import BaseModel
 
 from roles import ROLE_RANK
+
+logger = logging.getLogger("lcewai.provider_gateway")
 
 router = APIRouter(tags=["provider-gateway"])
 db = None
@@ -196,21 +199,28 @@ async def quick_setup(body: QuickSetupRequest, user=Depends(_user)):
         {"$set": upd, "$setOnInsert": {"id": str(uuid.uuid4()), "created_at": now}},
         upsert=True,
     )
-    if provider_type in (
-        "groq", "cerebras", "gemini", "mistral", "cohere", "together", "xai",
-        "openai", "deepseek", "sambanova", "openrouter", "huggingface",
-        # Zero-cost expansion (2026-10-12) + specialty media keys: reload the
-        # gateway globals so the pasted key serves the next request. Types the
-        # gateway does not map are skipped inside reload_provider_keys.
-        "nvidia", "deepinfra", "novita", "hyperbolic", "perplexity",
-        "pollinations", "elevenlabs", "deepgram", "luma", "replicate", "fal",
-    ):
-        from ai.llm_gateway import reload_provider_keys
-        await reload_provider_keys(db)
-    else:
-        # Payment provider — reload so the newly pasted key takes effect now.
-        from routers.payments import reload_payment_keys
-        await reload_payment_keys(db)
+    # The key is now durably stored. The in-memory reload below is a
+    # convenience (the key also loads at startup): a reload failure must never
+    # report "not saved" for a key that IS saved, so it is logged and the
+    # save still reports success.
+    try:
+        if provider_type in (
+            "groq", "cerebras", "gemini", "mistral", "cohere", "together", "xai",
+            "openai", "deepseek", "sambanova", "openrouter", "huggingface",
+            # Zero-cost expansion (2026-10-12) + specialty media keys: reload the
+            # gateway globals so the pasted key serves the next request. Types the
+            # gateway does not map are skipped inside reload_provider_keys.
+            "nvidia", "deepinfra", "novita", "hyperbolic", "perplexity",
+            "pollinations", "elevenlabs", "deepgram", "luma", "replicate", "fal",
+        ):
+            from ai.llm_gateway import reload_provider_keys
+            await reload_provider_keys(db)
+        else:
+            # Payment provider — reload so the newly pasted key takes effect now.
+            from routers.payments import reload_payment_keys
+            await reload_payment_keys(db)
+    except Exception:
+        logger.exception("provider key saved but the in-memory reload failed for %s", provider_type)
     await audit(user.id, "provider_gateway.key_saved", meta={"provider": provider_type})
     return {"provider_type": provider_type, "configured": True, "key_masked": _mask(api_key)}
 

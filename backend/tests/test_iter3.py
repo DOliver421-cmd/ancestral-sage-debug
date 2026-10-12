@@ -30,8 +30,27 @@ def _login(s, email, pw):
         return r.json()["access_token"]
     return login_token(email, pw)
 
+def _promote_local_user_to_plus(email):
+    """Register/overwrite the tier of ONE account in the LOCAL test database.
+
+    Labs, credentials and module content are Plus-gated by the platform's tier
+    model (security/feature_control.py maps those prefixes to `courses`), so a
+    free student is correctly refused with 403 ACCESS_ENFORCED. This promotes
+    the local test row only — never a deployment.
+    """
+    from pymongo import MongoClient
+    url = os.environ.get("MONGO_URL", "mongodb://localhost:27017")
+    db_name = os.environ.get("DB_NAME", "phase0_dev" if os.environ.get("REACT_APP_BACKEND_URL") else "testdb_pytest")
+    c = MongoClient(url, serverSelectionTimeoutMS=5000)
+    try:
+        c[db_name].users.update_one({"email": email}, {"$set": {"feature_tier": "plus"}})
+    finally:
+        c.close()
+
+
 def hdr(t):
     return {"Authorization": f"Bearer {t}", "Content-Type": "application/json"}
+
 
 
 @pytest.fixture(scope="module")
@@ -51,6 +70,16 @@ def instr_t(s):
 
 @pytest.fixture(scope="module")
 def stud_t(s):
+    """Plus-tier student.
+
+    The labs, credentials and module CONTENT exercised in this file are
+    Plus-gated by the platform's tier model (security/feature_control.py maps
+    /api/labs, /api/credentials and module content to `courses`), so a free
+    account is correctly refused with 403 ACCESS_ENFORCED. Promoting the local
+    test row is what lets these tests read the content — the same pattern
+    tests/test_lcewai.py already uses for portfolio publishing.
+    """
+    _promote_local_user_to_plus(STUDENT[0])
     return _login(s, *STUDENT)
 
 

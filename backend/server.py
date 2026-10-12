@@ -6578,6 +6578,27 @@ async def submit_compliance_quiz(slug: str, body: dict, user: User = Depends(cur
         upsert=True,
     )
     if status_val == "completed":
+        # A compliance module may declare that passing it also completes a core
+        # module ("completes_module" in the seed). That is how the OSHA 10
+        # awareness content satisfies the osha-10-awareness credential's
+        # module_completed trigger — the credential evidence text documents the
+        # link, so honour it here instead of leaving the trigger unreachable.
+        linked_module = mod.get("completes_module")
+        if linked_module:
+            mod_doc = await db.modules.find_one({"slug": linked_module}, {"_id": 0})
+            if mod_doc:
+                await db.progress.update_one(
+                    {"user_id": user.id, "module_slug": linked_module},
+                    {"$set": {
+                        "status": "completed",
+                        "quiz_score": score,
+                        "completed_at": now.isoformat(),
+                        "hours_logged": mod.get("hours", 0) or mod_doc.get("hours", 0),
+                        "updated_at": now.isoformat(),
+                        "source": f"compliance:{slug}",
+                    }, "$setOnInsert": {"id": str(uuid.uuid4())}},
+                    upsert=True,
+                )
         await award_credentials(user.id)
     return {"score": score, "correct": correct, "total": len(quiz), "status": status_val, "pass_pct": pass_pct, "expires_at": expires_at}
 

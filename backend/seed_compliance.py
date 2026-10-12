@@ -28,6 +28,14 @@ COMPLIANCE_MODULES = [
         "competencies": ["safety-ppe", "professionalism"],
         "hours": 10,
         "expires_months": 36,
+        # Declared linkage: passing this compliance quiz is the Safety & LOTO
+        # module requirement, so completing it also completes the module —
+        # which is what the osha-10-awareness credential's trigger reads
+        # (seed_credentials.py: module_completed -> safety-loto). Without this
+        # link the trigger could never fire from the compliance track, and the
+        # documented auto-award ("Passed Safety & LOTO module with 70%+")
+        # never happened. Declared in data, not hardcoded in the handler.
+        "completes_module": "safety-loto",
     },
     {
         "slug": "nfpa-70e-awareness",
