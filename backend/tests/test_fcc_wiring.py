@@ -20,6 +20,7 @@ import os
 import sys
 import types
 from datetime import datetime, timezone
+from types import SimpleNamespace
 
 # Same env convention as scripts/tools/verify_endpoints.py — the test harness
 # never touches a real deployment database.
@@ -138,7 +139,9 @@ async def test_update_feature_writes_and_audits():
     from routers import features as F
 
     db = DB()
-    actor = {"id": "admin1", "role": "admin"}
+    # The real dependency resolves a pydantic User; the handler reads it with
+    # getattr (a dict-style .get() on a User was the 500 that broke this path).
+    actor = SimpleNamespace(id="admin1", role="admin")
     F.db = db
     F.current_user = None
 
@@ -159,7 +162,6 @@ async def test_update_feature_writes_and_audits():
             "nam.chat",
             {"enabled": False, "allowed_tiers": ["creator", "free", "bogus"],
              "allowed_roles": ["student", "not_a_role"], "cost_bearing": True},
-            request=object(),
             actor=actor,
         )
         ok("update_feature returns saved=True", r.get("saved") is True)
@@ -180,7 +182,7 @@ async def test_update_feature_writes_and_audits():
 
         # Unknown feature -> 404.
         try:
-            await F.update_feature("does.not.exist", {"enabled": False}, request=object(), actor=actor)
+            await F.update_feature("does.not.exist", {"enabled": False}, actor=actor)
             ok("unknown feature -> 404", False)
         except Exception as e:
             ok("unknown feature -> 404", getattr(e, "status_code", None) == 404)

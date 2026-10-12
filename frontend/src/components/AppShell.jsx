@@ -15,6 +15,7 @@ import {
   Map, BrainCircuit, CreditCard, BarChart3, Wrench, ExternalLink,
   Lock, Search, HeartPulse, Landmark, TicketPercent, Menu, Swords,
   ArrowLeft, Home, GraduationCap, Folder,
+  Soup,
 } from "lucide-react";
 import { isWaiDoor, MORE_HOME } from "../lib/domain";
 import NotificationBell from "./NotificationBell";
@@ -101,7 +102,8 @@ const CUSTOMER_TIERS = [
     items: [
       { to: "/studio", label: "Creator Studio", icon: Music, testid: "nav-creator-studio" },
       { to: "/ai", label: "AI Tutor", icon: Sparkles, testid: "nav-ai" },
-      { to: "/helper", label: "Personal Helper", icon: HelpCircle, testid: "nav-helper" },
+      { to: "/helper", label: "Student & Family Support", icon: HelpCircle, testid: "nav-helper" },
+      { to: "/classic-tools", label: "The Soup", icon: Soup, testid: "nav-soup" },
       { to: "/?guide=1", label: "Help & Guide", icon: Map, testid: "nav-site-guide" },
       { to: "/byok", label: "My AI Keys", icon: BrainCircuit, testid: "nav-byok" },
       { to: "/modules", label: "Modules", icon: BookOpen, testid: "nav-modules" },

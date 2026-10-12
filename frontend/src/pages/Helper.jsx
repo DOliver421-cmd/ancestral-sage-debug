@@ -313,6 +313,85 @@ export function PublicHelper({ embedded = false }) {
 
   const showToast = useCallback((msg) => { setToast(msg); setTimeout(() => setToast(null), 3000); }, []);
 
+  // ── Student & Family Support Center: media + accessibility tools ──────────
+  const [scans, setScans] = useState([]);          // captured documents (name + text/data)
+  const fileInputRef = useRef(null);
+
+  // Camera/file capture: text files are read natively; photographs are kept
+  // as data URLs so they travel with the printable summary sheet. No image is
+  // uploaded anywhere — the browser only.
+  const onScanFile = useCallback(async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    const isText = /^text\/|\.[tm]d$|\.csv$/i.test(file.type + file.name);
+    const id = `${file.name}-${Date.now()}`;
+    if (isText) {
+      const text = await file.text();
+      setScans(s => [...s, { id, name: file.name, text }]);
+      setTab("messages");
+      addMsg("user", `[Scanned document: ${file.name}]\n${text.slice(0, 4000)}`);
+      const reply = await callAPI(
+        `The document below was scanned from paper. Explain it in plain language: who sent it, what they are asking for, any deadline, and the exact next steps.\n\n${text.slice(0, 4000)}`,
+        "mail",
+      );
+      addMsg("helper", reply);
+      if (audioEnabled) speak(reply);
+      return;
+    }
+    const dataUrl = await new Promise((res) => {
+      const r = new FileReader();
+      r.onload = () => res(r.result);
+      r.onerror = () => res("");
+      r.readAsDataURL(file);
+    });
+    setScans(s => [...s, { id, name: file.name, dataUrl }]);
+    showToast("Captured. Dictate or paste what it says, and it will be analysed.");
+  }, [addMsg, callAPI, audioEnabled, speak, showToast]);
+
+  // One-click printable summary: the session, the tasks, and the captured
+  // documents on one clean sheet. Uses the browser's own print pipeline.
+  const printSummary = useCallback(() => {
+    const name = user?.full_name || "Family";
+    const when = new Date().toLocaleString();
+    const esc = (t) => String(t).replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+    const convo = msgs.map(m =>
+      `<div class="b ${m.role}"><span class="who">${m.role === "helper" ? "Helper" : "You"}</span>${esc(m.text)}</div>`,
+    ).join("");
+    const taskRows = tasks.map(t => `<li>${t.done ? "☑" : "☐"} ${esc(t.text)}</li>`).join("");
+    const images = scans.filter(x => x.dataUrl)
+      .map(x => `<img src="${x.dataUrl}" alt="${esc(x.name)}" />`).join("");
+    const w = window.open("", "_blank");
+    if (!w) { showToast("Allow pop-ups to print the summary sheet."); return; }
+    w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Support Center Summary</title>
+<style>
+  @page { margin: 18mm; }
+  body { font-family: Georgia, 'Times New Roman', serif; color: #111; max-width: 720px; margin: 0 auto; line-height: 1.55; }
+  h1 { font-size: 20px; margin: 0 0 2px; }
+  .meta { font-size: 12px; color: #555; border-bottom: 2px solid #111; padding-bottom: 8px; margin-bottom: 14px; }
+  h2 { font-size: 14px; margin: 18px 0 8px; text-transform: uppercase; letter-spacing: .08em; }
+  .b { padding: 8px 10px; border-radius: 6px; margin-bottom: 8px; font-size: 13px; white-space: pre-wrap; }
+  .b.helper { background: #eef4ff; border-left: 3px solid #2563eb; }
+  .b.user { background: #f6f6f6; border-left: 3px solid #999; }
+  .who { display: block; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .1em; color: #666; margin-bottom: 3px; }
+  ul { font-size: 13px; padding-left: 18px; }
+  img { max-width: 48%; margin: 6px 1% 0 0; border: 1px solid #ccc; }
+  .noprint { font-size: 12px; color: #555; }
+  @media print { .noprint { display: none; } }
+</style></head><body>
+<h1>Student & Family Support Center — Summary</h1>
+<div class="meta">${esc(name)} · ${esc(when)} · MoreHelp Center</div>
+<h2>Conversation</h2>
+${convo || "<p><em>No conversation yet.</em></p>"}
+<h2>Tasks</h2>
+<ul>${taskRows || "<li>None recorded.</li>"}</ul>
+${images ? "<h2>Captured documents</h2>" + images : ""}
+<p class="noprint">Tip: choose “Save as PDF” in the print dialog to keep a digital copy.</p>
+<script>window.onload = () => window.print();</script>
+</body></html>`);
+    w.document.close();
+  }, [msgs, tasks, scans, user?.full_name, showToast]);
+
   const addMsg = useCallback((role, text) => {
     const time = new Date().toLocaleTimeString([], { hour:"numeric", minute:"2-digit" });
     setMsgs(m => [...m, { role, text, time }]);
@@ -635,8 +714,8 @@ function AuthHelper({ user }) {
             <button onClick={() => setTab("tasks")} style={{ width:"100%", borderRadius:10, border:"none", padding:"10px 12px", fontSize:13, fontWeight:700, background:"linear-gradient(135deg,#eff6ff,#dbeafe)", color:"#1e40af", cursor:"pointer", textAlign:"left", marginBottom:6, display:"flex", alignItems:"center", gap:8 }}>
               ✅ Focus on today's tasks
             </button>
-            <button onClick={() => startTopic("mail", "Understand a letter", "I can help you understand your mail. Paste or type what the letter says and I will explain what it means and what you need to do.")} style={{ width:"100%", borderRadius:10, border:"none", padding:"10px 12px", fontSize:13, fontWeight:700, background:"linear-gradient(135deg,#fef3c7,#fde68a)", color:"#92400e", cursor:"pointer", textAlign:"left", display:"flex", alignItems:"center", gap:8 }}>
-              📷 Quick scan & read
+            <button onClick={() => setTab("tools")} style={{ width:"100%", borderRadius:10, border:"none", padding:"10px 12px", fontSize:13, fontWeight:700, background:"linear-gradient(135deg,#fef3c7,#fde68a)", color:"#92400e", cursor:"pointer", textAlign:"left", display:"flex", alignItems:"center", gap:8 }}>
+              📷 Scan, dictate & print
             </button>
           </div>
           {/* Tool categories */}
@@ -665,16 +744,17 @@ function AuthHelper({ user }) {
           {tab === "home" && (
             <div style={{ flex:1, overflowY:"auto", padding:"28px 32px" }}>
               <div style={{ marginBottom:28 }}>
+                <div style={{ fontSize:11, fontWeight:800, letterSpacing:"0.18em", textTransform:"uppercase", color:"#7c3aed", marginBottom:6 }}>Student & Family Support Center</div>
                 <div style={{ fontSize:28, fontWeight:900, color:"#0f172a", lineHeight:1.2 }}>Good to see you, {firstName}.</div>
-                <div style={{ fontSize:15, color:"#64748b", marginTop:6 }}>Your private help center is ready. What do you need today?</div>
+                <div style={{ fontSize:15, color:"#64748b", marginTop:6 }}>M.O.R.E. Help Center utilities and SOUP media tools in one place: understand a document, break down a bill, check a message for fraud, navigate housing or custody papers, and get every answer in plain words — or read aloud.</div>
               </div>
               <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(190px,1fr))", gap:12, marginBottom:28 }}>
                 {[
-                  { icon:"📬", title:"Understand mail", desc:"Paste any letter and I'll explain it", color:"#2563eb", key:"mail", prompt:"I can help you understand your mail. Paste or type what the letter says and I will explain what it means and what you need to do." },
-                  { icon:"⚖️", title:"Legal papers", desc:"Plain-language legal document help", color:"#7c3aed", key:"legal", prompt:"I can explain legal documents in plain words. Paste or type the key parts and I will walk you through them." },
-                  { icon:"💡", title:"Explain my bill", desc:"Break down any bill or charge", color:"#f59e0b", key:"bills", prompt:"I can help with your bills. Tell me who sent it, the amount, and what it says." },
-                  { icon:"🛡️", title:"Check for scams", desc:"Flag suspicious messages or calls", color:"#dc2626", key:"scam", prompt:"I can check for scam signs. Paste the message, email, or letter you received." },
-                  { icon:"🏠", title:"Housing help", desc:"Leases, eviction, repairs", color:"#059669", key:"housing", prompt:"I can help with housing documents. Do you have a lease, eviction notice, rent increase letter, or something else?" },
+                  { icon:"📬", title:"Letter & Legal Reader", desc:"Court summons, school notices, housing agreements — plain steps", color:"#2563eb", key:"mail", prompt:"I can translate this document into plain language and clear steps. Paste or scan what it says, tell me who sent it and what they are asking you to do, and I will walk you through it." },
+                  { icon:"💡", title:"Bill Breakdown", desc:"Utility, tuition and medical bills — fees and options", color:"#f59e0b", key:"bills", prompt:"I can break this bill down line by line: hidden fees, payment terms, and assistance options. Who sent it, what is the amount, and what does it say?" },
+                  { icon:"🛡️", title:"Scam & Fraud Shield", desc:"Check messages, emails and demands for fraud markers", color:"#dc2626", key:"scam", prompt:"I will check this for scam signs and predatory terms. Paste or dictate the message you received." },
+                  { icon:"👶", title:"Custody & Housing", desc:"Family paperwork, leases, emergency housing guidance", color:"#7c3aed", key:"housing", prompt:"I can give structured guidance on family legal paperwork, lease agreements and emergency housing options. What do you have in front of you?" },
+                  { icon:"💊", title:"Medication & Health", desc:"Labels, dosage schedules, appointment prep", color:"#059669", key:"medicines", prompt:"I can clarify prescription labels, dosage schedules and appointment prep checklists. What medicine or appointment do you need help with?" },
                   { icon:"✅", title:"Today's tasks", desc:"Stay on top of what matters", color:"#0891b2", toTab:"tasks" },
                 ].map(item => (
                   <button key={item.key || item.toTab}
@@ -697,6 +777,81 @@ function AuthHelper({ user }) {
                   <button onClick={() => setTab("messages")} style={{ borderRadius:999, border:"1px solid #dbeafe", padding:"6px 14px", fontSize:12, fontWeight:700, background:"#eff6ff", color:"#1e40af", cursor:"pointer", marginTop:6 }}>Continue conversation →</button>
                 </div>
               )}
+            </div>
+          )}
+
+          {/* MEDIA TOOLS TAB — SOUP support tools (owner spec §2) */}
+          {tab === "tools" && (
+            <div style={{ flex:1, overflowY:"auto", padding:"28px 32px" }}>
+              <div style={{ marginBottom:20 }}>
+                <div style={{ fontSize:24, fontWeight:900, color:"#0f172a" }}>Media & Accessibility Tools</div>
+                <div style={{ fontSize:14, color:"#64748b", marginTop:4 }}>Speak your question, capture a document, read any answer aloud, or print a clean summary sheet for a meeting or a file.</div>
+              </div>
+
+              <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(300px,1fr))", gap:14 }}>
+                {/* Voice dictation */}
+                <div style={{ background:"#fff", borderRadius:14, padding:18, border:"1px solid #e2e8f0" }}>
+                  <div style={{ fontSize:26, marginBottom:8 }}>🎙️</div>
+                  <div style={{ fontSize:15, fontWeight:800, color:"#0f172a", marginBottom:4 }}>Voice-to-Text Dictation</div>
+                  <div style={{ fontSize:13, color:"#64748b", lineHeight:1.5, marginBottom:12 }}>Speak your question instead of typing. Uses your browser's built-in speech recognition — nothing is recorded or stored.</div>
+                  <button onClick={toggleMic} style={{ borderRadius:10, border:"none", padding:"10px 16px", fontSize:13, fontWeight:800, cursor:"pointer", background: listening ? "#dc2626" : "#2563eb", color:"#fff" }}>
+                    {listening ? "Stop listening" : "Start speaking"}
+                  </button>
+                  {listening && <span style={{ marginLeft:10, fontSize:12, color:"#dc2626", fontWeight:700 }}>Listening…</span>}
+                </div>
+
+                {/* Document scanner / capture */}
+                <div style={{ background:"#fff", borderRadius:14, padding:18, border:"1px solid #e2e8f0" }}>
+                  <div style={{ fontSize:26, marginBottom:8 }}>📷</div>
+                  <div style={{ fontSize:15, fontWeight:800, color:"#0f172a", marginBottom:4 }}>Document Scanner</div>
+                  <div style={{ fontSize:13, color:"#64748b", lineHeight:1.5, marginBottom:12 }}>
+                    Capture a letter with your camera or choose a text file, and the words come straight into the chat as your question. Photographs stay with the summary sheet, and you can dictate the contents with the mic if the paper is hard to read.
+                  </div>
+                  <input ref={fileInputRef} type="file" accept="image/*,.txt,.md,.csv,text/plain" capture="environment"
+                    onChange={onScanFile}
+                    style={{ display:"none" }} />
+                  <button onClick={() => fileInputRef.current?.click()} style={{ borderRadius:10, border:"none", padding:"10px 16px", fontSize:13, fontWeight:800, cursor:"pointer", background:"#7c3aed", color:"#fff" }}>
+                    Scan or choose a document
+                  </button>
+                  {scans.length > 0 && (
+                    <div style={{ marginTop:12, fontSize:12, color:"#475569" }}>
+                      {scans.map(sc => (
+                        <div key={sc.id} style={{ display:"flex", alignItems:"center", gap:8, padding:"6px 0", borderTop:"1px solid #f1f5f9" }}>
+                          <span>{sc.name}</span>
+                          <span style={{ marginLeft:"auto", color: sc.text ? "#059669" : "#b45309", fontWeight:700 }}>{sc.text ? "text read" : "image captured"}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Read aloud */}
+                <div style={{ background:"#fff", borderRadius:14, padding:18, border:"1px solid #e2e8f0" }}>
+                  <div style={{ fontSize:26, marginBottom:8 }}>🎧</div>
+                  <div style={{ fontSize:15, fontWeight:800, color:"#0f172a", marginBottom:4 }}>Audio Reader</div>
+                  <div style={{ fontSize:13, color:"#64748b", lineHeight:1.5, marginBottom:12 }}>Read any answer aloud — useful when reading is hard, or when you want to listen while you do something else.</div>
+                  <label style={{ display:"flex", alignItems:"center", gap:8, fontSize:13, color:"#374151", marginBottom:12, cursor:"pointer" }}>
+                    <input type="checkbox" checked={audioEnabled} onChange={e => setAudioEnabled(e.target.checked)} style={{ width:16, height:16 }} />
+                    Read answers aloud automatically
+                  </label>
+                  {msgs.length > 0 && (
+                    <button onClick={() => speaking ? stopSpeech() : speak(msgs.filter(m=>m.role==="helper").slice(-1)[0]?.text || "")}
+                      style={{ borderRadius:10, border:"none", padding:"10px 16px", fontSize:13, fontWeight:800, cursor:"pointer", background:"#0891b2", color:"#fff" }}>
+                      {speaking ? "Stop reading" : "Read last answer aloud"}
+                    </button>
+                  )}
+                </div>
+
+                {/* Printable summary */}
+                <div style={{ background:"#fff", borderRadius:14, padding:18, border:"1px solid #e2e8f0" }}>
+                  <div style={{ fontSize:26, marginBottom:8 }}>🖨️</div>
+                  <div style={{ fontSize:15, fontWeight:800, color:"#0f172a", marginBottom:4 }}>Printable Summary Sheet</div>
+                  <div style={{ fontSize:13, color:"#64748b", lineHeight:1.5, marginBottom:12 }}>A clean, printer-friendly sheet of this session — the question, the guidance, your tasks and any captured documents. Take it to a school meeting, a court date, or keep it in your file.</div>
+                  <button onClick={printSummary} style={{ borderRadius:10, border:"none", padding:"10px 16px", fontSize:13, fontWeight:800, cursor:"pointer", background:"#0f172a", color:"#fff" }}>
+                    Print summary sheet
+                  </button>
+                </div>
+              </div>
             </div>
           )}
 

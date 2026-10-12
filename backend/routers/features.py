@@ -6,12 +6,17 @@ The admin UI reads and writes feature configs from this single source.
 """
 from datetime import datetime, timezone
 from typing import Optional, List
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Request
 from pydantic import BaseModel
 
 router = APIRouter(prefix="/features", tags=["features"])
 
 # ── Database binding (set by server.py) ──────────────────────────────────────
+# `current_user` is None until server.py binds it, so it must NEVER be captured
+# by Depends() at import time: Depends(None) silently turns the handler's
+# parameters into required query arguments and every admin call answers 422
+# (that is exactly what broke this console's read AND write paths). Resolve the
+# bound dependency at REQUEST time instead — see _dep_admin below.
 db = None
 current_user = None
 
@@ -19,6 +24,22 @@ def bind(_db, _current_user):
     global db, current_user
     db = _db
     current_user = _current_user
+
+
+async def _dep_admin(request: Request):
+    """Request-time admin/executive dependency for this router.
+
+    Same check the handlers performed inline, but enforced by FastAPI's
+    dependency system on a function that reads the BOUND dependency at call
+    time rather than at import time.
+    """
+    if current_user is None:
+        raise HTTPException(503, "Auth not bound yet — server is still starting.")
+    user = await current_user(request.headers.get("authorization"))
+    if not user or (user.get("role") if isinstance(user, dict) else getattr(user, "role", None)) \
+            not in ("admin", "executive_admin"):
+        raise HTTPException(403, "Admin access required")
+    return user
 
 
 # ── Canonical Feature Registry ───────────────────────────────────────────────
@@ -1075,9 +1096,9 @@ async def feature_gate_map():
 
 
 @router.get("/matrix/tier")
-async def tier_matrix(actor=Depends(current_user)):
+async def tier_matrix(actor=Depends(_dep_admin)):
     """Tier access matrix — shows which tiers can access each feature."""
-    if not actor or actor.get("role") not in ("admin", "executive_admin"):
+    if not actor or getattr(actor, "role", None) not in ("admin", "executive_admin"):
         raise HTTPException(403, "Admin access required")
 
     all_tiers = list(REAL_TIERS)
@@ -1092,9 +1113,9 @@ async def tier_matrix(actor=Depends(current_user)):
 
 
 @router.get("/matrix/role")
-async def role_matrix(actor=Depends(current_user)):
+async def role_matrix(actor=Depends(_dep_admin)):
     """Role access matrix — shows which roles can access each feature."""
-    if not actor or actor.get("role") not in ("admin", "executive_admin"):
+    if not actor or getattr(actor, "role", None) not in ("admin", "executive_admin"):
         raise HTTPException(403, "Admin access required")
 
     all_roles = list(REAL_ROLES)
@@ -1109,9 +1130,9 @@ async def role_matrix(actor=Depends(current_user)):
 
 
 @router.put("/{feature_id}")
-async def update_feature(feature_id: str, body: dict, request, actor=Depends(current_user)):
+async def update_feature(feature_id: str, body: dict, actor=Depends(_dep_admin)):
     """Update a feature's access config (admin only)."""
-    if not actor or actor.get("role") not in ("admin", "executive_admin"):
+    if not actor or getattr(actor, "role", None) not in ("admin", "executive_admin"):
         raise HTTPException(403, "Admin access required")
 
     # Verify feature exists in registry
@@ -1137,7 +1158,7 @@ async def update_feature(feature_id: str, body: dict, request, actor=Depends(cur
     if not update_fields:
         raise HTTPException(400, "No valid fields to update")
 
-    update_fields["updated_by"] = actor.get("id", "unknown")
+    update_fields["updated_by"] = getattr(actor, "id", None) or "unknown"
     update_fields["updated_at"] = datetime.now(timezone.utc).isoformat()
 
     # The Feature Control Center is a DATABASE-BACKED controller: a "saved"
@@ -1174,7 +1195,7 @@ async def update_feature(feature_id: str, body: dict, request, actor=Depends(cur
         from server import audit as _audit
 
         await _audit(
-            actor.get("id"),
+            getattr(actor, "id", None),
             "feature_config.updated",
             target=feature_id,
             meta={"fields": update_fields},
