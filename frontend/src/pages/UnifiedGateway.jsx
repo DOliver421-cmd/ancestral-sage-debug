@@ -79,11 +79,78 @@ function AcademyStats() {
   );
 }
 
+/* Published-course count from the LIVE catalog. The trust banner quotes the
+   number, so it must be the real one — a stale "96" is a lie the owner has to
+   answer for. Falls back to "the" until the API answers. */
+function usePublishedCourseCount() {
+  const [count, setCount] = useState(null);
+  useEffect(() => {
+    let alive = true;
+    api.get("/academy/courses")
+      .then((r) => {
+        const published = (r.data?.courses || []).filter((c) => c.status === "published");
+        if (alive) setCount(published.length);
+      })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, []);
+  return count;
+}
+
+function AcademyTrustBanner() {
+  const count = usePublishedCourseCount();
+  const cta = count ? `Explore All ${count} Courses` : "Explore the Curriculum";
+  return (
+    <div style={{ background: "#111111", color: "#fff" }}>
+      <div className="max-w-6xl mx-auto px-6 py-2.5 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-center">
+        <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.02em" }}>
+          100% Free Parent-Managed K–12 &amp; Trade Academy · Automated Florida F.S. § 1002.41 Statutory Compliance
+        </span>
+        <Link to="/academy/curriculum"
+          className="inline-flex items-center gap-1 font-black uppercase tracking-wider"
+          style={{ fontSize: 10.5, color: "#111111", background: "#E8A51E", padding: "4px 10px", borderRadius: 999, textDecoration: "none" }}>
+          {cta} <ArrowRight size={11} />
+        </Link>
+      </div>
+    </div>
+  );
+}
+
+/* The four-at-a-glance value claims. The course count is read from the LIVE
+   catalog (same rule as AcademyStats): a hardcoded number on a marketing page
+   is a claim the owner has to answer for the moment it drifts. */
+function ValueBadges() {
+  const count = usePublishedCourseCount();
+  const badges = [
+    { t: "True-History & Culture", d: "Centering Black agency & historical accuracy.", i: "🌍" },
+    {
+      t: count ? `${count} K–12 & Trade Tracks` : "K–12 & Trade Tracks",
+      d: "Full academic & vocational pathways for all ages.",
+      i: "📚",
+    },
+    { t: "Florida Statutory Tools", d: "Automated NOI, portfolio, & transcript logging.", i: "📄" },
+    { t: "Private BYOK Socratic AI", d: "Zero-cost private parent tutoring options.", i: "🔑" },
+  ];
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mt-12 pt-8 border-t w-full"
+      style={{ borderColor: "#e3ddd2" }}>
+      {badges.map(({ t, d, i }) => (
+        <div key={t} className="rounded-xl border p-4" style={{ borderColor: "#d9d0c4", background: "#fff" }}>
+          <div style={{ fontSize: 20, marginBottom: 6 }}>{i}</div>
+          <div style={{ fontWeight: 900, fontSize: 14, color: "#111111", marginBottom: 4 }}>{t}</div>
+          <div style={{ fontSize: 12.5, color: "#3f3a34", lineHeight: 1.5 }}>{d}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function UnifiedGateway() {
   const { user } = useAuth();
 
   return (
     <div className="min-h-screen font-body" style={{ background: "#fff", color: "#111111" }}>
+      <AcademyTrustBanner />
       <PublicNav />
 
       {/* ── HERO ─────────────────────────────────────────────────────────── */}
@@ -104,32 +171,34 @@ export default function UnifiedGateway() {
 
           <h1 style={{
             fontFamily: "'Cabinet Grotesk', 'Plus Jakarta Sans', sans-serif",
-            fontSize: "clamp(2.8rem, 7vw, 5.5rem)",
-            fontWeight: 900, lineHeight: 1.05,
-            color: "#111111", marginBottom: "1.5rem", maxWidth: 800,
+            fontSize: "clamp(2.6rem, 6.4vw, 5rem)",
+            fontWeight: 900, lineHeight: 1.04,
+            color: "#111111", marginBottom: "1.5rem", maxWidth: 820,
           }}>
-            Creator economy.<br />
-            <span style={{ color: "#8a5a00" }}>Cultural expression.</span><br />
-            Economic dignity.
+            Rooted Education.<br />
+            <span style={{ color: "#8a5a00" }}>Uncompromising Truth.</span><br />
+            100% Free.
           </h1>
 
-          <p style={{ fontSize: "clamp(1rem, 2.2vw, 1.25rem)", color: "#3f3a34", maxWidth: 560, lineHeight: 1.7, marginBottom: "2.5rem" }}>
-            Browse free courses, publish your work, earn revenue, and connect with a
-            community of builders and artists who own their future.
+          <p style={{ fontSize: "clamp(1rem, 2.2vw, 1.25rem)", color: "#3f3a34", maxWidth: 620, lineHeight: 1.7, marginBottom: "2.5rem" }}>
+            Complete, parent-directed K–12 academic tracks, practical trade pathways, and
+            automated state compliance tools. Grounded in African agency, Black dignity,
+            and unvarnished historical truth — designed so every family can build a
+            rigorous, self-determined homeschool at zero cost.
           </p>
 
           <div className="flex flex-wrap gap-4">
             {!user ? (
               <>
-                <Link to="/register"
+                <Link to="/academy/parent"
                   className="font-black text-sm px-8 py-4 rounded-xl"
-                  style={{ background: "#b8860b", color: "#111111", fontSize: 15 }}>
-                  Join →
+                  style={{ background: "#8a5a00", color: "#fff", fontSize: 15 }}>
+                  Start Your Free Homeschool →
                 </Link>
-                <Link to="/subscribe?plan=sanctuary_trial"
+                <Link to="/academy/compliance"
                   className="font-bold text-sm px-8 py-4 rounded-xl border"
                   style={{ borderColor: "rgba(154,101,0,0.45)", color: "#7a4d00", background: "#fff8e7", fontSize: 15 }}>
-                  Try Everything — $3 for 3 Days
+                  View F.S. § 1002.41 Compliance Suite
                 </Link>
                 <Link to="/login"
                   style={{ color: "#4a4238", fontSize: 14, fontWeight: 600, display: "flex", alignItems: "center", paddingTop: 14 }}>
@@ -163,21 +232,8 @@ export default function UnifiedGateway() {
             )}
           </div>
 
-          {/* Stats row */}
-          <div className="flex flex-wrap gap-8 mt-16 pt-8 border-t w-full"
-            style={{ borderColor: "#e3ddd2" }}>
-            {[
-              { n: "5",       label: "Membership tiers"         },
-              { n: "$3",      label: "All-access trial"         },
-              { n: "6",       label: "Social platforms, one post" },
-              { n: "100%",    label: "Creator-owned content"    },
-            ].map(({ n, label }) => (
-              <div key={label}>
-                <div style={{ fontFamily: "'Cabinet Grotesk',sans-serif", fontSize: "2rem", fontWeight: 900, color: "#8a5a00", lineHeight: 1 }}>{n}</div>
-                <div style={{ fontSize: 12, color: "#4a4238", marginTop: 4, textTransform: "uppercase", letterSpacing: "0.1em" }}>{label}</div>
-              </div>
-            ))}
-          </div>
+          {/* Immediate value badges — the offer at a glance */}
+          <ValueBadges />
           </div>
 
           <figure className="w-full max-w-md mx-auto lg:justify-self-end">
@@ -194,6 +250,23 @@ export default function UnifiedGateway() {
               Community learning and collaboration · free stock photo from Pexels
             </figcaption>
           </figure>
+        </div>
+      </section>
+
+      {/* ── THE PHILOSOPHY — immediately below the hero ────────────────── */}
+      <section className="py-14 px-6" style={{ background: "#111111", color: "#fff" }}>
+        <div className="max-w-4xl mx-auto text-center">
+          <div style={{
+            fontFamily: "'Cabinet Grotesk', 'Plus Jakarta Sans', sans-serif",
+            fontSize: "clamp(1.15rem, 2.6vw, 1.7rem)", fontWeight: 800, lineHeight: 1.45,
+          }}>
+            "Traditional systems were not built to center our history, our agency, or our
+            dignity. We built a complete, rigorous educational ecosystem to give it back to
+            our families for free — unfiltered, uncompromising, and fully in parent hands."
+          </div>
+          <div style={{ marginTop: 18, fontSize: 11, fontWeight: 700, letterSpacing: "0.2em", textTransform: "uppercase", color: "#E8A51E" }}>
+            The WAI Institute Mission
+          </div>
         </div>
       </section>
 

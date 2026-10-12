@@ -70,6 +70,32 @@ def _promote(email, role=None, tier=None):
         client.close()
 
 
+def _restore_admin_role():
+    """Put the demo admin back on its seeded role.
+
+    These tests need an executive account to exercise the save path, but the
+    account is shared: leaving it promoted would change what every later suite
+    observes (test_sage_caps asserts an `admin` account is refused the
+    exec-only audit route and would fail if this file ran first).
+    """
+    client, db_name = _mongo()
+    try:
+        client[db_name].users.update_one(
+            {"email": ADMIN[0]}, {"$set": {"role": "admin", "feature_tier": "free"}})
+    finally:
+        client.close()
+
+
+def _restore_student_tier():
+    """Back to the seeded (unentitled) state — later suites assert the
+    paywall fires for a free student."""
+    client, db_name = _mongo()
+    try:
+        client[db_name].users.update_one({"email": STUDENT[0]}, {"$unset": {"feature_tier": ""}})
+    finally:
+        client.close()
+
+
 def _clear_provider_keys():
     client, db_name = _mongo()
     try:
@@ -157,6 +183,7 @@ def test_payment_key_save_persists_and_reports_configured():
             client.close()
     finally:
         _clear_provider_keys()
+        _restore_admin_role()
 
 
 def test_payment_key_save_requires_executive():
@@ -187,23 +214,26 @@ def test_osha_quiz_completion_awards_the_documented_credential():
     — completing the compliance quiz is that module, so the award must fire."""
     _promote(STUDENT[0], tier="plus")
     token = _login(*STUDENT)
-    det = requests.get(f"{API}/compliance/osha-10-electrical", headers=_hdr(token), timeout=20)
-    assert det.status_code == 200, det.text
-    answers = [q["answer"] for q in det.json()["quiz"]]
-    r = requests.post(
-        f"{API}/compliance/osha-10-electrical/quiz",
-        headers=_hdr(token), json={"answers": answers}, timeout=30,
-    )
-    assert r.status_code == 200, r.text
-    assert r.json()["status"] == "completed"
+    try:
+        det = requests.get(f"{API}/compliance/osha-10-electrical", headers=_hdr(token), timeout=20)
+        assert det.status_code == 200, det.text
+        answers = [q["answer"] for q in det.json()["quiz"]]
+        r = requests.post(
+            f"{API}/compliance/osha-10-electrical/quiz",
+            headers=_hdr(token), json={"answers": answers}, timeout=30,
+        )
+        assert r.status_code == 200, r.text
+        assert r.json()["status"] == "completed"
 
-    creds = requests.get(f"{API}/credentials/me", headers=_hdr(token), timeout=20)
-    assert creds.status_code == 200, creds.text
-    earned = {e["credential_key"] for e in creds.json().get("earned", [])}
-    assert "osha-10-awareness" in earned, f"earned={earned}"
+        creds = requests.get(f"{API}/credentials/me", headers=_hdr(token), timeout=20)
+        assert creds.status_code == 200, creds.text
+        earned = {e["credential_key"] for e in creds.json().get("earned", [])}
+        assert "osha-10-awareness" in earned, f"earned={earned}"
 
-    # The declared link must also complete the module it names.
-    prog = requests.get(f"{API}/progress/me", headers=_hdr(token), timeout=20)
-    assert prog.status_code == 200, prog.text
-    done = {p["module_slug"] for p in prog.json() if p.get("status") == "completed"}
-    assert "safety-loto" in done, f"completed modules={done}"
+        # The declared link must also complete the module it names.
+        prog = requests.get(f"{API}/progress/me", headers=_hdr(token), timeout=20)
+        assert prog.status_code == 200, prog.text
+        done = {p["module_slug"] for p in prog.json() if p.get("status") == "completed"}
+        assert "safety-loto" in done, f"completed modules={done}"
+    finally:
+        _restore_student_tier()
