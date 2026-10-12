@@ -169,7 +169,10 @@ export default function AcademyLesson() {
       // lesson in any subject and does not hand over knowledge-check answers —
       // the promise the student handbooks make. (The old "tutor" mode was an
       // electrical-apprentice persona for the WAI apprenticeship program.)
-      const r = await api.post("/ai/chat", { session_id: sessionId, message: `${context}\n\nStudent asks: ${text}`, mode: "academy_coach" });
+      // student_id lets the SERVER honour the parent's coach switch for this
+      // learner (remediation A2) — the panel being visible in the UI is a
+      // convenience, not the control.
+      const r = await api.post("/ai/chat", { session_id: sessionId, message: `${context}\n\nStudent asks: ${text}`, mode: "academy_coach", student_id: studentId });
       const answer = r.data.reply || "…";
       setCoachMsgs((m) => [...m, { role: "coach", text: answer, grounded: r.data.grounded }]);
       // The parent can read every exchange afterwards (see the parent dashboard).

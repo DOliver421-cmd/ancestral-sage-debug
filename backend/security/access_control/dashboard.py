@@ -112,9 +112,19 @@ async def access_control_overview(user=Depends(_require_executive)):
     }
 
 
+# NOTE (2026-10-12): this GET used to live here AND in routers/exec_control.py
+# (ec_route_access). Two registrations, one path: the first one registered wins
+# and the other became dead code that looked live. That made the console's
+# override view unreachable, so an executive who saved a route override saw a
+# success and no evidence it applied. One handler owns the path now — the
+# gateway's live matrix, which reads the SAME db.route_access store the console
+# writes. The exec_control copy was removed rather than left to drift.
 @router.get("/exec/control/route-access")
 async def route_access_overview(user=Depends(_require_executive)):
-    """Return the complete authenticated route matrix from the live app."""
+    """Return the complete authenticated route matrix from the live app,
+    including which routes carry an executive override in the enforced
+    store (db.route_access) — the same store POST /exec/control/route-access
+    writes, so what the console shows and what it saves cannot diverge."""
     if _gateway is None:
         raise HTTPException(503, "Access control gateway not initialized")
     return {
