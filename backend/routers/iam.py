@@ -128,6 +128,7 @@ async def _ensure_human_identity(user) -> dict:
             "created_by": user.id,
         }
         await db.iam_identities.insert_one(ident)
+        ident.pop("_id", None)
     else:
         # Keep the human profile in sync with the users collection.
         updates = {}
@@ -401,6 +402,7 @@ async def create_identity(body: IdentityCreate, actor: dict = Depends(_dep_curre
     }
     await db.iam_identities.insert_one(doc)
     doc.pop("token_hash", None)
+    doc.pop("_id", None)
     if token:
         doc["token"] = token  # shown exactly once — agent authenticates with this
     return {"identity": doc}
@@ -484,6 +486,7 @@ async def create_resource(body: ResourceCreate, actor: dict = Depends(_dep_curre
         "created_by": actor.id,
     }
     await db.iam_resources.insert_one(doc)
+    doc.pop("_id", None)
     return {"resource": doc}
 
 
@@ -681,6 +684,7 @@ async def record_action(body: ActionRecord,
         "created_at": _now(),
     }
     await db.iam_actions.insert_one(doc)
+    doc.pop("_id", None)
 
     if not allowed:
         raise HTTPException(403, {
