@@ -450,9 +450,20 @@ function SessionManager() {
 
   const revokeAll = async () => {
     try {
-      await api.delete("/auth/sessions");
-      toast.success("Other sessions revoked.");
-      setSessions([]);
+      // Revoking every other device bumps the server's token_version, which
+      // invalidates every old JWT - including this device's. The backend now
+      // returns a fresh token (same contract as change-password); adopting it
+      // is what keeps THIS device signed in, as the button promises.
+      const r = await api.delete("/auth/sessions");
+      if (r.data?.access_token) {
+        localStorage.setItem("lce_token", r.data.access_token);
+      }
+      if (r.data?.user) {
+        localStorage.setItem("lce_user", JSON.stringify(r.data.user));
+      }
+      if (refresh) await refresh();
+      toast.success("Other sessions revoked. This device stays signed in.");
+      load();
     } catch {
       toast.error("Failed to revoke sessions.");
     } finally { setConfirmRevokeAll(false); }

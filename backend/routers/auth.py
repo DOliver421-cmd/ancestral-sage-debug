@@ -1177,5 +1177,33 @@ async def cross_site_login(body: dict, request: Request):
         "source_uid": user_id,
         "role": role,
     })
-    
-    return {"token": token_raw, "role": user_doc.get("role", "student")}
+
+    # Return the full user object, not just {token, role}. The SPA stores
+    # whatever this response contains in localStorage as the cached user, and
+    # its AuthProvider only hydrates from a cached user - so a role-only
+    # response left every cross-site arrival on /login with a user object
+    # missing id/email/name (or bounced back entirely).
+    public_user = None
+    try:
+        from server import User as _User  # canonical public user model
+        _doc = dict(user_doc)
+        _doc.pop("_id", None)
+        _doc.pop("password_hash", None)
+        _ca = _doc.get("created_at")
+        if isinstance(_ca, str):
+            from datetime import datetime as _dt, timezone as _tz
+            try:
+                _doc["created_at"] = _dt.fromisoformat(_ca)
+            except ValueError:
+                _doc.pop("created_at", None)
+        public_user = _User(**_doc).model_dump(mode="json")
+    except Exception:
+        public_user = {
+            "id": user_doc.get("id"),
+            "email": user_doc.get("email"),
+            "full_name": user_doc.get("full_name", ""),
+            "role": user_doc.get("role", "student"),
+            "feature_tier": user_doc.get("feature_tier", "free"),
+        }
+
+    return {"token": token_raw, "role": user_doc.get("role", "student"), "user": public_user}

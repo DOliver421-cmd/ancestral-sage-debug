@@ -15,7 +15,7 @@ ROWS = [
         "subject_label": "Entrepreneurship",
         "grade_label": "Adult",
         "passing_score": 80,
-        "stats": {"lessons_passed": 8, "lessons_total": 10, "completed": False, "avg_score": 82},
+        "stats": {"lessons_passed": 8, "lessons_total": 10, "completed": False, "mastery_avg": 82},
         "status": "in_progress",
     },
     {
@@ -25,7 +25,7 @@ ROWS = [
         "subject_label": "Reading",
         "grade_label": "Grade 1",
         "passing_score": 80,
-        "stats": {"lessons_passed": 12, "lessons_total": 12, "completed": True, "avg_score": 95},
+        "stats": {"lessons_passed": 12, "lessons_total": 12, "completed": True, "mastery_avg": 95},
         "status": "completed",
     },
 ]
