@@ -172,13 +172,18 @@ export default function AcademyLesson() {
       // student_id lets the SERVER honour the parent's coach switch for this
       // learner (remediation A2) — the panel being visible in the UI is a
       // convenience, not the control.
-      const r = await api.post("/ai/chat", { session_id: sessionId, message: `${context}\n\nStudent asks: ${text}`, mode: "academy_coach", student_id: studentId });
+      const r = await api.post("/ai/chat", { session_id: sessionId, message: `${context}\n\nStudent asks: ${text}`, mode: "academy_coach", student_id: activeStudent });
       const answer = r.data.reply || "…";
       setCoachMsgs((m) => [...m, { role: "coach", text: answer, grounded: r.data.grounded }]);
       // The parent can read every exchange afterwards (see the parent dashboard).
       try {
+        // activeStudent, not the raw ?student= param: deep links (e.g.
+        // CourseDetail's "Open course") arrive with no student in the URL, and
+        // sending null here both bypassed the server's parent-coach-switch
+        // guard and 422'd the log write, silently dropping the parent's audit
+        // trail of every exchange.
         await api.post("/academy/coach/log", {
-          student_id: studentId, course_slug: courseSlug, lesson_slug: lessonSlug,
+          student_id: activeStudent, course_slug: courseSlug, lesson_slug: lessonSlug,
           lesson_title: lesson?.title || "", question: text, answer, grounded: !!r.data.grounded,
         });
       } catch { /* the log is a safety net, never a blocker for the student */ }

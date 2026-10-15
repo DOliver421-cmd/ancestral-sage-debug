@@ -148,7 +148,7 @@ function MembershipsSection({ user, onCheckoutUrl }) {
   );
 }
 
-function BrowseTab({ user, onCheckoutUrl }) {
+function BrowseTab({ user, onCheckoutUrl, onOpenLibrary }) {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("all");
@@ -175,8 +175,11 @@ function BrowseTab({ user, onCheckoutUrl }) {
     try {
       const r = await api.post(`/media/products/${product.id}/checkout`);
       if (r.data.already_purchased) {
-        setActiveTab("library");
-        toast.success("You already own this — opened your library.");
+        // The tab state lives in the parent (MediaStore), so calling
+        // setActiveTab here threw a ReferenceError that the catch turned into
+        // "Checkout failed" - a working purchase state presented as an error.
+        if (onOpenLibrary) onOpenLibrary();
+        else toast.success("You already own this - opened your library.");
         setCheckingOut(null);
         return;
       }
@@ -827,7 +830,7 @@ export default function MediaStore() {
 
         {/* Content */}
         <div className="max-w-5xl mx-auto px-4 py-8">
-          {activeTab === "browse" && <BrowseTab user={user} onCheckoutUrl={setCheckoutUrl} />}
+          {activeTab === "browse" && <BrowseTab user={user} onCheckoutUrl={setCheckoutUrl} onOpenLibrary={() => setActiveTab("library")} />}
           {activeTab === "library" && <LibraryTab user={user} />}
           {activeTab === "sell" && <SellTab user={user} />}
           {activeTab === "storefront" && <StorefrontTab />}
@@ -850,7 +853,7 @@ function StorefrontTab() {
         </p>
         <div className="flex flex-wrap gap-3 mt-3">
           <Link to="/our-legacy" className="inline-flex items-center gap-2 bg-[#b5651d] text-white text-sm font-bold px-4 py-2 rounded-lg hover:bg-[#9a5418] transition-colors">
-            <BookOpen size={14} /> The Book — $89
+            <BookOpen size={14} /> The Book — $59
           </Link>
           <Link to="/subscribe" className="inline-flex items-center gap-2 bg-[#1a1a1a] text-white text-sm font-bold px-4 py-2 rounded-lg hover:bg-[#1a1a1a]/80 transition-colors">
             Memberships
