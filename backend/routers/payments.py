@@ -1096,7 +1096,11 @@ async def payments_webhook(request: Request):
                 # `total` arrives in integer cents from Lemon Squeezy.
                 paid_amount = int(total) if total else 0
                 pledge = await db.scholarship_pledges.find_one_and_update(
-                    {"user_id": user_doc["id"], "status": "pending"},
+                    # "committed" = the grace path (payments unconfigured at
+                    # pledge time); matching only "pending" left every grace
+                    # pledge unreconcilable - the money arrived via webhook and
+                    # the sponsor's status/funds never moved.
+                    {"user_id": user_doc["id"], "status": {"$in": ["pending", "committed"]}},
                     {"$set": {"status": "paid", "paid_at": datetime.now(timezone.utc).isoformat(),
                               "provider_order_id": order_id,
                               "paid_amount_cents": paid_amount or None}},
@@ -1597,7 +1601,8 @@ async def gumroad_webhook(request: Request):
         if user_doc:
             paid_amount = int(amount) if amount else 0
             pledge = await db.scholarship_pledges.find_one_and_update(
-                {"user_id": user_doc["id"], "status": "pending"},
+                # Same "committed" grace-path match as the Lemon Squeezy webhook.
+                {"user_id": user_doc["id"], "status": {"$in": ["pending", "committed"]}},
                 {"$set": {"status": "paid", "paid_at": datetime.now(timezone.utc).isoformat(),
                           "provider_order_id": sale_id,
                           "paid_amount_cents": paid_amount or None},
