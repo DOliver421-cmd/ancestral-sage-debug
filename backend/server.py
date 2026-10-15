@@ -1779,6 +1779,23 @@ async def _on_startup_impl():
     _supervised_task(_memory_consolidation_loop(), name="memory_consolidation_loop")  # C-4
     logger.info("STARTUP: Memory consolidation cron launched (24h interval)")
 
+    # ── Team provider monitor (T1-2) ─────────────────────────────────────────
+    # run_monitor_loop() had zero callers before this: it auto-revokes provider
+    # keys on 401/403, which a provider-side outage mimics exactly. Opt-in via
+    # TEAM_MONITOR_ENABLED and dry-run by default (TEAM_MONITOR_DRY_RUN) so a
+    # dry-run cycle can be watched on the real pool before anything revokes.
+    if os.getenv("TEAM_MONITOR_ENABLED", "").strip().lower() in ("1", "true", "yes", "on"):
+        try:
+            from ai.team_monitor import run_monitor_loop, bind as _bind_team_monitor, DRY_RUN as _monitor_dry_run
+            _bind_team_monitor(db, notify)
+            _monitor_task = asyncio.create_task(run_monitor_loop(), name="team_monitor")
+            _bg_tasks.append(_monitor_task)
+            logger.info("STARTUP: team monitor launched (dry_run=%s, interval per module)", _monitor_dry_run)
+        except Exception:
+            logger.exception("STARTUP: team monitor failed to launch (non-fatal)")
+    else:
+        logger.info("STARTUP: team monitor not started (set TEAM_MONITOR_ENABLED=true to enable)")
+
     STARTUP_COMPLETE = True
     logger.info(
         "STARTUP COMPLETE — Version: %s | DB: %s | Frontend: %s",
@@ -1874,6 +1891,23 @@ async def ensure_indexes():
         await db.arena_work_context.create_index("owner_id")
         await db.arena_work_context.create_index("status")
         await db.arena_work_context.create_index([("updated_at", -1)])
+        # AI cost/routing surface — these collections are queried on every
+        # gateway call or ranking refresh and previously had no index at all.
+        # api_keys holds two shapes: the revenue service's per-user keys
+        # (key_hash is the verification lookup) and the provider gateway's
+        # pool keys (provider_id + status is the pool read).
+        await db.api_keys.create_index("key_hash", unique=True, sparse=True)
+        await db.api_keys.create_index([("provider_id", 1), ("status", 1)])
+        await db.api_keys.create_index([("user_id", 1)])
+        # api_providers: quick-setup looks up by provider_type (the pool also
+        # filters provider_type $in PROVIDERS).
+        await db.api_providers.create_index("provider_type", unique=True)
+        await db.api_providers.create_index("id")
+        # ai_usage_log: spend dashboards range-filter on created_at and the
+        # usage log is read newest-first.
+        await db.ai_usage_log.create_index([("created_at", -1)])
+        # provider_rankings: one document per service, refreshed on demand.
+        await db.provider_rankings.create_index("service", unique=True)
         logger.info("Indexes ensured")
     except Exception:
         logger.exception("ensure_indexes failed (non-fatal)")
