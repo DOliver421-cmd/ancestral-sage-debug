@@ -109,8 +109,14 @@ _PROVIDER_TYPE_TO_GLOBAL = {
 
 async def reload_provider_keys(db) -> int:
     """Read active provider keys from MongoDB and update module globals.
-    Env vars always win — DB keys only fill gaps where env var is empty.
-    Returns the number of keys loaded from DB."""
+
+    Env vars always win — a non-empty env var is never overwritten, because
+    those keys are static for the process lifetime and a revoked env-var key
+    can only be removed by restarting the worker. DB keys (the exec Provider
+    Gateway pool) fill every gap, and since the query filters `status:
+    "active"`, a revoked DB key is simply absent from the result — reload can
+    never resurrect one.
+    """
     import sys
     # Shared self-healing vault (keyvault.py): env var → MongoDB-persisted → ephemeral.
     # One cipher for every encrypting/decrypting surface on the platform.
@@ -797,6 +803,14 @@ async def call_llm(
             status = getattr(getattr(exc, "response", None), "status_code", None)
             if status == 429:
                 await pool.mark_rate_limited(lease)
+            elif status in (401, 403):
+                # Auth failure = the credential is invalid, not the request.
+                # Evict it from the rotation entirely so it is not cycled
+                # back to on the next acquire — mark_failed would only cool it
+                # down, and a revoked key would otherwise come back after the
+                # cooldown expires.
+                await pool.evict(lambda i: i == lease.index)
+                logger.warning("LLM Gateway %s: key at index %d auth-failed (%s) — evicted", provider, lease.index, status)
             else:
                 await pool.mark_failed(lease, KEY_FAILURE_COOLDOWN_SEC)
             logger.warning("LLM Gateway %s failed (%s, status=%s): %s", provider, persona_label, status, exc)

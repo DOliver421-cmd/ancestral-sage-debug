@@ -60,6 +60,28 @@ class KeyPool:
         now = time.monotonic()
         return {index: max(0.0, until - now) for index, until in self._cooldowns.items() if until > now}
 
+    async def evict(self, predicate) -> int:
+        """Drop keys whose index satisfies `predicate(index) -> bool`.
+
+        Rotation must not resurrect a revoked key: a revoked DB key stays out
+        even after a reload re-reads the pool, and a key that failed auth is
+        removed from the in-process rotation rather than cycled back to.
+        Returns the number of keys removed.
+        """
+        removed = 0
+        async with self._lock:
+            keep = []
+            for index, key in enumerate(self.keys):
+                if predicate(index):
+                    removed += 1
+                    self._cooldowns.pop(index, None)
+                else:
+                    keep.append(key)
+            self.keys = tuple(keep)
+            if self._next >= len(self.keys):
+                self._next = 0
+        return removed
+
 
 def parse_key_list(*values: str | None) -> list[str]:
     """Parse comma/newline-separated values while preserving input order."""
