@@ -628,6 +628,8 @@ class SelfEditMeReq(BaseModel):
     """Self-service profile edit. Users may change their display name,
     email, avatar, and social handles.  Role and associate are NOT editable
     here — those are admin-only to prevent privilege/cohort drift."""
+    model_config = ConfigDict(extra="ignore")
+
     full_name: Optional[str] = None
     email: Optional[EmailStr] = None
     avatar_url: Optional[str] = None
@@ -3150,11 +3152,19 @@ async def edit_self(body: SelfEditMeReq, user: User = Depends(current_user)):
     # now, with the same defensive validation the rest of the model applies.
     if body.avatar_url is not None:
         avatar = body.avatar_url.strip()
-        # Accept a data: URL (the avatar picker stores the image inline) or an
-        # https URL. Reject anything else — including javascript: payloads.
-        if avatar and not (avatar.startswith("data:image/") or avatar.startswith("https://")):
-            raise HTTPException(400, "avatar_url must be an image data URL or an https URL")
-        update["avatar_url"] = avatar
+        # An empty string is an explicit "remove my avatar", which is a real
+        # user action on the AvatarSetup page — but it must not be reachable
+        # accidentally, so it is the ONLY empty value accepted and it is
+        # recorded as an unset rather than as an empty image.
+        if avatar == "":
+            update["avatar_url"] = None
+        else:
+            # Accept a data: URL (the avatar picker stores the image inline) or
+            # an https URL. Reject anything else — including javascript:
+            # payloads.
+            if not (avatar.startswith("data:image/") or avatar.startswith("https://")):
+                raise HTTPException(400, "avatar_url must be an image data URL or an https URL")
+            update["avatar_url"] = avatar
     if body.social_handles is not None:
         if not isinstance(body.social_handles, dict):
             raise HTTPException(400, "social_handles must be an object")
@@ -8357,25 +8367,34 @@ async def stripe_webhook(request: Request):
 
 
 @api_router.get("/digital/purchases")
-async def list_digital_purchases(user=Depends(current_user)):
+async def list_digital_purchases(request: Request, user=Depends(current_user)):
     """The user's digital library. The handler lives in routers/payments.py,
     but that router is not mounted wholesale, so this path used to 404 and the
     /our-legacy page could never see (or deliver) a purchase. Registered here
     at the exact path the frontend calls: GET /api/digital/purchases."""
     from routers import payments as payment_routes
 
+    _rip = (request.client.host if request.client else "anon")
+    await check_rate(f"digital:purchases:{user.id}", max_calls=60, window_sec=60)
+    await check_rate(f"digital:purchases:ip:{_rip}", max_calls=120, window_sec=60)
     payment_routes.bind(db, audit, notify, current_user)
     return await payment_routes.list_digital_purchases(user)
 
 
 @api_router.get("/digital/{product_key}/download")
-async def download_digital_product(product_key: str, user=Depends(current_user)):
+async def download_digital_product(request: Request, product_key: str, user=Depends(current_user)):
     """Serve a purchased digital product (the book / grassroots guide).
     Delegates to routers/payments.py so the entitlement check and file
     resolution stay in one place; the frontend calls
     GET /api/digital/{product_key}/download."""
     from routers import payments as payment_routes
 
+    _rip = (request.client.host if request.client else "anon")
+    # A download does a file read and an entitlement check, and product_key is
+    # attacker-controlled, so bound it per user and per IP the way the rest of
+    # this file's authenticated surface does.
+    await check_rate(f"digital:download:{user.id}", max_calls=30, window_sec=60)
+    await check_rate(f"digital:download:ip:{_rip}", max_calls=120, window_sec=60)
     payment_routes.bind(db, audit, notify, current_user)
     return await payment_routes.download_digital_product(product_key, user)
 
@@ -8389,7 +8408,10 @@ async def gumroad_webhook(request: Request):
     from routers import payments as payment_routes
 
     payment_routes.bind(db, audit, notify, current_user)
-    await payment_routes.reload_payment_keys(db)
+    # reload_payment_keys() is deliberately NOT called here: it rewrites
+    # module-level provider globals, so calling it inside a webhook races with
+    # every other request reading them and with concurrent webhook deliveries.
+    # Startup hydration (in _on_startup_impl) covers the key state.
     return await payment_routes.gumroad_webhook(request)
 
 
@@ -10240,18 +10262,17 @@ async def revoke_all_sessions(request: Request, user: User = Depends(current_use
     token_version and returned nothing, so the caller's own JWT was
     invalidated and the user was silently signed out on their next click
     while the toast claimed "Other sessions revoked"."""
-    token = request.headers.get("authorization", "").replace("Bearer ", "")
-    current_session_id = None
-    if token:
-        try:
-            current_session_id = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGO]).get("session_id")
-        except jwt.PyJWTError:
-            current_session_id = None
+    _rip = (request.client.host if request.client else "anon")
+    # Invalidate all of a user's sessions and mint a new token: high-impact,
+    # so bound it (also stops a buggy client from spamming token_version).
+    await check_rate(f"revoke-sessions:{user.id}", max_calls=5, window_sec=3600)
+    await check_rate(f"revoke-sessions:ip:{_rip}", max_calls=20, window_sec=3600)
 
-    # Invalidate every JWT issued before now (that is every other device).
+    # The caller's session_id is read only to record the device below. It is
+    # NOT reused in the new token if the insert fails: that row has just been
+    # deleted, so a fallback would mint a token pointing at a session that no
+    # longer exists. Omit session_id instead — tv still authenticates.
     await db.users.update_one({"id": user.id}, {"$inc": {"token_version": 1}})
-    # Clear session records, then re-record THIS device so the session list
-    # shows the one live session the user is actually using.
     await db.auth_sessions.delete_many({"user_id": user.id})
     new_session_id = str(uuid.uuid4())
     try:
@@ -10260,13 +10281,13 @@ async def revoke_all_sessions(request: Request, user: User = Depends(current_use
             "session_id": new_session_id,
             "user_id": user.id,
             "user_agent": request.headers.get("user-agent", "")[:200],
-            "ip": request.client.host if request.client else None,
+            "ip": _rip,
             "created_at": now_iso,
             "last_seen": now_iso,
         })
     except Exception:
         logger.warning("revoke_all_sessions: session re-record failed (non-fatal)")
-        new_session_id = current_session_id
+        new_session_id = None
 
     fresh_doc = await db.users.find_one({"id": user.id}, {"_id": 0, "password_hash": 0})
     _extra = {"tv": int(fresh_doc.get("token_version", 0) or 0)}

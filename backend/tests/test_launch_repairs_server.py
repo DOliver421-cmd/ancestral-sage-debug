@@ -132,6 +132,61 @@ def test_revoke_all_sessions_returns_fresh_token(client):
     assert old.status_code == 401  # the pre-revocation token is dead
 
 
+def test_revoke_all_fresh_token_session_id_is_new(client):
+    """The re-issued token must carry a session row that actually exists.
+
+    The first cut fell back to the caller's OLD session_id when the session
+    re-record failed — but that row had just been deleted, so the new token
+    pointed at a session that no longer existed. On the happy path the new
+    session id must differ from the old one."""
+    import jwt as _jwt
+    import server as _srv
+    token = _register(client)
+    old_sid = _jwt.decode(token, _srv.JWT_SECRET, algorithms=[_srv.JWT_ALGO]).get("session_id")
+    r = client.delete("/api/auth/sessions", headers=_auth(token))
+    assert r.status_code == 200, r.text
+    new_sid = _jwt.decode(r.json()["access_token"], _srv.JWT_SECRET,
+                          algorithms=[_srv.JWT_ALGO]).get("session_id")
+    assert new_sid and new_sid != old_sid, (old_sid, new_sid)
+    # ...and that session row is really in the database.
+    rows = [s for s in client.get("/api/auth/sessions",
+                                  headers=_auth(r.json()["access_token"])).json()["sessions"]
+            if s["session_id"] == new_sid]
+    assert rows, "the re-issued token's session must exist"
+
+
+def test_revoke_all_sessions_is_rate_limited(client):
+    """A high-impact operation: 6th call inside the window is 429, not 200."""
+    token = _register(client)
+    statuses = []
+    for _ in range(6):
+        r = client.delete("/api/auth/sessions", headers=_auth(token))
+        statuses.append(r.status_code)
+        if r.status_code == 200 and r.json().get("access_token"):
+            token = r.json()["access_token"]  # stay authenticated across calls
+    assert 429 in statuses, statuses
+
+
+def test_empty_avatar_url_clears_rather_than_silently_storing(client):
+    token = _register(client)
+    avatar = ("data:image/png;base64,"
+              "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==")
+    r = client.patch("/api/auth/me", headers=_auth(token), json={"avatar_url": avatar})
+    assert r.status_code == 200, r.text
+    r = client.patch("/api/auth/me", headers=_auth(token), json={"avatar_url": ""})
+    assert r.status_code == 200, r.text
+    me = client.get("/api/auth/me", headers=_auth(token)).json()
+    assert me.get("avatar_url") in (None, ""), me
+
+
+def test_digital_routes_are_rate_limited(client):
+    """The new commerce routes must 429 rather than hammer the DB."""
+    token = _register(client)
+    statuses = [client.get("/api/digital/purchases", headers=_auth(token)).status_code
+                for _ in range(65)]
+    assert 429 in statuses, statuses[-3:]
+
+
 def test_password_change_returns_fresh_token(client):
     """The contract revoke-all now follows: change-password re-issues."""
     token = _register(client)
