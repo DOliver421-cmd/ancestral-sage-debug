@@ -45,7 +45,7 @@ async def _get_user(authorization: str = Header(None)):
     return await _current_user_dep(authorization)
 
 
-def _require_member(user: Any):
+def _require_plus(user: Any):
     """Plus+ tier required for browsing (owner decision D2, 2026-10-15 — the
     handler now matches frontend/src/lib/tiers.js:67). Staff bypasses."""
     tier = getattr(user, "feature_tier", "free")
@@ -145,7 +145,7 @@ class WorkflowCreate(BaseModel):
 @router.get("/grants")
 async def list_grants(user=Depends(_get_user)):
     """Browse available grants. Real data from DB."""
-    _require_member(user)
+    _require_plus(user)
     cursor = _coll("hub_grants").find({}, {"_id": 0}).sort("created_at", -1).limit(100)
     return await cursor.to_list(100)
 
@@ -176,7 +176,7 @@ async def create_grant(payload: GrantCreate, user=Depends(_get_user)):
 
 @router.get("/grants/{grant_id}")
 async def get_grant(grant_id: str, user=Depends(_get_user)):
-    _require_member(user)
+    _require_plus(user)
     doc = await _coll("hub_grants").find_one({"id": grant_id}, {"_id": 0})
     if not doc:
         raise HTTPException(404, "Grant not found.")
@@ -186,7 +186,7 @@ async def get_grant(grant_id: str, user=Depends(_get_user)):
 @router.get("/grants/{grant_id}/applications")
 async def list_grant_applications(grant_id: str, user=Depends(_get_user)):
     """List applications for a grant (staff sees all, subscribers see own)."""
-    _require_member(user)
+    _require_plus(user)
     query = {"grant_id": grant_id}
     if not _is_staff(user):
         query["user_id"] = getattr(user, "id", "")
@@ -197,7 +197,7 @@ async def list_grant_applications(grant_id: str, user=Depends(_get_user)):
 @router.post("/grants/applications", status_code=201)
 async def apply_for_grant(payload: GrantApplication, user=Depends(_get_user)):
     """Submit a grant application with workflow tracking."""
-    _require_member(user)
+    _require_plus(user)
     grant = await _coll("hub_grants").find_one({"id": payload.grant_id}, {"_id": 0})
     if not grant:
         raise HTTPException(404, "Grant not found.")
@@ -239,7 +239,7 @@ async def apply_for_grant(payload: GrantApplication, user=Depends(_get_user)):
 @router.patch("/grants/applications/{app_id}")
 async def update_grant_application(app_id: str, updates: Dict[str, Any], user=Depends(_get_user)):
     """Update application status, workflow steps, or notes."""
-    _require_member(user)
+    _require_plus(user)
     doc = await _coll("hub_grant_applications").find_one({"id": app_id}, {"_id": 0})
     if not doc:
         raise HTTPException(404, "Application not found.")
@@ -259,7 +259,7 @@ async def update_grant_application(app_id: str, updates: Dict[str, Any], user=De
 @router.get("/campaigns")
 async def list_campaigns(user=Depends(_get_user)):
     """List fundraising campaigns. Integrates with existing scholarship funds."""
-    _require_member(user)
+    _require_plus(user)
 
     # Pull from both new campaigns and existing scholarship funds
     campaigns = await _coll("hub_campaigns").find({}, {"_id": 0}).sort("created_at", -1).limit(50).to_list(50)
@@ -291,7 +291,7 @@ async def list_campaigns(user=Depends(_get_user)):
 @router.post("/campaigns", status_code=201)
 async def create_campaign(payload: CampaignCreate, user=Depends(_get_user)):
     """Create a fundraising campaign."""
-    _require_member(user)
+    _require_plus(user)
     doc = {
         "id": uuid.uuid4().hex,
         "title": payload.title,
@@ -313,7 +313,7 @@ async def create_campaign(payload: CampaignCreate, user=Depends(_get_user)):
 
 @router.get("/campaigns/{campaign_id}")
 async def get_campaign(campaign_id: str, user=Depends(_get_user)):
-    _require_member(user)
+    _require_plus(user)
     doc = await _coll("hub_campaigns").find_one({"id": campaign_id}, {"_id": 0})
     if not doc:
         # Try scholarship funds
@@ -328,7 +328,7 @@ async def get_campaign(campaign_id: str, user=Depends(_get_user)):
 @router.get("/resources")
 async def list_resources(category: str = "", user=Depends(_get_user)):
     """Browse business resources. Filterable by category."""
-    _require_member(user)
+    _require_plus(user)
     query = {}
     if category:
         query["category"] = category
@@ -359,7 +359,7 @@ async def create_resource(payload: ResourceCreate, user=Depends(_get_user)):
 
 @router.get("/resources/{resource_id}")
 async def get_resource(resource_id: str, user=Depends(_get_user)):
-    _require_member(user)
+    _require_plus(user)
     doc = await _coll("hub_resources").find_one({"id": resource_id}, {"_id": 0})
     if not doc:
         raise HTTPException(404, "Resource not found.")
@@ -371,7 +371,7 @@ async def get_resource(resource_id: str, user=Depends(_get_user)):
 @router.get("/workflows")
 async def list_workflows(user=Depends(_get_user)):
     """List active workflows across all areas."""
-    _require_member(user)
+    _require_plus(user)
     user_id = getattr(user, "id", "")
     cursor = _coll("hub_workflows").find(
         {"user_id": user_id, "status": {"$in": ["active", "paused"]}},
@@ -383,7 +383,7 @@ async def list_workflows(user=Depends(_get_user)):
 @router.post("/workflows", status_code=201)
 async def create_workflow(payload: WorkflowCreate, user=Depends(_get_user)):
     """Create a custom workflow across grant/fundraising/business areas."""
-    _require_member(user)
+    _require_plus(user)
     doc = {
         "id": uuid.uuid4().hex,
         "title": payload.title,
@@ -403,7 +403,7 @@ async def create_workflow(payload: WorkflowCreate, user=Depends(_get_user)):
 @router.patch("/workflows/{workflow_id}")
 async def update_workflow(workflow_id: str, updates: Dict[str, Any], user=Depends(_get_user)):
     """Update workflow step completion or status."""
-    _require_member(user)
+    _require_plus(user)
     doc = await _coll("hub_workflows").find_one({"id": workflow_id}, {"_id": 0})
     if not doc:
         raise HTTPException(404, "Workflow not found.")
@@ -423,7 +423,7 @@ async def update_workflow(workflow_id: str, updates: Dict[str, Any], user=Depend
 @router.get("/dashboard")
 async def hub_dashboard(user=Depends(_get_user)):
     """Unified dashboard: counts, recent activity, next steps across all areas."""
-    _require_member(user)
+    _require_plus(user)
     user_id = getattr(user, "id", "")
 
     # Grant stats

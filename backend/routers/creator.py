@@ -94,7 +94,7 @@ def _require_creator_tier(user: User) -> User:
     tier = getattr(user, "feature_tier", "free") or "free"
     role = getattr(user, "role", "student")
     is_plus = _CREATOR_TIER_ORDER.get(tier, 0) >= 2
-    is_staff = ROLE_RANK.get(role, 0) >= ROLE_RANK.get("instructor", 0)
+    is_staff = ROLE_RANK.get(role, 0) >= ROLE_RANK.get("instructor", 3)
     if not is_plus and not is_staff:
         raise HTTPException(
             403, "Creating and selling courses requires a Plus subscription."
