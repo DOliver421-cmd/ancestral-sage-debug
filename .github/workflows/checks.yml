@@ -1,0 +1,117 @@
+name: checks
+
+# Real checks for pull requests and main.
+#
+# This workflow exists because the repository had NO test checks wired into
+# pull requests at all: the only workflow in .github/workflows was a
+# scheduled visual-state capture, so every PR reached review with zero
+# executed evidence. (Confirmed: across the last 40 commits on this repo,
+# the only check runs ever produced were the Kilo code review bot and
+# GitHub's own scheduled actions.)
+#
+# Scope: everything here runs offline against a throwaway Mongo service and
+# needs no provider secrets, no live deployment, and no keystrokes. The
+# suites selected are the ones that PASS with only a Mongo reachable — no
+# uvicorn process, no seeded accounts, no network. Those conditions are
+# documented in .claude/skills/_shared/REPO-REALITY.md section 5 ("Test
+# reality"): much of backend/tests needs a live server + live Mongo, and
+# suites that only smoke a live server are deliberately excluded so this
+# check measures the code, not the environment.
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  backend:
+    name: backend (mongo-only suites)
+    runs-on: ubuntu-latest
+    if: github.repository == 'DOliver421-cmd/ancestral-sage-debug'
+    services:
+      mongo:
+        image: mongo:7
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongosh --quiet --eval 'db.runCommand({ ping: 1 })'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 12
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: python -m pip install -r requirements.txt
+
+      - name: Backend regression + launch-repair suites
+        working-directory: backend
+        env:
+          MONGO_URL: mongodb://127.0.0.1:27017
+          DB_NAME: testdb_ci
+          JWT_SECRET: testsecret-ci-throwaway
+          CROSS_SITE_SECRET: testsecret-ci-throwaway
+          KEEP_TEST_DEMOS: "1"
+        run: |
+          SUITES="tests/test_compliance_docs.py \
+                  tests/test_auth_me_regression.py \
+                  tests/test_fcc_wiring.py \
+                  tests/test_feature_control.py \
+                  tests/test_platform_services_unit.py \
+                  tests/test_keyvault_startup_init.py"
+          # test_launch_repairs.py pins the launch repairs and lands with the
+          # backend PR. List it when present so this workflow is valid on
+          # every branch (main, a CI-only branch, the backend branch)
+          # instead of failing collection with "file or directory not found".
+          if [ -f tests/test_launch_repairs.py ]; then
+            SUITES="tests/test_launch_repairs.py $SUITES"
+          fi
+          python -m pytest -q $SUITES
+
+  frontend:
+    name: frontend (integrity + build)
+    runs-on: ubuntu-latest
+    if: github.repository == 'DOliver421-cmd/ancestral-sage-debug'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci --legacy-peer-deps --no-audit --no-fund
+
+      # These three guard the navigable surface: every <Route> resolves, every
+      # nav target and redirect points at a real page, and the Homeschool
+      # Academy stays open-access (no paywall on the free academy).
+      - name: Route integrity
+        working-directory: frontend
+        run: node scripts/route-integrity.js
+
+      - name: Nav integrity
+        working-directory: frontend
+        run: node scripts/nav-integrity.js
+
+      - name: Academy open-access guard rail
+        working-directory: frontend
+        run: node scripts/academy-open-access.js
+
+      - name: Production build
+        working-directory: frontend
+        env:
+          CI: "false"
+          GENERATE_SOURCEMAP: "false"
+        run: npm run build
