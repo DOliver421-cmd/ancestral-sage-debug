@@ -625,11 +625,13 @@ class RecoveryCodeStatusReq(BaseModel):
 
 
 class SelfEditMeReq(BaseModel):
-    """Self-service profile edit. Users may change their display name and
-    email.  Role and associate are NOT editable here — those are admin-only
-    to prevent privilege/cohort drift."""
+    """Self-service profile edit. Users may change their display name,
+    email, avatar, and social handles.  Role and associate are NOT editable
+    here — those are admin-only to prevent privilege/cohort drift."""
     full_name: Optional[str] = None
     email: Optional[EmailStr] = None
+    avatar_url: Optional[str] = None
+    social_handles: Optional[dict] = None
 
 
 class LoginReq(BaseModel):
@@ -1479,6 +1481,21 @@ async def _on_startup_impl():
         await ensure_indexes()
     except Exception as _e:
         logger.warning("STARTUP: ensure_indexes failed (non-fatal): %s", _e)
+
+    # ── Payment provider keys ───────────────────────────────────────────────
+    # Keys saved through the exec Provider Gateway (or any vault write) live
+    # in the encrypted vault. reload_payment_keys() hydrates PAYMENTS_ENABLED
+    # and the provider chain from vault + env. It used to run ONLY when
+    # GET /payments/products was called or when a key was saved, so a fresh
+    # deploy reported payments "disabled" until someone hit that endpoint —
+    # checkout stayed 501 for the first customers after every restart.
+    try:
+        from routers import payments as _payment_routes
+        _payment_routes.bind(db, audit, notify, current_user)
+        await _payment_routes.reload_payment_keys(db)
+        logger.info("STARTUP: payment provider keys hydrated from vault/env")
+    except Exception as _e:
+        logger.warning("STARTUP: reload_payment_keys failed (non-fatal): %s", _e)
 
     try:
         from partnership import points as _pp_idx
@@ -3126,6 +3143,33 @@ async def edit_self(body: SelfEditMeReq, user: User = Depends(current_user)):
         if clash:
             raise HTTPException(400, "Email already in use")
         update["email"] = body.email
+    # Avatar + social handles: the callers (AvatarSetup, Settings → Social)
+    # have always sent these fields and always reported success, but the
+    # request model ignored unknown keys, so the write silently vanished —
+    # the UI said "Saved" while the server kept the old value. Persist them
+    # now, with the same defensive validation the rest of the model applies.
+    if body.avatar_url is not None:
+        avatar = body.avatar_url.strip()
+        # Accept a data: URL (the avatar picker stores the image inline) or an
+        # https URL. Reject anything else — including javascript: payloads.
+        if avatar and not (avatar.startswith("data:image/") or avatar.startswith("https://")):
+            raise HTTPException(400, "avatar_url must be an image data URL or an https URL")
+        update["avatar_url"] = avatar
+    if body.social_handles is not None:
+        if not isinstance(body.social_handles, dict):
+            raise HTTPException(400, "social_handles must be an object")
+        cleaned = {}
+        for platform, handle in body.social_handles.items():
+            if not isinstance(platform, str) or len(platform) > 40:
+                raise HTTPException(400, "Invalid social platform name")
+            if handle is None:
+                handle = ""
+            if not isinstance(handle, str) or len(handle) > 200:
+                raise HTTPException(400, f"Invalid handle for {platform}")
+            value = handle.strip()
+            if value:
+                cleaned[platform] = value
+        update["social_handles"] = cleaned
     if update:
         await db.users.update_one({"id": user.id}, {"$set": update})
         await audit(user.id, "auth.self_edit", target=user.id, meta=update)
@@ -8312,6 +8356,43 @@ async def stripe_webhook(request: Request):
     return await payment_routes.stripe_webhook(request)
 
 
+@api_router.get("/digital/purchases")
+async def list_digital_purchases(user=Depends(current_user)):
+    """The user's digital library. The handler lives in routers/payments.py,
+    but that router is not mounted wholesale, so this path used to 404 and the
+    /our-legacy page could never see (or deliver) a purchase. Registered here
+    at the exact path the frontend calls: GET /api/digital/purchases."""
+    from routers import payments as payment_routes
+
+    payment_routes.bind(db, audit, notify, current_user)
+    return await payment_routes.list_digital_purchases(user)
+
+
+@api_router.get("/digital/{product_key}/download")
+async def download_digital_product(product_key: str, user=Depends(current_user)):
+    """Serve a purchased digital product (the book / grassroots guide).
+    Delegates to routers/payments.py so the entitlement check and file
+    resolution stay in one place; the frontend calls
+    GET /api/digital/{product_key}/download."""
+    from routers import payments as payment_routes
+
+    payment_routes.bind(db, audit, notify, current_user)
+    return await payment_routes.download_digital_product(product_key, user)
+
+
+@api_router.post("/payments/gumroad-webhook")
+async def gumroad_webhook(request: Request):
+    """Gumroad is the Tier-2 fallback provider. Its sale webhook existed in
+    routers/payments.py but was never reachable (404), so a Gumroad sale was
+    never fulfilled — no tier grant, no media purchase, no enrollment, no
+    digital delivery. Registered at the path Gumroad is told to call."""
+    from routers import payments as payment_routes
+
+    payment_routes.bind(db, audit, notify, current_user)
+    await payment_routes.reload_payment_keys(db)
+    return await payment_routes.gumroad_webhook(request)
+
+
 async def _stripe_checkout_done(session):
     uid = (session.get("metadata") or {}).get("wai_user_id")
     product_key = (session.get("metadata") or {}).get("product_key", "unknown")
@@ -10150,13 +10231,54 @@ async def revoke_session(session_id: str, user: User = Depends(current_user)):
 
 
 @api_router.delete("/auth/sessions")
-async def revoke_all_sessions(user: User = Depends(current_user)):
-    """Revoke all sessions except the current one (log out other devices)."""
-    # Increment token version to invalidate all existing JWTs
+async def revoke_all_sessions(request: Request, user: User = Depends(current_user)):
+    """Revoke all sessions except the current one (log out other devices).
+
+    This device keeps working because the caller is handed a fresh token
+    carrying the bumped token_version — the same contract
+    /auth/change-password already uses. Previously the endpoint bumped
+    token_version and returned nothing, so the caller's own JWT was
+    invalidated and the user was silently signed out on their next click
+    while the toast claimed "Other sessions revoked"."""
+    token = request.headers.get("authorization", "").replace("Bearer ", "")
+    current_session_id = None
+    if token:
+        try:
+            current_session_id = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGO]).get("session_id")
+        except jwt.PyJWTError:
+            current_session_id = None
+
+    # Invalidate every JWT issued before now (that is every other device).
     await db.users.update_one({"id": user.id}, {"$inc": {"token_version": 1}})
-    # Clear session records
+    # Clear session records, then re-record THIS device so the session list
+    # shows the one live session the user is actually using.
     await db.auth_sessions.delete_many({"user_id": user.id})
-    return {"ok": True, "message": "All other sessions revoked. Please re-authenticate."}
+    new_session_id = str(uuid.uuid4())
+    try:
+        now_iso = datetime.now(timezone.utc).isoformat()
+        await db.auth_sessions.insert_one({
+            "session_id": new_session_id,
+            "user_id": user.id,
+            "user_agent": request.headers.get("user-agent", "")[:200],
+            "ip": request.client.host if request.client else None,
+            "created_at": now_iso,
+            "last_seen": now_iso,
+        })
+    except Exception:
+        logger.warning("revoke_all_sessions: session re-record failed (non-fatal)")
+        new_session_id = current_session_id
+
+    fresh_doc = await db.users.find_one({"id": user.id}, {"_id": 0, "password_hash": 0})
+    _extra = {"tv": int(fresh_doc.get("token_version", 0) or 0)}
+    if new_session_id:
+        _extra["session_id"] = new_session_id
+    fresh_user = User(**(fresh_doc or {}))
+    return {
+        "ok": True,
+        "message": "Other sessions revoked. This device stays signed in.",
+        "access_token": make_token(fresh_user.id, fresh_user.role, extra=_extra),
+        "user": fresh_user.model_dump(),
+    }
 
 
 # ── Cookie Consent Logging ─────────────────────────────────────────────────────
