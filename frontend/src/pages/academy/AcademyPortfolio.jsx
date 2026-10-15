@@ -22,7 +22,11 @@ export default function AcademyPortfolio() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!studentId) return;
+    // No student selected yet: stop the spinner so the "Choose a student"
+    // chooser can render. Returning without clearing `loading` left the page
+    // on a permanent "Loading..." line with no way forward - the exact dead
+    // end the Records/Projects/Compliance pages already avoid.
+    if (!studentId) { setLoading(false); return; }
     api.get(`/academy/portfolio?student_id=${studentId}`)
       .then((r) => setData(r.data))
       .catch((e) => setError(errorMessage(e, "Could not load the portfolio.")))

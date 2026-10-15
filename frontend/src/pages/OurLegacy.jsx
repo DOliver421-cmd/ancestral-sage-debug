@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
@@ -86,6 +86,11 @@ export default function OurLegacy() {
   const [checkoutUrl, setCheckoutUrl] = useState(null);
   const [purchases, setPurchases] = useState({});
   const [checkingPurchase, setCheckingPurchase] = useState(false);
+  // The hero read `hasPurchased` but only `purchases` was ever defined, so
+  // EVERY render of this page threw a ReferenceError and the global
+  // ErrorBoundary replaced the page for logged-in and anonymous visitors
+  // alike. Owned books live in the purchases map keyed by product_key.
+  const hasPurchased = Object.keys(purchases).length > 0;
 
   useEffect(() => {
     if (!user) return;
@@ -179,7 +184,7 @@ export default function OurLegacy() {
               <div className="text-white/60 text-sm">Checking your library…</div>
             ) : hasPurchased ? (
               <button
-                onClick={downloadBook}
+                onClick={() => downloadBook(BOOKS[0].key, BOOKS[0].filename)}
                 className="inline-flex items-center gap-2 px-7 py-3.5 bg-signal text-ink font-bold hover:bg-signal/80 transition-colors"
               >
                 <BookOpen className="w-4 h-4" />
