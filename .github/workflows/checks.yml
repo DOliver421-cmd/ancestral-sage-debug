@@ -68,10 +68,13 @@ jobs:
                   tests/test_feature_control.py \
                   tests/test_platform_services_unit.py \
                   tests/test_keyvault_startup_init.py"
-          # test_launch_repairs.py pins the launch repairs and lands with the
-          # backend PR. List it when present so this workflow is valid on
-          # every branch (main, a CI-only branch, the backend branch)
+          # test_launch_repairs*.py pin the launch repairs and land with the
+          # backend PRs. List them when present so this workflow is valid on
+          # every branch (main, a CI-only branch, the backend branches)
           # instead of failing collection with "file or directory not found".
+          if [ -f tests/test_launch_repairs_server.py ]; then
+            SUITES="tests/test_launch_repairs_server.py $SUITES"
+          fi
           if [ -f tests/test_launch_repairs.py ]; then
             SUITES="tests/test_launch_repairs.py $SUITES"
           fi
