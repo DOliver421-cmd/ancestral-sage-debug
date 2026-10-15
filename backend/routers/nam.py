@@ -273,6 +273,52 @@ async def get_identity(user: dict = Depends(require_auth)):
     }
 
 
+@router.get("/status")
+async def get_status(user: dict = Depends(require_auth)):
+    """Is NAM actually operational right now?
+
+    Aggregates the three things the Hybrid NAM console needs to tell an
+    operator the truth instead of showing a facade: the soul kernel state,
+    whether any AI provider is configured (no key means NAM answers from the
+    knowledge base only), and the constitutional hash the integrity check
+    verifies. Consumed by the console header.
+    """
+    state = soul.export_state() or {}
+    ai_ready = False
+    providers_active = 0
+    over_budget = False
+    try:
+        from ai.llm_gateway import gateway_status
+        status = gateway_status()
+        providers_active = int(status.get("active_providers", status.get("active_free_providers", 0)) or 0)
+        over_budget = bool(status.get("budget", {}).get("over_budget", False))
+        ai_ready = providers_active > 0 and not over_budget
+    except Exception:
+        pass
+    return {
+        "operational": True,
+        "designation": nam.identity.get("name", ""),
+        "role": nam.identity.get("role", ""),
+        "organization": nam.identity.get("organization", ""),
+        "is_human": nam.identity.get("is_human", False),
+        "soul_kernel": {
+            "coherence": state.get("coherence"),
+            "memories": state.get("memories"),
+            "version": state.get("version"),
+        },
+        "constitutional_hash": nam.get_hash(),
+        "ai_available": ai_ready,
+        "providers_active": providers_active,
+        "over_budget": over_budget,
+        "mode": "live" if ai_ready else "knowledge-base",
+        "message": (
+            "AI providers configured — NAM answers in full."
+            if ai_ready else
+            "No AI provider key configured — NAM answers from the knowledge base only."
+        ),
+    }
+
+
 @router.get("/state")
 async def get_state(user: dict = Depends(require_auth)):
     """Get NAM's current soul kernel state."""

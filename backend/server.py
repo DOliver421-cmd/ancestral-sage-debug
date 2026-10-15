@@ -1490,6 +1490,9 @@ async def _on_startup_impl():
         await ensure_indexes()
     except Exception as _e:
         logger.warning("STARTUP: ensure_indexes failed (non-fatal): %s", _e)
+    # One-time repair for the TTL defect: legacy string expires_at rows are
+    # converted to BSON dates so the TTL indexes can reach them.
+    await _backfill_expires_at_dates()
 
     # ── Payment provider keys ───────────────────────────────────────────────
     # Keys saved through the exec Provider Gateway (or any vault write) live
@@ -1779,6 +1782,22 @@ async def _on_startup_impl():
     _supervised_task(_memory_consolidation_loop(), name="memory_consolidation_loop")  # C-4
     logger.info("STARTUP: Memory consolidation cron launched (24h interval)")
 
+    # ── Team provider monitor (T1-2) ─────────────────────────────────────────    # run_monitor_loop() had zero callers before this: it auto-revokes provider
+    # keys on 401/403, which a provider-side outage mimics exactly. Opt-in via
+    # TEAM_MONITOR_ENABLED and dry-run by default (TEAM_MONITOR_DRY_RUN) so a
+    # dry-run cycle can be watched on the real pool before anything revokes.
+    if os.getenv("TEAM_MONITOR_ENABLED", "").strip().lower() in ("1", "true", "yes", "on"):
+        try:
+            from ai.team_monitor import run_monitor_loop, bind as _bind_team_monitor, DRY_RUN as _monitor_dry_run
+            _bind_team_monitor(db, notify)
+            _monitor_task = asyncio.create_task(run_monitor_loop(), name="team_monitor")
+            _bg_tasks.append(_monitor_task)
+            logger.info("STARTUP: team monitor launched (dry_run=%s, interval per module)", _monitor_dry_run)
+        except Exception:
+            logger.exception("STARTUP: team monitor failed to launch (non-fatal)")
+    else:
+        logger.info("STARTUP: team monitor not started (set TEAM_MONITOR_ENABLED=true to enable)")
+
     STARTUP_COMPLETE = True
     logger.info(
         "STARTUP COMPLETE — Version: %s | DB: %s | Frontend: %s",
@@ -1874,9 +1893,56 @@ async def ensure_indexes():
         await db.arena_work_context.create_index("owner_id")
         await db.arena_work_context.create_index("status")
         await db.arena_work_context.create_index([("updated_at", -1)])
+        # AI cost/routing surface — these collections are queried on every
+        # gateway call or ranking refresh and previously had no index at all.
+        # api_keys holds two shapes: the revenue service's per-user keys
+        # (key_hash is the verification lookup) and the provider gateway's
+        # pool keys (provider_id + status is the pool read).
+        await db.api_keys.create_index("key_hash", unique=True, sparse=True)
+        await db.api_keys.create_index([("provider_id", 1), ("status", 1)])
+        await db.api_keys.create_index([("user_id", 1)])
+        # api_providers: quick-setup looks up by provider_type (the pool also
+        # filters provider_type $in PROVIDERS).
+        await db.api_providers.create_index("provider_type", unique=True)
+        await db.api_providers.create_index("id")
+        # ai_usage_log: spend dashboards range-filter on created_at and the
+        # usage log is read newest-first.
+        await db.ai_usage_log.create_index([("created_at", -1)])
+        # provider_rankings: one document per service, refreshed on demand.
+        await db.provider_rankings.create_index("service", unique=True)
+        # Director file uploads: the tool tells users uploads carry a 24h TTL,
+        # but the inserts stored expires_at as an ISO string and no TTL index
+        # existed, so nothing ever expired. The inserts now store BSON dates
+        # and this index enforces the promised 24h.
+        await db.director_uploads.create_index("expires_at", expireAfterSeconds=0)
         logger.info("Indexes ensured")
     except Exception:
         logger.exception("ensure_indexes failed (non-fatal)")
+
+
+async def _backfill_expires_at_dates() -> None:
+    """Convert legacy string expires_at values to BSON dates (one-time repair).
+
+    chat_history and director_uploads used to store expires_at as an ISO
+    string; Mongo TTL indexes only expire BSON dates, so those rows were
+    exempt from the TTL the product promises. The inserts now write dates;
+    this converts the legacy rows so the TTL monitor can reach them too.
+    Idempotent — only string-typed values are touched — and isolated in its
+    own try/except so a failure can never skip index creation.
+    """
+    for coll in ("chat_history", "director_uploads"):
+        try:
+            result = await db[coll].update_many(
+                {"expires_at": {"$type": "string"}},
+                [{"$set": {"expires_at": {
+                    "$dateFromString": {"dateString": "$expires_at", "onError": "$$REMOVE"}
+                }}}],
+            )
+            if result.modified_count:
+                logger.info("Backfilled %d legacy string expires_at rows in %s",
+                            result.modified_count, coll)
+        except Exception as e:
+            logger.warning("expires_at backfill skipped for %s (non-fatal): %s", coll, e)
 
 
 async def seed_compliance():
@@ -5255,7 +5321,7 @@ async def director_upload_file(
         "is_binary":    is_binary,
         "size_bytes":   len(raw),
         "created_at":   datetime.now(timezone.utc).isoformat(),
-        "expires_at":   expires_at.isoformat(),
+        "expires_at":   expires_at,
     })
 
     if not is_binary:

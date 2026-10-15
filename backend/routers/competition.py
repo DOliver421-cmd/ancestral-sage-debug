@@ -394,6 +394,11 @@ async def assign_task(
                     "at": now,
                 }}},
             )
+            # Return the context the round was recorded against so the caller
+            # can show the effect immediately (GET /competition/context/{id}).
+            ctx = await db.arena_work_context.find_one({"id": body.work_context_id}, {"_id": 0})
+            if ctx:
+                response["work_context"] = ctx
         except Exception:
             pass
     return response
@@ -497,6 +502,21 @@ async def get_project(
         "rounds": [rounds[k] for k in sorted(rounds)],
         "total_rounds": TOTAL_ROUNDS,
     }
+
+
+@router.get("/competition/context/{context_id}")
+async def get_work_context(context_id: str, user: User = Depends(_require_rank("executive_admin"))):
+    """Read one arena work context by id.
+
+    POST /competition/task already writes its round results into the
+    context's activity_history; without a read route the write side was a
+    black hole — an exec could link a context and never see what the Arena
+    recorded against it.
+    """
+    doc = await db.arena_work_context.find_one({"id": context_id}, {"_id": 0})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Work context not found")
+    return {"context": doc}
 
 
 @router.get("/competition/leaderboard")

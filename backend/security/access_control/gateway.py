@@ -554,7 +554,8 @@ class AccessGateway:
 
     # ── Middleware (defense-in-depth for the whole control surface) ───────────
     async def _check(self, path: str, method: str, auth_header: Optional[str], spec,
-                     cookie_token: Optional[str] = None) -> Optional[tuple]:
+                     cookie_token: Optional[str] = None,
+                     api_key_header: Optional[str] = None) -> Optional[tuple]:
         """Core gate decision, shared by the Starlette and raw-ASGI adapters.
 
         Returns (status_code, detail) to reject with — after audit-logging the
@@ -565,6 +566,13 @@ class AccessGateway:
         # else a cookie is simply not a credential and the header still rules.
         if not auth_header and cookie_token and path in _SOUP_PARTNER_PATHS:
             auth_header = f"Bearer {cookie_token}"
+
+        # An issued API key (X-API-Key) authenticates the Soup partner routes
+        # ONLY, same narrow scope as the cookie: the handler verifies the key
+        # against api_keys with its own hourly rate limit, so the outer gate
+        # passes the request to that verification instead of guessing.
+        if not auth_header and api_key_header and path in _SOUP_PARTNER_PATHS:
+            return None
 
         # Intentionally-public routes (no user-auth dependency on the route)
         # are excluded from gating — e.g. /api/supervisor/public-chat,
@@ -650,6 +658,7 @@ class AccessGateway:
                 result = await gateway._check(
                     path, method, request.headers.get("authorization"), spec,
                     cookie_token=_cookie_from_request(request),
+                    api_key_header=request.headers.get("x-api-key"),
                 )
                 if result is None:
                     return await call_next(request)
@@ -685,15 +694,19 @@ class AccessGateway:
 
             auth_header = None
             cookie_token = None
+            api_key_header = None
             for key, value in (scope.get("headers") or []):
                 k = key.lower()
                 if k == b"authorization":
                     auth_header = value.decode("latin-1")
                 elif k == b"cookie":
                     cookie_token = _cookie_from_header(value.decode("latin-1"))
+                elif k == b"x-api-key":
+                    api_key_header = value.decode("latin-1")
 
             result = await self._check(path, method, auth_header, spec,
-                                       cookie_token=cookie_token)
+                                       cookie_token=cookie_token,
+                                       api_key_header=api_key_header)
             if result is None:
                 return await app(scope, receive, send)
             return await self._reject(send, *result)

@@ -73,6 +73,10 @@ class QuickSetupRequest(BaseModel):
     # Without it the checkout works but the webhook 404s and buyers never
     # get their order recorded, so the exec panel requires it for Stripe.
     third_key: Optional[str] = ""
+    # Opt-in live verification: when true the saved key is exercised with a
+    # minimal one-token provider call before the save reports success.
+    # Default false so existing callers keep the current save path.
+    test_key: bool = False
 
 async def _user(authorization: Optional[str] = Header(None)):
     return await current_user(authorization)
@@ -222,7 +226,87 @@ async def quick_setup(body: QuickSetupRequest, user=Depends(_user)):
     except Exception:
         logger.exception("provider key saved but the in-memory reload failed for %s", provider_type)
     await audit(user.id, "provider_gateway.key_saved", meta={"provider": provider_type})
-    return {"provider_type": provider_type, "configured": True, "key_masked": _mask(api_key)}
+    result: dict = {"provider_type": provider_type, "configured": True, "key_masked": _mask(api_key)}
+    if body.test_key:
+        result["test"] = await _live_key_test(provider_type, api_key)
+    return result
+
+
+async def _live_key_test(provider_type: str, api_key: str) -> dict:
+    """Exercise a provider key with a minimal one-token call.
+
+    A key that authenticates is worth more than a key that merely encrypts:
+    quick-setup used to persist any non-empty string and report "configured",
+    which is how dead keys reached the live gateway. The test never blocks a
+    save — the result rides along in the response so the exec can see whether
+    the pasted key actually works.
+    """
+    import time as _time
+
+    try:
+        import httpx as _httpx
+
+        base = _provider_base(provider_type)
+        if not base:
+            return {"ok": None, "skipped": "no OpenAI-compatible test endpoint for this provider"}
+        start = _time.monotonic()
+        async with _httpx.AsyncClient(timeout=10) as client:
+            r = await client.post(
+                f"{base}/chat/completions",
+                headers={"Authorization": f"Bearer {api_key}", "content-type": "application/json"},
+                json={"model": _probe_model(provider_type), "max_tokens": 1, "messages": [{"role": "user", "content": "ping"}]},
+            )
+        latency_ms = round((_time.monotonic() - start) * 1000)
+        # 401/403 is the whole point of the test: the key authenticated or it
+        # did not. "Reachable" is not "working" for a credential probe.
+        ok = 200 <= r.status_code < 500 and r.status_code not in (401, 403, 429)
+        return {"ok": ok, "status_code": r.status_code, "latency_ms": latency_ms}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
+
+def _provider_base(provider_type: str) -> str:
+    """OpenAI-compatible base URL per provider; empty when none applies."""
+    bases = {
+        "openai": "https://api.openai.com/v1",
+        "groq": "https://api.groq.com/openai/v1",
+        "deepseek": "https://api.deepseek.com/v1",
+        "together": "https://api.together.xyz/v1",
+        "openrouter": "https://openrouter.ai/api/v1",
+        "xai": "https://api.x.ai/v1",
+        "mistral": "https://api.mistral.ai/v1",
+        "nvidia": "https://integrate.api.nvidia.com/v1",
+        "hyperbolic": "https://api.hyperbolic.xyz/v1",
+        "novita": "https://api.novita.ai/v3/openai",
+        "deepinfra": "https://api.deepinfra.com/v1/openai",
+        "sambanova": "https://api.sambanova.ai/v1",
+        "cerebras": "https://api.cerebras.ai/v1",
+        "huggingface": "https://api-inference.huggingface.co/v1",
+        "gemini": "https://generativelanguage.googleapis.com/v1beta/openai",
+    }
+    return bases.get(provider_type, "")
+
+
+def _probe_model(provider_type: str) -> str:
+    """Cheapest model per provider — the probe only needs one token back."""
+    models = {
+        "openai": "gpt-4o-mini",
+        "groq": "llama-3.1-8b-instant",
+        "deepseek": "deepseek-chat",
+        "together": "meta-llama/Llama-3.2-3B-Instruct-Turbo",
+        "openrouter": "meta-llama/llama-3.2-3b-instruct",
+        "xai": "grok-2-latest",
+        "mistral": "mistral-small-latest",
+        "nvidia": "meta/llama-3.1-8b-instruct",
+        "hyperbolic": "meta-llama/Llama-3.2-3B-Instruct",
+        "novita": "meta-llama/llama-3.1-8b-instruct",
+        "deepinfra": "meta-llama/Llama-3.2-3B-Instruct",
+        "sambanova": "Meta-Llama-3.1-8B-Instruct",
+        "cerebras": "llama3.1-8b",
+        "huggingface": "meta-llama/Llama-3.2-3B-Instruct",
+        "gemini": "gemini-2.0-flash",
+    }
+    return models.get(provider_type, "gpt-4o-mini")
 
 @router.patch("/providers/keys/by-provider/{provider_type}/status")
 async def provider_key_status(provider_type: str, body: dict, user=Depends(_user)):

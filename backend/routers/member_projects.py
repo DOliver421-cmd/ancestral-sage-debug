@@ -219,6 +219,77 @@ def _oid(id_str: str) -> ObjectId:
         raise HTTPException(status_code=400, detail="Invalid ID")
 
 
+async def _link_work_context(db, project_id: str, doc: dict) -> str:
+    """Mirror a member project into arena_work_context so NAM's Active Work
+    panel and the Arena see it. Returns the context id.
+
+    The NAM console reads work contexts through /nam/contexts; before this,
+    member projects were invisible to the operational view even though the
+    competition surface already wrote into the same collection.
+    """
+    import uuid as _uuid
+
+    ctx_id = doc.get("work_context_id")
+    now = _now()
+    if not ctx_id:
+        ctx_id = str(_uuid.uuid4())
+        try:
+            await db.member_projects.update_one(
+                {"_id": _oid(project_id)}, {"$set": {"work_context_id": ctx_id}}
+            )
+            await db.arena_work_context.insert_one({
+                "id": ctx_id,
+                "owner_id": doc.get("owner_id", ""),
+                "title": doc.get("title", ""),
+                "status": doc.get("status", "active"),
+                "current_objective": doc.get("desired_outcome", "") or doc.get("brief", "")[:500],
+                "project": project_id,
+                "description": doc.get("brief", "")[:2000],
+                "source_capability": "member_projects",
+                "activity_history": [{
+                    "action_type": "member_project_created",
+                    "description": f"Member project created: {doc.get('title', '')}",
+                    "capability": "member_projects",
+                    "metadata": {"project_id": project_id},
+                    "at": now,
+                }],
+                "created_at": now,
+                "updated_at": now,
+                "created_by": doc.get("owner_id", ""),
+            })
+        except Exception as e:
+            logger.warning("member_project work-context mirror failed: %s", e)
+            return ""
+    return ctx_id
+
+
+async def _mirror_project_activity(db, project_id: str, doc: dict, action: str, description: str, meta: dict = None) -> None:
+    """Push a project event into its mirrored arena work context.
+
+    The read side (GET /competition/context/{id}, /nam/context?context_id=)
+    already exists; without the write the mirror went stale after creation.
+    """
+    ctx_id = doc.get("work_context_id")
+    if not ctx_id:
+        return
+    try:
+        await db.arena_work_context.update_one(
+            {"id": ctx_id},
+            {
+                "$set": {"updated_at": _now(), "status": doc.get("status", "active")},
+                "$push": {"activity_history": {
+                    "action_type": action,
+                    "description": description,
+                    "capability": "member_projects",
+                    "metadata": meta or {},
+                    "at": _now(),
+                }},
+            },
+        )
+    except Exception as e:
+        logger.warning("member_project activity mirror failed: %s", e)
+
+
 def _serialize(doc: dict) -> dict:
     """Mongo doc → JSON-safe dict with string ids on nested deliverables."""
     doc["id"] = str(doc.pop("_id"))
@@ -383,6 +454,9 @@ async def create_project(
     }
     result = await db.member_projects.insert_one(doc)
     doc["_id"] = result.inserted_id
+    ctx_id = await _link_work_context(db, str(result.inserted_id), doc)
+    if ctx_id:
+        doc["work_context_id"] = ctx_id
     try:
         await db.audit_log.insert_one({
             "action": "member_project_created",
@@ -440,6 +514,11 @@ async def advance_stage(
         {"$set": {"current_stage": target, "context": new_context, "stage_history": stage_history, "updated_at": now}},
     )
     updated = await db.member_projects.find_one({"_id": doc["_id"]})
+    await _mirror_project_activity(
+        db, project_id, updated, "member_project_stage_advanced",
+        f"Stage advanced: {current} → {target}",
+        {"from_stage": current, "to_stage": target},
+    )
     return _serialize(updated)
 
 
@@ -537,6 +616,12 @@ async def run_stage(
     await db.member_projects.update_one(
         {"_id": doc["_id"]},
         {"$push": {"deliverables": deliverable}, "$set": {"updated_at": now}},
+    )
+    doc["deliverables"] = doc.get("deliverables", []) + [deliverable]
+    await _mirror_project_activity(
+        db, project_id, doc, "member_project_deliverable_submitted",
+        f"Deliverable submitted at {stage} by {persona} (pending approval)",
+        {"stage": stage, "persona": persona, "auto": True},
     )
     deliverable["id"] = str(deliverable.pop("_id"))
 

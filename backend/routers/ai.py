@@ -1301,7 +1301,7 @@ async def ai_orchestrator(body: OrchestratorReq, user: User = Depends(_dep_curre
         "protocol": body.protocol,
         "role_at_time": user.role,
         "created_at": datetime.now(timezone.utc).isoformat(),
-        "expires_at": (datetime.now(timezone.utc) + timedelta(days=90)).isoformat(),
+        "expires_at": datetime.now(timezone.utc) + timedelta(days=90),
     })
 
     return {
@@ -1368,9 +1368,12 @@ async def ai_scholar(body: ScholarTaskReq, user: User = Depends(_dep_current_use
         "user_msg": body.message,
         "assistant_msg": reply,
         "task_type": body.task_type,
-        "expires_at": (datetime.now(timezone.utc) + timedelta(days=90)).isoformat(),
-        "created_at": datetime.utcnow().isoformat(),
-        "expires_at": datetime.utcnow().timestamp() + 90 * 86400,
+        # expires_at must be a BSON date: the chat_history TTL index
+        # (expireAfterSeconds=0) only expires dates, and the ISO string this
+        # used to store let scholar transcripts live forever. This insert also
+        # carried the key twice — the second (Unix float) silently won.
+        "expires_at": datetime.now(timezone.utc) + timedelta(days=90),
+        "created_at": datetime.now(timezone.utc).isoformat(),
     })
 
     return {"reply": reply, "mode": "scholar", "task_type": body.task_type}
@@ -1650,7 +1653,7 @@ async def director_upload_file(
         "is_binary":    is_binary,
         "size_bytes":   len(raw),
         "created_at":   datetime.now(timezone.utc).isoformat(),
-        "expires_at":   expires_at.isoformat(),
+        "expires_at":   expires_at,
     })
 
     if not is_binary:
@@ -1760,7 +1763,7 @@ async def ai_director(body: dict, user: User = Depends(_dep_current_user)):
         "user_msg":     message,
         "assistant_msg": reply,
         "created_at":   datetime.now(timezone.utc).isoformat(),
-        "expires_at":   (datetime.now(timezone.utc) + timedelta(days=90)).isoformat(),
+        "expires_at":   datetime.now(timezone.utc) + timedelta(days=90),
     })
 
     if is_exec:

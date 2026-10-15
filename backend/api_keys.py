@@ -91,6 +91,7 @@ async def verify_api_key(db, raw_key: str) -> Optional[dict]:
     )
     return {
         "valid": True,
+        "user_id": doc["user_id"],
         "tier": doc["tier"],
         "label": doc["label"],
         "limits": tier_config,

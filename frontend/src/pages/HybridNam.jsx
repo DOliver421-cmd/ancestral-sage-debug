@@ -123,6 +123,7 @@ export function HybridNamContent({ embedded = false }) {
   const [formValues, setFormValues] = useState({});
   const [activeContext, setActiveContext] = useState(null);
   const [contextLoading, setContextLoading] = useState(false);
+  const [namStatus, setNamStatus] = useState(null);
 
   const admin = canWrite(user?.role);
 
@@ -149,7 +150,8 @@ export function HybridNamContent({ embedded = false }) {
   useEffect(() => {
     loadPillar(activePillar);
     loadContext();
-  }, [activePillar, loadPillar, loadContext]);
+    loadStatus();
+  }, [activePillar, loadPillar, loadContext, loadStatus]);
 
   const handlePillarChange = (pillarId) => {
     setActivePillar(pillarId);
@@ -173,6 +175,15 @@ export function HybridNamContent({ embedded = false }) {
       setContextLoading(false);
     }
   }, [admin]);
+
+  const loadStatus = useCallback(async () => {
+    try {
+      const { data } = await api.get("/nam/status");
+      setNamStatus(data || null);
+    } catch {
+      setNamStatus(null);
+    }
+  }, []);
 
   const getFormFields = () => {
     switch (activePillar) {
@@ -564,11 +575,20 @@ export function HybridNamContent({ embedded = false }) {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <span className="hidden sm:inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded bg-emerald-100 text-emerald-800 border border-emerald-300">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse" />
-              Active Command
-            </span>
-            <button onClick={handleRefresh} disabled={loading}
+            {namStatus ? (
+              <span
+                title={namStatus.message}
+                className={`hidden sm:inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded border ${
+                  namStatus.ai_available
+                    ? "bg-emerald-100 text-emerald-800 border-emerald-300"
+                    : "bg-amber-100 text-amber-800 border-amber-300"
+                }`}
+              >
+                <span className={`w-1.5 h-1.5 rounded-full ${namStatus.ai_available ? "bg-emerald-600 animate-pulse" : "bg-amber-600"}`} />
+                {namStatus.ai_available ? "NAM Live" : "Knowledge Base Only"}
+              </span>
+            ) : null}
+            <button onClick={() => { handleRefresh(); loadStatus(); }} disabled={loading}
               className="flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg border border-ink/20 text-ink/70 hover:text-ink hover:border-ink/40 disabled:opacity-40 transition-colors">
               <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} /> Refresh
             </button>

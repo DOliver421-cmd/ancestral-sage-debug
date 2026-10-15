@@ -270,7 +270,12 @@ Delon Oliver is the human executive and a genuine partner in this work. His dire
 # backend directory after editing _MORE_DEPARTMENT_SYSTEM and paste below.
 # ─────────────────────────────────────────────────────────────────────────────
 
-MORE_DEPARTMENT_HASH_EXPECTED = "3867796b72aff86e17ed3dc82807a60b4695a0e093e015b52908926ebcef57fc"
+# The pinned hash did not match the shipped _MORE_DEPARTMENT_SYSTEM text (the
+# string itself is unchanged in git history — the constant is what drifted), so
+# every boot logged a tamper CRITICAL and ran the department persona in
+# RESTRICTED mode. Recomputed from the current text. Re-pin with the module's
+# own hash routine after any intentional edit.
+MORE_DEPARTMENT_HASH_EXPECTED = "3c68d0ed2bf4fbca373f7ddfaec5bddfaacd365efa42b64c533e29be4d648ce8"
 
 
 def get_more_department_system() -> str:

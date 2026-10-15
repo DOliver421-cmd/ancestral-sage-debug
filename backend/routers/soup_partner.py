@@ -86,6 +86,33 @@ class User(BaseModel):
 # only way its own calls can authenticate. The cookie is accepted ONLY here
 # and at the Soup byte gate — never on the wider /api surface.
 async def _partner_user(request: Request) -> User:
+    # API key path — an issued key authenticates the Partner API from anywhere
+    # (the standalone soup-partner.html page and external partners cannot hold
+    # a browser session). verify_api_key enforces the key's own hourly rate
+    # limit and records usage; before this call, issued keys verified nothing.
+    api_key = request.headers.get("x-api-key")
+    if api_key:
+        res = None
+        try:
+            from api_keys import verify_api_key
+            res = await verify_api_key(db, api_key.strip())
+        except Exception:
+            raise HTTPException(503, "Partner authorization unavailable — try again.")
+        if not res or not res.get("valid"):
+            if res and res.get("error") == "rate_limit_exceeded":
+                raise HTTPException(
+                    429,
+                    f"API key rate limit reached ({res.get('limit')} requests/hour) — try again shortly.",
+                )
+            raise HTTPException(401, "That API key is invalid or has been revoked.")
+        try:
+            udoc = await db.users.find_one({"id": res["user_id"]}, {"_id": 0, "password_hash": 0})
+        except Exception:
+            raise HTTPException(503, "Partner authorization unavailable — try again.")
+        if not udoc or udoc.get("is_active") is False:
+            raise HTTPException(401, "That API key's account is no longer active.")
+        return User(**udoc)
+
     auth = request.headers.get("authorization") or ""
     token = None
     if auth.startswith("Bearer "):

@@ -1608,8 +1608,13 @@ The Director produces output. He does not produce disclaimers.
 # directory after editing either prompt and paste the printed values below.
 # ─────────────────────────────────────────────────────────────────────────────
 
-DIRECTOR_PROMPT_HASH_EXPECTED = "f717778576a82bf47d870a000ce975e3423c98d9b1bf1d97cea753ab4c851f57"
-ASSISTANT_DIRECTOR_PROMPT_HASH_EXPECTED = "f717778576a82bf47d870a000ce975e3423c98d9b1bf1d97cea753ab4c851f57"
+# Both director prompts were pinned to the same stale hash (they cannot both
+# match one value), so every boot logged a tamper CRITICAL for personas whose
+# content is the shipped, approved prompt. The constants below are recomputed
+# from the current prompt text. Re-pin with `python3 prompts/director_prompt.py`
+# after any intentional edit.
+DIRECTOR_PROMPT_HASH_EXPECTED = "4d621e53fe8fe653ddfa2e84b46f3d89a234d62a6f336b2c6329461fc5f51aa8"
+ASSISTANT_DIRECTOR_PROMPT_HASH_EXPECTED = "d6bcec868d7b81b66df0abdf6d32b3cb18926a77777a02ed671b920bf63204e6"
 
 DIRECTOR_PROMPT_BY_ROLE = {
     "student": ASSISTANT_DIRECTOR_PROMPT,
