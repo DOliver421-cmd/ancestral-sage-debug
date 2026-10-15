@@ -500,6 +500,13 @@ class User(BaseModel):
     social_handles: Optional[dict] = None
     feature_tier: str = "free"
     sage_tier: Optional[str] = None
+    # BYOK entitlement. Declared for the same reason as the fields above:
+    # studio.py's Video Studio gate and routers/ai.py's access check read it
+    # straight off the user object, and an undeclared field is dropped by
+    # extra="ignore" — so a paid BYOK user always looked un-entitled to those
+    # gates (403 "Pro membership required" to a caller who paid for BYOK).
+    byok_enabled: bool = False
+    byok_paid: bool = False
     last_login: Optional[str] = None
     # C-2 token revocation counter; carried so round-trips keep their value.
     token_version: int = 0
