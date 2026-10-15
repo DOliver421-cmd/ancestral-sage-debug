@@ -9,7 +9,7 @@ A persona is a row in the `ai_personas` collection:
         priority: 100,                        # execution weight order (lower = higher priority)
         active: true,                         # false = disabled
         allowed_roles: ["admin", "executive_admin"],
-        model_override: "claude-3-opus",      # optional model string
+        model_override: "deepseek-chat",   # optional model string
         created_by: "user_id",
         updated_at: "ISO datetime"
     }

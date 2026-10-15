@@ -1124,15 +1124,15 @@ async def nam_chat(body: NAMChatReq, user: dict = Depends(require_auth)):
         system = _PERSONA_PROMPTS.get(body.mode, _PERSONA_PROMPTS["tutor"])
 
     # Build message list
-    claude_messages = [{"role": h["role"], "content": h["content"]} for h in (body.history or [])]
-    claude_messages.append({"role": "user", "content": message})
+    llm_messages = [{"role": h["role"], "content": h["content"]} for h in (body.history or [])]
+    llm_messages.append({"role": "user", "content": message})
 
     # Call LLM gateway
     try:
         from ai.llm_gateway import call_llm as _call_llm
         gw = await _call_llm(
             system=system,
-            messages=claude_messages,
+            messages=llm_messages,
             max_tokens=2048,
             persona_label="hybrid_nam_chat" if is_hybrid_nam else f"nam_{body.mode}",
             user_id=user_id,
@@ -1251,12 +1251,12 @@ async def dispatch_persona(body: PersonaDispatchReq, user: dict = Depends(requir
 
     # 3)+4) LLM gateway call.
     from ai.llm_gateway import call_llm as _call_llm
-    claude_messages = [{"role": h.get("role"), "content": h.get("content")} for h in (body.history or [])]
-    claude_messages.append({"role": "user", "content": message})
+    llm_messages = [{"role": h.get("role"), "content": h.get("content")} for h in (body.history or [])]
+    llm_messages.append({"role": "user", "content": message})
     try:
         gw = await _call_llm(
             system=system,
-            messages=claude_messages,
+            messages=llm_messages,
             max_tokens=2048,
             persona_label=persona_key,
             user_id=user_id,

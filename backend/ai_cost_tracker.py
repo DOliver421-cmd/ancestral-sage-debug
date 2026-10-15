@@ -11,10 +11,6 @@ logger = logging.getLogger("lcewai.ai_cost_tracker")
 
 # Approximate cost per 1K tokens (USD) — update when model pricing changes
 _MODEL_RATES = {
-    "claude-sonnet-4-6":        {"input": 0.003, "output": 0.015},
-    "claude-haiku-4-5":         {"input": 0.0008, "output": 0.004},
-    "claude-haiku-4-5-20251001": {"input": 0.0008, "output": 0.004},
-    "claude-3-haiku-20240307":  {"input": 0.00025, "output": 0.00125},
 }
 
 DEFAULT_RATE = {"input": 0.002, "output": 0.010}

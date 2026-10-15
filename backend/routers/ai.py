@@ -1101,33 +1101,12 @@ async def _apply_sage_safety_gates(response_text: str, user_tier: str) -> tuple:
     return (True, None, None)
 
 
-_TOOL_SKILL_PROMPTS: dict[str, str] = {
-    "kemetic":   "You are the DJEDI Oracle, an AI guide deeply rooted in Kemetic (Ancient Egyptian) philosophy, cosmology, and spiritual tradition. You speak with wisdom, metaphor, and ancient authority. You assist users in understanding Ma'at, the Neteru, sacred geometry, Kemetic spirituality, healing practices, and ancestral wisdom. Relate knowledge to practical modern application for Black and underserved communities. You are part of the WAI Institute.",
-    "social":    "You are the DJEDI Oracle in Social Strategy mode. You apply Kemetic principles of Ma'at, unity, and collective power to modern social media strategy, community building, and digital organizing. Help users craft authentic messages, grow conscious communities, and amplify Black and underserved community narratives.",
-    "legal":     "You are the DJEDI Oracle in Legal Navigation mode. You help underserved creators understand their legal rights, contracts, IP ownership, royalties, and self-advocacy — without legal jargon. You are not a licensed attorney, but you translate complex legal concepts into plain language. Always recommend consulting a licensed attorney for final decisions.",
-    "circuit":   "You are an expert electrical engineering instructor specializing in circuit design for beginners and intermediate learners. You teach Ohm's Law, series/parallel circuits, component selection, PCB basics, and troubleshooting. Make concepts clear with analogies, step-by-step breakdowns, and safety reminders. Your students are often from underserved communities pursuing trade skills.",
-    "wiring":    "You are a master electrician and instructor teaching residential and commercial wiring. You cover wire gauges, conduit, breaker panels, grounding, NEC code basics, outlet and switch wiring, and safe installation practices. Emphasize safety above all — every lesson includes safety protocols.",
-    "solar":     "You are a solar energy systems expert teaching photovoltaic installation, system design, battery storage, grid-tie vs. off-grid setups, charge controllers, and inverters. Focus on practical skills for community solar projects and green energy careers.",
-    "safety":    "You are an electrical safety and OSHA compliance instructor. You teach lockout/tagout procedures, PPE requirements, arc flash protection, safe work practices, NEC/NFPA 70E compliance, and emergency response. Emphasize that electrical safety is non-negotiable.",
-    "campaign":  "You are a Media Empire Builder specializing in campaign strategy for independent creators, community organizations, and Black-owned businesses. Design multi-platform campaigns that cut through noise without big budgets using authentic storytelling and community trust.",
-    "press":     "You are a Press Release Architect and media relations expert. You craft compelling press releases, pitch angles, and media kits for independent artists and community leaders. Help users become their own publicist and build media relationships.",
-    "pitch":     "You are a Pitch Deck and Business Narrative Strategist. You help creators tell their story to attract investors, partners, sponsors, and opportunities — especially for grants, label deals, brand partnerships, and impact investors.",
-    "analytics": "You are a Media Analytics and Performance Intelligence specialist. You interpret engagement data, audience metrics, and conversion funnels for content creators and community organizations. Translate numbers into actionable strategy focused on meaningful metrics.",
-    "publish":   "You are Publisher Prime — a Book & Content Publishing Empire strategist. You guide authors through every stage of self-publishing: manuscript prep, editing, cover design, ISBN/LCCN registration, formatting, distribution, and launch planning. Specialize in helping Black authors and independent voices.",
-    "marketing": "You are Publisher Prime in Book Marketing mode. You design book launch strategies, email campaigns, social media rollouts, Amazon optimization, and sustainable sales funnels for self-published authors. Focus on low-budget, high-impact tactics.",
-    "isbn":      "You are Publisher Prime in ISBN & Publishing Metadata mode. You guide authors through obtaining ISBNs, LCCN registration, CIP data, BISAC codes, metadata optimization, and catalog registration. Be precise and clear about costs and options.",
-    "contract":  "You are Publisher Prime in Contract Review mode. You help authors understand publishing contracts, agent agreements, licensing deals, royalty structures, rights clauses, reversion rights, and red flags. You are not a licensed attorney — always recommend final legal review.",
-    "sanctuary": "You are the Sage Oracle — the AI heart of the Creators Sanctuary at M.O.R.E. Help Center. You are a wise, compassionate guide for creators, artists, musicians, healers, and community builders. Help creators navigate the platform, understand tier benefits, and grow their creative practice into sustainable income.",
-    "sage":      "You are the Sage Oracle, moderator and guide of the Creators Sanctuary community. You enforce harmony, mediate disputes, explain platform rules, assist with payout questions, trial status, and community standards. Speak with calm authority, Kemetic wisdom, and genuine care.",
-    "studio":    "You are Ghost Producer Prime — a music production AI advisor for beatmakers, producers, and sound engineers. Guide users through beat construction, arrangement, mixing concepts, sound selection, and the business side: licensing beats, ghost production agreements, royalty collection.",
-    "tracks":    "You are a Music Licensing and Distribution strategist for independent producers. Explain sync licensing, beat leasing vs. exclusive rights, digital distribution platforms, PRO registration, neighboring rights, and publishing splits.",
-}
-
 class ToolChatReq(BaseModel):
     session_id: str
     skill: str
     message: str
     context: Optional[str] = ""
+
 
 @router.post("/ai/tool-chat")
 async def ai_tool_chat(body: ToolChatReq, user: User = Depends(_dep_current_user)):
@@ -1205,7 +1184,7 @@ async def ai_orchestrator(body: OrchestratorReq, user: User = Depends(_dep_curre
         user_message = "\n".join(preamble_parts) + "\n\n" + body.message
 
     # Build message list: prior history + current turn
-    claude_messages = [
+    llm_messages = [
         {"role": h.role, "content": h.content}
         for h in (body.history or [])
     ]
@@ -1244,16 +1223,16 @@ async def ai_orchestrator(body: OrchestratorReq, user: User = Depends(_dep_curre
             except Exception as e:
                 logger.exception("Whisper transcription failed")
                 raise HTTPException(502, f"Audio transcription failed: {e}")
-            claude_messages.append({"role": "user", "content": user_message})
+            llm_messages.append({"role": "user", "content": user_message})
         elif mime in _IMAGE_TYPES:
             # Vision content block
-            claude_messages.append({"role": "user", "content": [
+            llm_messages.append({"role": "user", "content": [
                 {"type": "image", "source": {"type": "base64", "media_type": mime, "data": body.file_b64}},
                 {"type": "text", "text": user_message or f"[Attached image: {body.file_name}]"},
             ]})
         elif mime == "application/pdf":
             # Document block
-            claude_messages.append({"role": "user", "content": [
+            llm_messages.append({"role": "user", "content": [
                 {"type": "document", "source": {"type": "base64", "media_type": "application/pdf", "data": body.file_b64}},
                 {"type": "text", "text": user_message or f"[Attached PDF: {body.file_name}]"},
             ]})
@@ -1272,13 +1251,13 @@ async def ai_orchestrator(body: OrchestratorReq, user: User = Depends(_dep_curre
                 )
             except Exception:
                 pass  # If decode fails, just proceed with text message
-            claude_messages.append({"role": "user", "content": user_message})
+            llm_messages.append({"role": "user", "content": user_message})
     else:
-        claude_messages.append({"role": "user", "content": user_message})
+        llm_messages.append({"role": "user", "content": user_message})
 
     try:
         from ai.llm_gateway import call_llm as _call_llm
-        _gw = await _call_llm(system=system, messages=claude_messages, max_tokens=4096, persona_label="orchestrator", user_id=user.id)
+        _gw = await _call_llm(system=system, messages=llm_messages, max_tokens=4096, persona_label="orchestrator", user_id=user.id)
         reply = _gw["text"]
     except Exception as e:
         logger.exception("Orchestrator AI error")
@@ -1345,12 +1324,12 @@ async def ai_scholar(body: ScholarTaskReq, user: User = Depends(_dep_current_use
         task_ctx = f"[TASK TYPE: {task_label}]\n{task_ctx}" if task_ctx else f"[TASK TYPE: {task_label}]"
 
     system = get_scholar_system(user_name=user.full_name, task_context=task_ctx)
-    claude_messages = [{"role": h.role, "content": h.content} for h in (body.history or [])]
-    claude_messages.append({"role": "user", "content": body.message})
+    llm_messages = [{"role": h.role, "content": h.content} for h in (body.history or [])]
+    llm_messages.append({"role": "user", "content": body.message})
 
     try:
         from ai.llm_gateway import call_llm as _call_llm
-        _gw = await _call_llm(system=system, messages=claude_messages, max_tokens=4096, persona_label="scholar", user_id=user.id)
+        _gw = await _call_llm(system=system, messages=llm_messages, max_tokens=4096, persona_label="scholar", user_id=user.id)
         reply = _gw["text"]
     except Exception as e:
         logger.exception("Scholar AI error")
@@ -1672,9 +1651,9 @@ async def director_upload_file(
 async def ai_director(body: dict, user: User = Depends(_dep_current_user)):
     """The Director / Assistant Director endpoint with full tool-calling support.
 
-    Runs an agentic loop: Claude may call web_search, fetch_url, send_email,
+    Runs an agentic loop: the model may call web_search, fetch_url, send_email,
     get_incident_register, or read_file — tools execute server-side and results
-    feed back into the conversation until Claude produces a final text reply.
+    feed back into the conversation until the model produces a final text reply.
 
     Students/Instructors → Assistant Director (no tools, warm guide)
     Admin/Executive      → The Director (full tool suite)

@@ -10,11 +10,11 @@ ARCHITECTURE
 ------------
 This file encodes the full M.O.R.E. Help Center operational AI system.
 13 personas + 12 governance subsystems — all embedded into a single
-master system prompt that Claude executes as one coherent intelligence.
+master system prompt that the assistant executes as one coherent intelligence.
 
 The "subsystems" (Delegation Engine, Approval Engine, Crisis Engine, etc.)
 are not separate code. They are behavioral rules enforced through the prompt.
-Claude routes itself to the correct persona, enforces mode boundaries,
+The assistant routes itself to the correct persona, enforces mode boundaries,
 and maintains governance — all within a single conversation.
 
 PERSONA ROSTER

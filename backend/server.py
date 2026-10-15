@@ -4867,7 +4867,7 @@ async def ai_orchestrator(body: OrchestratorReq, user: User = Depends(current_us
         user_message = "\n".join(preamble_parts) + "\n\n" + body.message
 
     # Build message list: prior history + current turn
-    claude_messages = [
+    llm_messages = [
         {"role": h.role, "content": h.content}
         for h in (body.history or [])
     ]
@@ -4906,16 +4906,16 @@ async def ai_orchestrator(body: OrchestratorReq, user: User = Depends(current_us
             except Exception as e:
                 logger.exception("Whisper transcription failed")
                 raise HTTPException(502, f"Audio transcription failed: {e}")
-            claude_messages.append({"role": "user", "content": user_message})
+            llm_messages.append({"role": "user", "content": user_message})
         elif mime in _IMAGE_TYPES:
             # Vision content block
-            claude_messages.append({"role": "user", "content": [
+            llm_messages.append({"role": "user", "content": [
                 {"type": "image", "source": {"type": "base64", "media_type": mime, "data": body.file_b64}},
                 {"type": "text", "text": user_message or f"[Attached image: {body.file_name}]"},
             ]})
         elif mime == "application/pdf":
             # Document block
-            claude_messages.append({"role": "user", "content": [
+            llm_messages.append({"role": "user", "content": [
                 {"type": "document", "source": {"type": "base64", "media_type": "application/pdf", "data": body.file_b64}},
                 {"type": "text", "text": user_message or f"[Attached PDF: {body.file_name}]"},
             ]})
@@ -4934,15 +4934,15 @@ async def ai_orchestrator(body: OrchestratorReq, user: User = Depends(current_us
                 )
             except Exception:
                 pass  # If decode fails, just proceed with text message
-            claude_messages.append({"role": "user", "content": user_message})
+            llm_messages.append({"role": "user", "content": user_message})
     else:
-        claude_messages.append({"role": "user", "content": user_message})
+        llm_messages.append({"role": "user", "content": user_message})
 
     try:
         from ai.llm_gateway import call_llm
         _llm = await call_llm(
             system=system,
-            messages=claude_messages,
+            messages=llm_messages,
             max_tokens=4096,
             persona_label="orchestrator",
             user_id=user.id,
@@ -5012,14 +5012,14 @@ async def ai_scholar(body: ScholarTaskReq, user: User = Depends(current_user)):
         task_ctx = f"[TASK TYPE: {task_label}]\n{task_ctx}" if task_ctx else f"[TASK TYPE: {task_label}]"
 
     system = get_scholar_system(user_name=user.full_name, task_context=task_ctx)
-    claude_messages = [{"role": h.role, "content": h.content} for h in (body.history or [])]
-    claude_messages.append({"role": "user", "content": body.message})
+    llm_messages = [{"role": h.role, "content": h.content} for h in (body.history or [])]
+    llm_messages.append({"role": "user", "content": body.message})
 
     try:
         from ai.llm_gateway import call_llm
         _llm = await call_llm(
             system=system,
-            messages=claude_messages,
+            messages=llm_messages,
             max_tokens=4096,
             persona_label="scholar",
             user_id=user.id,
@@ -5280,9 +5280,9 @@ async def director_upload_file(
 async def ai_director(body: dict, user: User = Depends(current_user)):
     """The Director / Assistant Director endpoint with full tool-calling support.
 
-    Runs an agentic loop: Claude may call web_search, fetch_url, send_email,
+    Runs an agentic loop: the model may call web_search, fetch_url, send_email,
     get_incident_register, or read_file — tools execute server-side and results
-    feed back into the conversation until Claude produces a final text reply.
+    feed back into the conversation until the model produces a final text reply.
 
     Students/Instructors → Assistant Director (no tools, warm guide)
     Admin/Executive      → The Director (full tool suite)
@@ -8215,17 +8215,17 @@ async def more_department_chat(body: MoreDeptChatReq, user: User = Depends(curre
     if body.department_hint:
         user_message = f"[DEPARTMENT CONTEXT: {body.department_hint}]\n\n{body.message}"
 
-    claude_messages = [
+    llm_messages = [
         {"role": h.role, "content": h.content}
         for h in (body.history or [])
     ]
-    claude_messages.append({"role": "user", "content": user_message})
+    llm_messages.append({"role": "user", "content": user_message})
 
     try:
         from ai.llm_gateway import call_llm
         _llm = await call_llm(
             system=system,
-            messages=claude_messages,
+            messages=llm_messages,
             max_tokens=4096,
             persona_label="department_ai",
             user_id=user.id,

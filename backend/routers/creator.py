@@ -75,6 +75,37 @@ def _require_rank(*roles):
     return dep
 
 
+# Creator money surface — Plus tier (owner decision D1, 2026-10-15).
+# Mirrors the UI gate: frontend/src/lib/tiers.js maps `courses`, `earnings`
+# and `payouts` to Plus, with an instructor bypass on courses. Enforced here
+# in the handler rather than in FEATURE_API_PATHS because the prefix map
+# cannot express these routes: the "/api/creator/courses" prefix would also
+# gate the PUBLIC catalog (/creator/courses/published), public course detail
+# (/creator/courses/{course_id}) and the purchase checkout
+# (/creator/courses/{course_id}/checkout) that free buyers must reach.
+_CREATOR_TIER_ORDER = {
+    "free": 0, "member": 1, "plus": 2, "pro": 3,
+    "patron": 4, "platinum": 5, "executive": 6,
+}
+
+
+def _require_creator_tier(user: User) -> User:
+    """Plus+ (or instructor/staff) required on the creator money surface."""
+    tier = getattr(user, "feature_tier", "free") or "free"
+    role = getattr(user, "role", "student")
+    is_plus = _CREATOR_TIER_ORDER.get(tier, 0) >= 2
+    is_staff = ROLE_RANK.get(role, 0) >= ROLE_RANK.get("instructor", 0)
+    if not is_plus and not is_staff:
+        raise HTTPException(
+            403, "Creating and selling courses requires a Plus subscription."
+        )
+    return user
+
+
+def _dep_creator_tier(user: User = Depends(_dep_current_user)) -> User:
+    return _require_creator_tier(user)
+
+
 import jwt
 from routers.payments import PAYMENTS_ENABLED
 from roles import Role, ROLE_RANK, role_rank, LEGACY_ROLE_MAP, normalize_role, FREE_BYOK_ROLES
@@ -107,7 +138,7 @@ class UpdateCourseReq(BaseModel):
 
 
 @router.post("/creator/courses", status_code=201)
-async def creator_create_course(body: CreateCourseReq, user: User = Depends(_dep_current_user)):
+async def creator_create_course(body: CreateCourseReq, user: User = Depends(_dep_creator_tier)):
     """Create a new course draft. Any authenticated user can create."""
     course_id = str(uuid.uuid4())
     slug = re.sub(r"[^a-z0-9]+", "-", body.title.lower()).strip("-")[:60] + "-" + course_id[:8]
@@ -307,7 +338,7 @@ async def creator_course_checkout(course_id: str, user: User = Depends(_dep_curr
 
 
 @router.get("/creator/enrollments/me")
-async def creator_enrollments_me(user: User = Depends(_dep_current_user)):
+async def creator_enrollments_me(user: User = Depends(_dep_creator_tier)):
     """Return the list of course_ids the current user is enrolled in (free + paid)."""
     docs = await db.creator_enrollments.find(
         {"user_id": user.id},
@@ -403,7 +434,7 @@ async def creator_payout_history(user: User = Depends(_dep_current_user)):
 
 
 @router.post("/creator/payout-profile", status_code=201)
-async def creator_save_payout_profile(body: SavePayoutProfileReq, user: User = Depends(_dep_current_user)):
+async def creator_save_payout_profile(body: SavePayoutProfileReq, user: User = Depends(_dep_creator_tier)):
     """Save a creator's consented payout preference without collecting credentials.
 
     The platform records a human-readable destination label and last-four
@@ -438,7 +469,7 @@ async def creator_save_payout_profile(body: SavePayoutProfileReq, user: User = D
 
 
 @router.get("/creator/payout-profile")
-async def creator_get_payout_profile(user: User = Depends(_dep_current_user)):
+async def creator_get_payout_profile(user: User = Depends(_dep_creator_tier)):
     profile = await db.creator_payout_profiles.find_one({"creator_id": user.id}, {"_id": 0})
     return {"payout_profile": profile, "terms_version": PAYOUT_TERMS_VERSION,
             "payout_methods": PAYOUT_METHODS, "minimum_cents": PAYOUT_MINIMUM_CENTS}

@@ -4,8 +4,8 @@ Resource Hub — unified workspace for Grants, Fundraising, Business Resources.
 Combines existing scholarship/fundraising data with new grant tracking and
 business resource management into one coherent workflow surface.
 
-Access: member+ tier for browsing, staff for admin operations.
-All data comes from real MongoDB collections.
+Access: plus+ tier for browsing (owner decision D2, 2026-10-15), staff for
+admin operations. All data comes from real MongoDB collections.
 """
 
 from __future__ import annotations
@@ -46,14 +46,15 @@ async def _get_user(authorization: str = Header(None)):
 
 
 def _require_member(user: Any):
-    """Member+ tier required for browsing. Staff gets admin features."""
+    """Plus+ tier required for browsing (owner decision D2, 2026-10-15 — the
+    handler now matches frontend/src/lib/tiers.js:67). Staff bypasses."""
     tier = getattr(user, "feature_tier", "free")
     role = getattr(user, "role", "student")
     tier_order = {"free": 0, "member": 1, "plus": 2, "pro": 3, "patron": 4, "platinum": 5, "executive": 6}
-    is_member = tier_order.get(tier, 0) >= 1
+    is_plus = tier_order.get(tier, 0) >= 2
     is_staff = ROLE_RANK.get(role, 0) >= ROLE_RANK.get("instructor", 3)
-    if not is_member and not is_staff:
-        raise HTTPException(403, "This feature requires a Member subscription or staff access.")
+    if not is_plus and not is_staff:
+        raise HTTPException(403, "This feature requires a Plus subscription or staff access.")
     return user
 
 
@@ -184,7 +185,7 @@ async def get_grant(grant_id: str, user=Depends(_get_user)):
 
 @router.get("/grants/{grant_id}/applications")
 async def list_grant_applications(grant_id: str, user=Depends(_get_user)):
-    """List applications for a grant (staff sees all, member sees own)."""
+    """List applications for a grant (staff sees all, subscribers see own)."""
     _require_member(user)
     query = {"grant_id": grant_id}
     if not _is_staff(user):

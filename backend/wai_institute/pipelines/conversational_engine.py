@@ -143,10 +143,9 @@ class ConversationalEngine:
         strategy: str,
     ) -> str:
         """
-        Use Cipher persona to write an empathetic, authentic recommendation.
-        Falls back to template response if API unavailable.
+        Use the approved LLM gateway to write an empathetic, authentic
+        recommendation. Falls back to template response if API unavailable.
         """
-        return self._template_response(product, theme, intent)
 
         tone = RESPONSE_TONE.get(intent, RESPONSE_TONE["none"])
         product_name = product.get("name", "this piece")
@@ -175,13 +174,18 @@ Rules:
 - Write in plain text, no markdown"""
 
         try:
-            msg = await client.messages.create(
-                model="claude-haiku-4-5",
-                max_tokens=300,
+            from ai.llm_gateway import call_llm as _call_llm
+
+            _res = await _call_llm(
                 system="You are THE CIPHER — spoken word artist, authentic, never salesy.",
                 messages=[{"role": "user", "content": prompt}],
+                max_tokens=300,
+                persona_label="cipher_curator",
             )
-            return "".join(b.text for b in msg.content if hasattr(b, "text"))
+            _text = str((_res or {}).get("text") or "").strip()
+            if not _text:
+                raise RuntimeError("gateway returned no text")
+            return _text
         except Exception as e:
             logger.warning("ConversationalEngine: LLM response failed — %s", e)
             return self._template_response(product, theme, intent)
