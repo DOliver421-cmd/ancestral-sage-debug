@@ -1782,7 +1782,8 @@ async def _on_startup_impl():
     _supervised_task(_memory_consolidation_loop(), name="memory_consolidation_loop")  # C-4
     logger.info("STARTUP: Memory consolidation cron launched (24h interval)")
 
-    # ── Team provider monitor (T1-2) ─────────────────────────────────────────    # run_monitor_loop() had zero callers before this: it auto-revokes provider
+# ── Team provider monitor (T1-2) ─────────────────────────────────────────
+    # run_monitor_loop() had zero callers before this: it auto-revokes provider
     # keys on 401/403, which a provider-side outage mimics exactly. Opt-in via
     # TEAM_MONITOR_ENABLED and dry-run by default (TEAM_MONITOR_DRY_RUN) so a
     # dry-run cycle can be watched on the real pool before anything revokes.
@@ -1910,11 +1911,14 @@ async def ensure_indexes():
         await db.ai_usage_log.create_index([("created_at", -1)])
         # provider_rankings: one document per service, refreshed on demand.
         await db.provider_rankings.create_index("service", unique=True)
+<<<<<<< HEAD
         # Director file uploads: the tool tells users uploads carry a 24h TTL,
         # but the inserts stored expires_at as an ISO string and no TTL index
         # existed, so nothing ever expired. The inserts now store BSON dates
         # and this index enforces the promised 24h.
         await db.director_uploads.create_index("expires_at", expireAfterSeconds=0)
+=======
+>>>>>>> origin/main
         logger.info("Indexes ensured")
     except Exception:
         logger.exception("ensure_indexes failed (non-fatal)")
