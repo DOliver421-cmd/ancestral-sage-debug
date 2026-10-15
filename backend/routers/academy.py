@@ -658,6 +658,51 @@ async def change_enrollment(student_id: str, body: EnrollmentChange, user=Depend
 
 
 # ── Dashboards ───────────────────────────────────────────────────────────────
+@router.get("/academy/students/{student_id}/courses")
+async def list_enrollments(student_id: str, user=Depends(_dep_current_user)):
+    """Read-only view of every course a student is enrolled in.
+
+    The EnrollmentChange model and the atomic `$addToSet`/`$pull` mutation both
+    existed, but the only read route was the mutation's own response — there
+    was no `GET /academy/enrollments`, so a client that wanted the current
+    enrollment state had to call the write endpoint with a no-op body. This
+    returns the same projection the mutation does, over the canonical path.
+    """
+    student = await _owned_student(student_id, user)
+    return {
+        "student_id": student_id,
+        "enrollments": [{"course_slug": slug, "status": "enrolled"} for slug in student.get("course_slugs", [])],
+        "course_slugs": student.get("course_slugs", []),
+    }
+
+
+@router.get("/academy/enrollments")
+async def list_my_enrollments(user=Depends(_dep_current_user)):
+    """Every enrollment the caller's students hold, across all their students.
+
+    Canonical `GET /academy/enrollments` — the path the product documents and
+    the frontend's enrollment panel both reference. Aggregates the same
+    atomic `course_slugs` arrays the write endpoint mutates, so it can never
+    drift from the source of truth.
+    """
+    docs = await db.academy_students.find(
+        {"parent_user_id": user.id, "status": "active"},
+        {"_id": 0, "id": 1, "name": 1, "grade": 1, "track": 1, "course_slugs": 1},
+    ).to_list(200)
+    rows = []
+    for d in docs:
+        for slug in d.get("course_slugs", []):
+            rows.append({
+                "student_id": d.get("id"),
+                "student_name": d.get("name"),
+                "grade": d.get("grade"),
+                "track": d.get("track"),
+                "course_slug": slug,
+                "status": "enrolled",
+            })
+    return {"enrollments": rows, "count": len(rows)}
+
+
 @router.get("/academy/students/{student_id}/dashboard")
 async def student_dashboard(student_id: str, user=Depends(_dep_current_user)):
     student = await _owned_student(student_id, user)
