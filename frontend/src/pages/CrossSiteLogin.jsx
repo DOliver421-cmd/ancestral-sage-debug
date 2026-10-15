@@ -47,13 +47,18 @@ export default function CrossSiteLogin() {
         // Store the local JWT
         localStorage.setItem("lce_token", data.token);
 
-        // Store user info
-        localStorage.setItem("lce_user", JSON.stringify({ role: data.role }));
+        // Store the full user object. This page used to persist only
+        // {role}, and the AuthProvider's /auth/me effect runs once on mount
+        // with empty deps - so after the cross-site token exchange the
+        // context still held user=null and Protected bounced the visitor
+        // back to /login (or, after a reload, a user with no id/email/name).
+        localStorage.setItem("lce_user", JSON.stringify(data.user || { role: data.role }));
 
         setStatus("Login successful! Redirecting…");
 
-        // Navigate to the intended page
-        setTimeout(() => navigate(next, { replace: true }), 500);
+        // Navigate with a full reload so the AuthProvider re-initialises
+        // from the cached user instead of relying on the one-shot effect.
+        setTimeout(() => { window.location.assign(next); }, 500);
       } catch (e) {
         setStatus("Connection error. Redirecting to login…");
         setTimeout(() => navigate("/login", { replace: true }), 2000);
