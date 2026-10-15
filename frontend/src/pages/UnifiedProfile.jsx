@@ -716,7 +716,7 @@ function SettingsTab({ profile, onSaved }) {
       if (r.data?.user) {
         localStorage.setItem("lce_user", JSON.stringify(r.data.user));
       }
-      if (typeof refreshUser === "function") await refreshUser();
+      await refreshUser();
       toast.success("Password changed!");
       setPwForm({ current: "", next: "", confirm: "" });
     } catch (err) {
@@ -1301,7 +1301,7 @@ export default function UnifiedProfile() {
           localStorage.setItem("lce_user", JSON.stringify(fresh.data));
         }
       } catch { /* the header updates on next sign-in */ }
-      if (typeof refreshUser === "function") await refreshUser();
+      await refreshUser();
       setDetailsMsg({ ok: true, text: "Saved. Your details are updated." });
       void r;
     } catch (err) {

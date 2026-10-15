@@ -75,11 +75,13 @@ export function isPageEnabled(pathname, user = null) {
 }
 
 /**
- * isPageReachable — "can this page be opened AT ALL right now?"
+ * isPageReachable — "is this page open for business right now?"
  *
  * Distinct from isPageEnabled: this answers only the executive-control
- * question (did an exec close this page?) and deliberately IGNORES the
- * audience/visibility rules that navAccess applies.
+ * question (did an exec close this page? enabled / navigation_visible) and
+ * deliberately IGNORES the audience rules isNavItemVisible applies - role,
+ * tier, and public_access - which are about WHO may see a nav entry, not
+ * about whether the page behind it is live.
  *
  * Why it exists: AccessGate used isPageEnabled, so a logged-out visitor
  * opening a shared link to an internal page (/profile, /settings,
