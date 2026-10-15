@@ -97,8 +97,17 @@ export default function AcademyParentHome() {
 
   const archive = async (s) => {
     if (!window.confirm(`Archive ${s.name}'s profile? Their records stay in the database but they'll be hidden from the dashboard.`)) return;
-    await api.delete(`/academy/students/${s.id}`).catch(() => {});
-    load();
+    // Swallowing the failure here reloaded the list as if the archive had
+    // worked - the parent saw no change and no reason, and the student stayed
+    // active. Surface the error like every other action on this page.
+    try {
+      await api.delete(`/academy/students/${s.id}`);
+      setNotice(`${s.name}'s profile was archived. Their records are kept.`);
+    } catch (err) {
+      setError(errorMessage(err, "Could not archive this student. Please try again."));
+    } finally {
+      load();
+    }
   };
 
   const active = students.filter((s) => s.status === "active");
