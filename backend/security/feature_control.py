@@ -629,6 +629,19 @@ async def check_user_feature_access(db, user, path: str):
         #     blocks a BYOK caller the handler would have served.
         if await _user_has_byok(db, user):
             return ("pass", None)
+    # ── 4b. Creator Studio carve-out (same contract as ai_chat) ───────────────
+    # BYOK exists so the platform spends NOTHING on that user's AI. The Studio
+    # is an AI-creator surface, so a user who paid the $3 BYOK unlock and
+    # attached their own key is exactly the caller the Studio's member
+    # requirement was written for. Without this, the $3 unlock bought nothing:
+    # /api/studio/* answered "requires the Member plan" to a caller whose
+    # whole point is spending their own key.
+    # studio_full (Song Arrangement / Publish) is the same surface one tier
+    # deeper — FEATURE_API_PATHS maps /api/studio/lyric and /api/studio/
+    # metadata to it specifically so an exec can govern them separately.
+    if feature in ("studio", "studio_full"):
+        if await _user_has_byok(db, user):
+            return ("pass", None)
     try:
         requirements = await load_feature_tier_requirements(db, fail_closed=True)
     except Exception:

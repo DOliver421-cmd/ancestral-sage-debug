@@ -50,6 +50,10 @@ MISTRAL_API_KEY     = os.environ.get("MISTRAL_API_KEY", "")
 TOGETHER_API_KEY    = os.environ.get("TOGETHER_API_KEY", "")
 OPENROUTER_API_KEY  = os.environ.get("OPENROUTER_API_KEY", "")
 HUGGINGFACE_API_KEY = os.environ.get("HUGGINGFACE_API_KEY", os.environ.get("HF_API_KEY", ""))
+# TTS (Studio voice generation). Declared here so reload_provider_keys() can
+# hydrate it from the Provider Gateway vault and persona_tts can import it —
+# voice was previously env-only at import, so a saved site key never reached it.
+ELEVENLABS_API_KEY  = os.environ.get("ELEVENLABS_API_KEY", "")
 
 # ── Zero-cost failover expansion (owner decision 2026-10-12) ──────────────────
 # Every provider below was approved by the owner under one hard rule: NO cost
@@ -87,6 +91,12 @@ _PROVIDER_TYPE_TO_GLOBAL = {
     "huggingface": "HUGGINGFACE_API_KEY",
     "openai":      "OPENAI_API_KEY",
     "deepseek":    "DEEPSEEK_API_KEY",
+    # TTS: the Studio's voice generation reads ELEVENLABS_API_KEY. A key pasted
+    # into the exec Provider Gateway now lands in that global, so the gateway's
+    # DB reload is the single hydration point for the site's ElevenLabs key.
+    # Without this mapping a saved key was invisible — persona_tts only ever
+    # read os.environ at import, so the site API was never linked to voice.
+    "elevenlabs":  "ELEVENLABS_API_KEY",
     # Zero-cost expansion (owner decision 2026-10-12). A key pasted in the
     # exec Provider Gateway for any of these types loads into the gateway
     # global of the same name and joins the chain on the next request.
