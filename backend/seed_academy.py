@@ -130,14 +130,21 @@ async def seed_academy(db) -> dict:
     bulk_ops = []
     for course in ACADEMY_COURSES:
         existing = existing_by_slug.get(course["slug"])
-        content_version = f"v1-{hashlib.sha256(json.dumps(course, sort_keys=True, default=str).encode()).hexdigest()[:16]}"
+        # The hash must cover EVERYTHING this seed writes, not just the course
+        # dict: enrichment videos are stored on the doc but were added to the
+        # document AFTER the version was computed, so a video-only change
+        # (adding a curated YouTube ID) left the doc's enrichment_videos
+        # empty forever — 24 courses silently lost their pinned videos.
+        _videos = videos_for(course["slug"])
+        _seeded_payload = {**course, "enrichment_videos": _videos}
+        content_version = f"v1-{hashlib.sha256(json.dumps(_seeded_payload, sort_keys=True, default=str).encode()).hexdigest()[:16]}"
         if existing and existing.get("_source_version") == content_version:
             skipped += 1
             continue
         doc = {
             **course,
             "units": [] if course["status"] == "planned" else course["units"],
-            "enrichment_videos": videos_for(course["slug"]),
+            "enrichment_videos": _videos,
             "_source_version": content_version,
             "_updated_at": __import__("datetime").datetime.now(
                 __import__("datetime").timezone.utc

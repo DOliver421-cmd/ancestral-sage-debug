@@ -16,6 +16,11 @@ _BLACKLIST = {"password_hash", "_id", "recovery_codes", "last_recovery_reset"}
 # Role hierarchy imported from roles.py (canonical source of truth)
 
 # Fields each role can see on their OWN profile
+# `social_handles` is the user's OWN setting (PATCH /auth/me persists it and
+# the Settings → Social tab reads it back through /auth/me). It was missing
+# from this set, so /auth/me filtered it out of the response and the Social
+# tab always rendered empty after a save - the same "reports success, changes
+# nothing" failure the write itself had before the model accepted the field.
 _OWN_PROFILE_BASE = {
     "id", "email", "full_name", "role", "associate",
     "is_active", "created_at", "avatar_url",
@@ -23,7 +28,7 @@ _OWN_PROFILE_BASE = {
     "partnership_level", "total_points",
     "feature_tier", "sage_tier",
     "terms_accepted_at", "over_13_confirmed",
-    "bio", "location",
+    "bio", "location", "social_handles",
 }
 
 _OWN_PROFILE_CREATOR = _OWN_PROFILE_BASE | {
