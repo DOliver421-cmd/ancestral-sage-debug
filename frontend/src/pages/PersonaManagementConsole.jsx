@@ -205,7 +205,7 @@ export default function PersonaManagementConsole() {
                   value={form.model_override}
                   onChange={(e) => setField("model_override", e.target.value)}
                   className="mt-1 w-full px-3 py-2 bg-white border border-ink/15 rounded-lg text-sm"
-                  placeholder="e.g. claude-3-opus"
+                  placeholder="e.g. deepseek-chat"
                 />
               </label>
 

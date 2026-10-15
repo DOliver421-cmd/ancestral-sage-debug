@@ -797,7 +797,7 @@ def get_sage_4_0_prompt(
     Build the full 4.0 system prompt with active session parameters appended.
 
     All parameters are optional and default to safe conservative values.
-    Pass the result as the `system` argument to the Claude API call.
+    Pass the result as the `system` argument to the model API call.
 
     New in 4.0:
         active_mode: the mode string from classify_mode() in personas_unified.py.

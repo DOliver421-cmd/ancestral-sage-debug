@@ -554,15 +554,15 @@ async def more_department_chat(body: MoreDeptChatReq, user: User = Depends(_dep_
     if body.department_hint:
         user_message = f"[DEPARTMENT CONTEXT: {body.department_hint}]\n\n{body.message}"
 
-    claude_messages = [
+    llm_messages = [
         {"role": h.role, "content": h.content}
         for h in (body.history or [])
     ]
-    claude_messages.append({"role": "user", "content": user_message})
+    llm_messages.append({"role": "user", "content": user_message})
 
     try:
         from ai.llm_gateway import call_llm as _call_llm
-        _gw = await _call_llm(system=system, messages=claude_messages, max_tokens=4096, persona_label="more_department")
+        _gw = await _call_llm(system=system, messages=llm_messages, max_tokens=4096, persona_label="more_department")
         reply = _gw["text"]
     except Exception as e:
         logger.exception("M.O.R.E. Department AI error")

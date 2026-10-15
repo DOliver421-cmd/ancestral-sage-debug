@@ -59,7 +59,7 @@ def cache_file(file_id: str, filename: str, content: str, content_type: str) -> 
         del _FILE_CACHE[oldest]
 
 
-# ── Claude tool definitions ───────────────────────────────────────────────────
+# ── Director tool definitions ───────────────────────────────────────────────
 DIRECTOR_TOOLS = [
     {
         "name": "web_search",

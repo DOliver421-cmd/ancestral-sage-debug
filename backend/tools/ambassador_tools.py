@@ -328,15 +328,19 @@ async def _quick_persona_call(persona_prompt: str, user_message: str, max_tokens
     Used for Ambassador→Oracle and Ambassador→Cipher coordination.
     No tool loop — one-shot synthesis response.
     """
-    return "[AI coordination unavailable — no API key configured]"
     try:
-        msg = await client.messages.create(
-            model="claude-haiku-4-5",
-            max_tokens=max_tokens,
+        from ai.llm_gateway import call_llm as _call_llm
+
+        _res = await _call_llm(
             system=persona_prompt,
             messages=[{"role": "user", "content": user_message}],
+            max_tokens=max_tokens,
+            persona_label="ambassador_coordination",
         )
-        return "".join(b.text for b in msg.content if hasattr(b, "text"))
+        _text = str((_res or {}).get("text") or "").strip()
+        if not _text:
+            raise RuntimeError("gateway returned no text")
+        return _text
     except Exception as e:
         logger.warning("_quick_persona_call failed: %s", e)
         return f"[Coordination response unavailable: {e}]"
