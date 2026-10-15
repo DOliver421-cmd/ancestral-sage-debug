@@ -1,12 +1,17 @@
 import { useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
-import { loadGates, isPageEnabled, isGatesFailed, isLaunchMode } from "../lib/accessGates";
+import { loadGates, isPageReachable, isGatesFailed, isLaunchMode } from "../lib/accessGates";
 import { useAuth } from "../lib/auth";
 
 /**
  * AccessGate — wraps <Routes>. When an exec gate disables the current page,
  * the gate renders an "offline" card instead of the page. When gates fail to
  * load AND launch_mode is active, the gate defaults to hiding pages (fail-closed).
+ *
+ * It checks reachability only (did an exec close this page?), not audience
+ * visibility: a logged-out visitor on a live internal page must fall through
+ * to Protected, which redirects to /login?returnTo=... - not to a false
+ * "this page is offline" card.
  */
 export default function AccessGate({ children }) {
   const location = useLocation();
@@ -49,7 +54,7 @@ export default function AccessGate({ children }) {
     );
   }
 
-  if (!isPageEnabled(location.pathname, user)) {
+  if (!isPageReachable(location.pathname, user)) {
     return (
       <div className="min-h-screen bg-bone flex items-center justify-center px-6">
         <div className="text-center max-w-md">

@@ -18,7 +18,18 @@ const KINDS = [
   { id: "ihip", label: "IHIP-Style Plan", desc: "For families relocating from states requiring individualized home instruction plans." },
 ];
 
-const YEAR = "2026-2027";
+// Hardcoding the school year meant every document issued after June 30 of
+// 2027 would silently claim the wrong year on a form a parent signs and
+// submits to a district. Derive it: August onward starts the new US school
+// year. Each document also carries an editable Year input, so the derived
+// value is a correct default, not a lock-in.
+function currentSchoolYear(now = new Date()) {
+  const y = now.getFullYear();
+  const m = now.getMonth(); // 0 = January
+  const startYear = m >= 7 ? y : y - 1; // August (7) or later -> new year
+  return `${startYear}-${startYear + 1}`;
+}
+const YEAR_VALUE = currentSchoolYear();
 
 export default function AcademyCompliance() {
   const [params, setParams] = useSearchParams();
@@ -66,7 +77,7 @@ export default function AcademyCompliance() {
     api.post("/academy/compliance/generate", {
       kind,
       student_id: studentId,
-      school_year: YEAR,
+      school_year: YEAR_VALUE,
       district: district || undefined,
       evaluator_name: evaluator || undefined,
       notes: notes || undefined,
@@ -158,7 +169,7 @@ export default function AcademyCompliance() {
           <div className="grid sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-sm font-bold text-ink mb-1">School year</label>
-              <input value={YEAR} readOnly className="w-full border-2 border-ink/15 rounded-lg px-3 py-2.5 text-sm bg-ink/5" />
+              <input value={YEAR_VALUE} readOnly className="w-full border-2 border-ink/15 rounded-lg px-3 py-2.5 text-sm bg-ink/5" />
             </div>
             {(kind === "notice_of_intent" || kind === "annual_evaluation") && (
               <div>
@@ -288,7 +299,14 @@ export default function AcademyCompliance() {
                     <tr className="border-b-2 border-ink/10 text-left text-xs uppercase tracking-wide text-ink/50">
                       <th className="py-2">Course</th>
                       <th className="py-2">Subject</th>
+                      {/* This column is labelled "Mastery" but printed
+                          progress_pct (lessons completed). The backend now
+                          returns avg_mastery (actual knowledge-check scores)
+                          in the same payload - render the mastery figure a
+                          transcript reader expects, falling back to the
+                          progress percentage until a score exists. */}
                       <th className="py-2">Mastery</th>
+                      <th className="py-2">Grade</th>
                       <th className="py-2">Status</th>
                     </tr>
                   </thead>
@@ -297,7 +315,10 @@ export default function AcademyCompliance() {
                       <tr key={i} className="border-b border-ink/5">
                         <td className="py-2 font-bold text-ink">{g.course_title}</td>
                         <td className="py-2">{g.subject}</td>
-                        <td className="py-2">{g.progress_pct}%</td>
+                        <td className="py-2">
+                          {g.avg_mastery != null ? `${g.avg_mastery}%` : `${g.progress_pct}%`}
+                        </td>
+                        <td className="py-2 font-bold text-ink">{g.grade_letter || "—"}</td>
                         <td className="py-2">{g.status.replace("_", " ")}</td>
                       </tr>
                     ))}
