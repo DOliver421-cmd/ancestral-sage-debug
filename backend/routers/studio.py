@@ -106,6 +106,74 @@ async def _with_video_scenes(doc: dict) -> dict:
     return result
 
 
+# ── Arena work-context mirror (T1-10) ─────────────────────────────────────────
+# The NAM Active Work panel and the Arena read arena_work_context through
+# /nam/contexts and /competition/context/{id}. Video projects were invisible to
+# that operational view even though member projects already mirror into the same
+# collection — same contract as member_projects._link_work_context.
+async def _link_work_context(db, project_id: str, doc: dict) -> str:
+    """Mirror a video project into arena_work_context. Returns the context id."""
+    import uuid as _uuid
+
+    ctx_id = doc.get("work_context_id")
+    now = datetime.now(timezone.utc).isoformat()
+    if not ctx_id:
+        ctx_id = str(_uuid.uuid4())
+        try:
+            await db.video_projects.update_one(
+                {"id": project_id}, {"$set": {"work_context_id": ctx_id}})
+            await db.arena_work_context.insert_one({
+                "id": ctx_id,
+                "owner_id": doc.get("user_id", ""),
+                "title": doc.get("title", ""),
+                "status": doc.get("status", "Draft"),
+                "current_objective": (doc.get("description", "") or doc.get("title", ""))[:500],
+                "project": project_id,
+                "project_kind": "video",
+                "description": (doc.get("description", "") or "")[:2000],
+                "source_capability": "studio",
+                "activity_history": [{
+                    "action_type": "video_project_created",
+                    "description": f"Video project created: {doc.get('title', '')}",
+                    "capability": "studio",
+                    "metadata": {"project_id": project_id},
+                    "at": now,
+                }],
+                "created_at": now,
+                "updated_at": now,
+                "created_by": doc.get("user_id", ""),
+            })
+        except Exception as e:
+            logger.warning("video_project work-context mirror failed: %s", e)
+            return ""
+    return ctx_id
+
+
+async def _mirror_project_activity(db, project_id: str, doc: dict, action: str,
+                                   description: str, meta: dict = None) -> None:
+    """Push a project event into its mirrored arena work context."""
+    ctx_id = doc.get("work_context_id")
+    if not ctx_id:
+        return
+    try:
+        await db.arena_work_context.update_one(
+            {"id": ctx_id},
+            {
+                "$set": {"updated_at": datetime.now(timezone.utc).isoformat(),
+                         "status": doc.get("status", "Draft")},
+                "$push": {"activity_history": {
+                    "action_type": action,
+                    "description": description,
+                    "capability": "studio",
+                    "metadata": meta or {},
+                    "at": datetime.now(timezone.utc).isoformat(),
+                }},
+            },
+        )
+    except Exception as e:
+        logger.warning("video_project activity mirror failed: %s", e)
+
+
 class VideoProjectBody(BaseModel):
     title: str = Field(..., min_length=1, max_length=200)
     idea: str = Field(default="", max_length=5000)
@@ -188,6 +256,13 @@ async def autosave_video_project(project_id: str, body: AutosaveBody, user: User
     updates = {k: v for k, v in body.model_dump(exclude_none=True).items()}
     updates["updated_at"] = datetime.now(timezone.utc).isoformat()
     await db.video_projects.update_one({"id": project_id, "user_id": user.id}, {"$set": updates})
+    doc = await db.video_projects.find_one({"id": project_id, "user_id": user.id}, {"_id": 0})
+    if doc:
+        await _mirror_project_activity(
+            db, project_id, doc, "video_project_autosaved",
+            f"Autosave touch ({len(updates)} draft fields)",
+            {"fields": sorted(updates.keys())},
+        )
     return {"saved": True, "updated_at": updates["updated_at"]}
 
 
@@ -245,6 +320,9 @@ async def create_video_project(body: VideoProjectBody, user: User = Depends(_dep
     await db.video_projects.insert_one(doc)
     if audit:
         await audit(user.id, "video_project_created", target=doc["id"], meta={"title": doc["title"]})
+    ctx_id = await _link_work_context(db, doc["id"], doc)
+    if ctx_id:
+        doc["work_context_id"] = ctx_id
     return _clean_video_doc(doc)
 
 
@@ -270,6 +348,11 @@ async def update_video_project(project_id: str, body: VideoProjectUpdate, user: 
     updates["updated_at"] = datetime.now(timezone.utc).isoformat()
     await db.video_projects.update_one({"id": project_id, "user_id": user.id}, {"$set": updates})
     doc.update(updates)
+    await _mirror_project_activity(
+        db, project_id, doc, "video_project_updated",
+        f"Project details updated ({len(updates)} fields)",
+        {"fields": sorted(updates.keys())},
+    )
     return _clean_video_doc(doc)
 
 
@@ -279,7 +362,7 @@ async def delete_video_project(project_id: str, user: User = Depends(_dep_curren
     await db.video_projects.delete_one({"id": project_id, "user_id": user.id})
     await db.video_scenes.delete_many({"project_id": project_id, "user_id": user.id})
     await db.video_audio_tracks.delete_many({"project_id": project_id, "user_id": user.id})
-    await db.video_render_jobs.delete_many({"project_id": project_id, "user_id": user.id})
+    await db.arena_work_context.delete_many({"project": project_id, "project_kind": "video"})
     return {"deleted": True}
 
 
@@ -288,7 +371,7 @@ async def duplicate_video_project(project_id: str, body: ProjectDuplicateBody, u
     source = await _owned_video_project(project_id, user)
     now = datetime.now(timezone.utc).isoformat()
     new_id = "vp_" + uuid.uuid4().hex
-    copy = {k: v for k, v in source.items() if k not in {"id", "_id", "created_at", "updated_at", "status", "final_video_url", "thumbnail_url", "render_job_id"}}
+    copy = {k: v for k, v in source.items() if k not in {"id", "_id", "created_at", "updated_at", "status", "final_video_url", "thumbnail_url", "render_job_id", "work_context_id"}}
     copy.update({"id": new_id, "user_id": user.id,
                  "title": (body.title or f"{source.get('title', 'Project')} (copy)"),
                  "status": "Draft", "final_video_url": None, "thumbnail_url": None,
@@ -304,6 +387,7 @@ async def duplicate_video_project(project_id: str, body: ProjectDuplicateBody, u
         track["id"] = "va_" + uuid.uuid4().hex
         track["project_id"] = new_id
         await db.video_audio_tracks.insert_one(track)
+    copy["work_context_id"] = await _link_work_context(db, new_id, copy) or None
     return _clean_video_doc(copy)
 
 
@@ -461,6 +545,13 @@ async def publish_video_project(project_id: str, body: PublishBody, user: User =
         {"id": project_id, "user_id": user.id},
         {"$set": {"status": "Published", "published_post_id": post_doc["id"],
                   "visibility": body.visibility, "updated_at": now}})
+    doc["status"] = "Published"
+    doc["published_post_id"] = post_doc["id"]
+    await _mirror_project_activity(
+        db, project_id, doc, "video_project_published",
+        f"Published to {body.visibility} as post {post_doc['id']}",
+        {"post_id": post_doc["id"], "visibility": body.visibility},
+    )
     if audit:
         await audit(user.id, "video_published", target=project_id, meta={"post_id": post_doc["id"], "visibility": body.visibility})
     return {"post": post_doc, "project_status": "Published"}
