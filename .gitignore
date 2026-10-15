@@ -53,6 +53,19 @@ yarn-error.log*
 .pnpm-debug.log*
 dump.rdb
 
+# Local tool caches and local database state — NOT build inputs.
+# .npm-cache was tracked (5302 files, 501 MB), which made every clone of
+# this repository cost ~700 MB and 6600 files. That is what broke automated
+# checks and code reviews: tooling that clones or checks the repo out to
+# run a review hit its setup budget on bytes and file counts that have
+# nothing to do with the code. npm regenerates its cache; a local mongod
+# data directory is per-machine state, never a build input.
+.npm-cache/
+tmp-mongodb/
+mongod.log
+*.wt
+mongod.log*
+
 # System files
 .DS_Store
 Thumbs.db
