@@ -250,8 +250,28 @@ async def _cache_audio(db, persona: str, key: str, audio: bytes) -> None:
 
 # ── ElevenLabs API Call ───────────────────────────────────────────────────────
 
+async def _elevenlabs_key() -> str:
+    """Resolve the ElevenLabs key at CALL time, not import time.
+
+    A key pasted into the exec Provider Gateway lives in the vault and is
+    hydrated into ai.llm_gateway's ELEVENLABS_API_KEY global by
+    reload_provider_keys() (startup + every save). Reading only the module
+    constant captured os.environ at import meant a saved key was invisible
+    here forever, so voice generation 503'd with "unavailable" while the
+    gateway plainly had a working key.
+    """
+    if ELEVENLABS_API_KEY:
+        return ELEVENLABS_API_KEY
+    try:
+        from ai.llm_gateway import ELEVENLABS_API_KEY as _gw_key
+        return _gw_key or ""
+    except Exception:
+        return ""
+
+
 async def _elevenlabs_call(text: str, voice_id: str, voice_settings: dict) -> bytes | None:
-    if not ELEVENLABS_API_KEY or not voice_id:
+    _key = await _elevenlabs_key()
+    if not _key or not voice_id:
         return None
     try:
         import httpx
@@ -269,7 +289,7 @@ async def _elevenlabs_call(text: str, voice_id: str, voice_settings: dict) -> by
         async with httpx.AsyncClient(timeout=30) as client:
             r = await client.post(
                 f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}",
-                headers={"xi-api-key": ELEVENLABS_API_KEY, "Accept": "audio/mpeg", "Content-Type": "application/json"},
+                headers={"xi-api-key": _key, "Accept": "audio/mpeg", "Content-Type": "application/json"},
                 json=payload,
             )
         if r.status_code == 200:
@@ -329,7 +349,7 @@ async def persona_speak(
             }
 
     # ── Tier 1: ElevenLabs ────────────────────────────────────────────────────
-    if force_tier in ("", "elevenlabs") and ELEVENLABS_API_KEY and vid:
+    if force_tier in ("", "elevenlabs") and (await _elevenlabs_key()) and vid:
         charged = await _charge_persona_budget(db, persona, len(clean_text)) if db is not None else True
         if charged:
             audio = await _elevenlabs_call(clean_text, vid, voice_settings)

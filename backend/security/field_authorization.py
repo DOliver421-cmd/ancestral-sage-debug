@@ -29,6 +29,11 @@ _OWN_PROFILE_BASE = {
     "feature_tier", "sage_tier",
     "terms_accepted_at", "over_13_confirmed",
     "bio", "location", "social_handles",
+    # The BYOK entitlement the caller owns. The frontend reads it straight off
+    # the auth user — MyProjects.jsx gates its "Run the AI team" button on
+    # `user.byok_enabled` and AppShell on the same flag — so filtering it out
+    # of /auth/me left that button permanently disabled for paying BYOK users.
+    "byok_enabled", "byok_paid",
 }
 
 _OWN_PROFILE_CREATOR = _OWN_PROFILE_BASE | {

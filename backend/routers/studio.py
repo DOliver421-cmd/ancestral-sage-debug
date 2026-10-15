@@ -81,6 +81,13 @@ VIDEO_RATIOS = {"9:16": (1080, 1920), "1:1": (1080, 1080), "16:9": (1920, 1080)}
 
 def _video_access(user: User):
     if user.role not in VIDEO_STAFF_ROLES and str(getattr(user, "feature_tier", "free")) not in VIDEO_TIERS:
+        # BYOK is the "$3 unlock your own AI key" entitlement: that user's AI
+        # costs the platform nothing, which is the exact premise the Studio's
+        # Pro gate rests on. Honor it here for the same reason
+        # routers/ai.py::_ai_chat_access does — otherwise the Studio gate
+        # silently overrides the BYOK entitlement the user just bought.
+        if bool(getattr(user, "byok_enabled", False)):
+            return
         raise HTTPException(403, "Pro membership or staff access is required for the Video Studio.")
 
 
@@ -958,7 +965,7 @@ Return ONLY a JSON object with these exact keys (no markdown, no extra text):
         raise HTTPException(503, "Metadata generation unavailable")
 
 @router.post("/studio/cheer")
-async def studio_cheer(body: CheerBody):
+async def studio_cheer(body: CheerBody, user: User = Depends(_dep_current_user)):
     chamber_context = {
         "lyric": "user is writing lyrics in the Lyric Forge",
         "publishing": "user is preparing a release in the Publishing Gate",
@@ -973,6 +980,9 @@ async def studio_cheer(body: CheerBody):
             messages=[{"role": "user", "content": f"Give me one short motivational or hype message. Context: {context}"}],
             system="You are the Creative Spirit — an enthusiastic, slightly chaotic, always supportive AI presence in a creator's studio. You give SHORT punchy hype lines (1-2 sentences max). Be real, be fun, occasionally philosophical but never preachy. Like a hype man who actually understands the creative process.",
             persona_label="Cheerleader",
+            # Without user_id the gateway cannot see this caller's BYOK key, so
+            # a paid BYOK user got nothing but the canned fallback line.
+            user_id=user.id,
         )
         return {"message": result.get("text", "Let's build something real today.")}
     except Exception:
@@ -1258,16 +1268,28 @@ class ArcadeChatBody(BaseModel):
 
 
 @router.post("/arcade/chat")
-async def arcade_chat(body: ArcadeChatBody):
+async def arcade_chat(body: ArcadeChatBody, authorization: Optional[str] = Header(None)):
     if not body.message.strip():
         raise HTTPException(400, "Empty message")
     context = f"\n\nUser is currently playing: {body.game_slug}" if body.game_slug else ""
+    # Optional auth: the arcade is playable anonymously, but a signed-in
+    # caller should get THEIR key routing (and a real answer) instead of the
+    # knowledge-base fallback. Bad/absent tokens just mean "anonymous".
+    caller_id = None
+    if authorization:
+        try:
+            from routers.roles import ROLE_RANK as _RR  # noqa: F401
+            _u = await current_user(authorization)
+            caller_id = getattr(_u, "id", None)
+        except Exception:
+            caller_id = None
     try:
         from ai.llm_gateway import call_llm
         result = await call_llm(
             messages=[{"role": "user", "content": body.message}],
             system=ARCADE_AI_SYSTEM + context,
             persona_label="Arcade Guide",
+            user_id=caller_id,
         )
         return {"reply": result.get("text", ""), "provider": result.get("provider", "free")}
     except Exception as e:

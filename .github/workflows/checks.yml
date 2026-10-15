@@ -62,23 +62,44 @@ jobs:
           CROSS_SITE_SECRET: testsecret-ci-throwaway
           KEEP_TEST_DEMOS: "1"
         run: |
-          SUITES="tests/test_compliance_docs.py \
+          # One pytest invocation PER FILE, deliberately.
+          #
+          # These suites each drive the real ASGI app (starlette's TestClient
+          # or httpx.ASGITransport, on a module-scoped loop). Motor binds its
+          # client to whichever event loop first uses it, so when two such
+          # modules share one pytest process the second one raises
+          # "Event loop is closed" at teardown even though every test passed -
+          # a harness cross-talk failure, not a code failure. One process per
+          # file keeps the check measuring the code and tells you exactly
+          # which suite failed.
+          #
+          # test_launch_repairs*.py pin the launch repairs and land with the
+          # backend PRs; list them when present so this workflow is valid on
+          # every branch instead of failing collection with "file or
+          # directory not found".
+          SUITES="tests/test_launch_repairs_server.py \
+                  tests/test_launch_repairs.py \
+                  tests/test_studio_byok_wiring.py \
+                  tests/test_compliance_docs.py \
                   tests/test_auth_me_regression.py \
                   tests/test_fcc_wiring.py \
                   tests/test_feature_control.py \
                   tests/test_platform_services_unit.py \
                   tests/test_keyvault_startup_init.py"
-          # test_launch_repairs*.py pin the launch repairs and land with the
-          # backend PRs. List them when present so this workflow is valid on
-          # every branch (main, a CI-only branch, the backend branches)
-          # instead of failing collection with "file or directory not found".
-          if [ -f tests/test_launch_repairs_server.py ]; then
-            SUITES="tests/test_launch_repairs_server.py $SUITES"
+          failed=""
+          for f in $SUITES; do
+            [ -f "$f" ] || continue
+            if python -m pytest -q "$f"; then
+              echo "PASS  $f"
+            else
+              echo "FAIL  $f"
+              failed="$failed $f"
+            fi
+          done
+          if [ -n "$failed" ]; then
+            echo "Backend suites failing:$failed"
+            exit 1
           fi
-          if [ -f tests/test_launch_repairs.py ]; then
-            SUITES="tests/test_launch_repairs.py $SUITES"
-          fi
-          python -m pytest -q $SUITES
 
   frontend:
     name: frontend (integrity + build)
