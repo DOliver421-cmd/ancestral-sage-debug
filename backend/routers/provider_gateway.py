@@ -310,20 +310,29 @@ def _probe_model(provider_type: str) -> str:
 
 @router.patch("/providers/keys/by-provider/{provider_type}/status")
 async def provider_key_status(provider_type: str, body: dict, user=Depends(_user)):
-    """Enable or disable the encrypted quick-setup key for one provider."""
+    """Enable, disable, or revoke the encrypted quick-setup key for one provider.
+
+    "inactive" keeps the row so it can be re-enabled; "revoked" drops it from
+    the active set permanently — the same lifecycle the team monitor uses when
+    a key auth-fails, and the same one an exec uses to kill a leaked key.
+    """
     _exec(user)
     provider_type = provider_type.strip().lower()
     if provider_type not in PROVIDERS:
         raise HTTPException(404, "Unsupported provider.")
     status = body.get("status")
-    if status not in ("active", "inactive"):
-        raise HTTPException(400, "status must be active or inactive")
+    if status not in ("active", "inactive", "revoked"):
+        raise HTTPException(400, "status must be active, inactive, or revoked")
     provider = await db.api_providers.find_one({"provider_type": provider_type}, {"id": 1})
     if not provider:
         raise HTTPException(404, "Provider key not found")
+    upd = {"status": status, "updated_at": datetime.now(timezone.utc).isoformat()}
+    if status == "revoked":
+        upd["revoked_at"] = datetime.now(timezone.utc).isoformat()
+        upd["revoked_by"] = user.id
     result = await db.api_keys.update_one(
         {"provider_id": provider.get("id")},
-        {"$set": {"status": status, "updated_at": datetime.now(timezone.utc).isoformat()}},
+        {"$set": upd},
     )
     if result.matched_count == 0:
         raise HTTPException(404, "Provider key not found")

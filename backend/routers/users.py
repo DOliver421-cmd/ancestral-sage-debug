@@ -826,40 +826,71 @@ async def admin_revoke_sessions(uid: str, request,
 
 @router.delete("/admin/users/{uid}")
 async def admin_delete_user(uid: str, request: Request,
-                             user: User = Depends(_require_rank("executive_admin"))):
-    """Permanently delete a user account.
+                              user: User = Depends(_require_rank("executive_admin"))):
+    """Soft-delete a user account — reversible, unlike the old hard delete.
+
     executive_admin only. Cannot delete yourself or another executive_admin.
-    Purges: user record, sessions, audit trail, feature overrides, progress,
-    credentials, partnership data.  This is irreversible.
+
+    The old behaviour purged the user record and every dependent collection
+    permanently, which made an accidental deletion unrecoverable. This version
+    deactivates the account (which login already rejects — `auth.py` checks
+    `is_active is not False` before issuing a token) and stamps a restore
+    point, so the same exec can undo it with `POST /admin/users/{uid}/restore`.
+    The GDPR erasure path (`POST /admin/users/{uid}/erase`) remains the only
+    route that actually deletes the record.
     """
-    target = await db.users.find_one({"id": uid}, {"_id": 0, "role": 1, "full_name": 1, "email": 1})
+    target = await db.users.find_one({"id": uid}, {"_id": 0, "role": 1, "full_name": 1, "email": 1, "is_active": 1})
     if not target:
         raise HTTPException(404, "User not found")
     if uid == user.id:
         raise HTTPException(400, "Cannot delete your own account.")
     if target.get("role") == "executive_admin":
         raise HTTPException(403, "Cannot delete an executive_admin account.")
-    # Cascading purge
-    deleted = {}
-    for coll_name in ["auth_sessions", "user_feature_overrides", "progress",
-                      "user_credentials", "terms_acceptance", "xp_entries"]:
-        try:
-            r = await db[coll_name].delete_many({"user_id": uid})
-            deleted[coll_name] = r.deleted_count
-        except Exception:
-            deleted[coll_name] = 0
-    # Partnership data
+    if target.get("is_active") is False:
+        return {"ok": True, "user_id": uid, "status": "already_deactivated"}
+
+    now = datetime.now(timezone.utc).isoformat()
+    await db.users.update_one(
+        {"id": uid},
+        {"$set": {"is_active": False, "deleted_at": now, "deleted_by": user.id}},
+    )
+    # Revoke every live session so the deactivated account cannot keep working
+    # through an existing token — the same bump the password-change path does.
     try:
-        r = await db.partnership_points_ledger.delete_many({"user_id": uid})
-        deleted["partnership_points_ledger"] = r.deleted_count
+        await db.auth_sessions.delete_many({"user_id": uid})
     except Exception:
         pass
-    # Final: delete the user record
-    await db.users.delete_one({"id": uid})
     await _exec_audit_safe(user, "admin.user.deleted", target_id=uid,
                            before={"email": target.get("email"), "role": target.get("role")},
-                           meta={"purged_collections": deleted})
-    return {"ok": True, "user_id": uid, "purged": deleted}
+                           meta={"action": "soft_delete", "restorable": True})
+    return {"ok": True, "user_id": uid, "status": "deactivated", "deleted_at": now,
+            "restorable": True}
+
+
+@router.post("/admin/users/{uid}/restore")
+async def admin_restore_user(uid: str, request: Request,
+                              user: User = Depends(_require_rank("executive_admin"))):
+    """Reverse a soft-delete. executive_admin only.
+
+    The restore reactivates the account and its sessions; it does not rewrite
+    anything that was deleted in the interim, because nothing was — the delete
+    above only flips `is_active`. Data the account accrued while deactivated
+    (progress, credentials, partnership points) was never touched.
+    """
+    target = await db.users.find_one({"id": uid}, {"_id": 0, "role": 1, "email": 1, "is_active": 1})
+    if not target:
+        raise HTTPException(404, "User not found")
+    if target.get("is_active") is not False:
+        return {"ok": True, "user_id": uid, "status": "already_active"}
+
+    await db.users.update_one(
+        {"id": uid},
+        {"$set": {"is_active": True}, "$unset": {"deleted_at": "", "deleted_by": ""}},
+    )
+    await _exec_audit_safe(user, "admin.user.restored", target_id=uid,
+                           before={"email": target.get("email"), "role": target.get("role")},
+                           meta={"action": "restore"})
+    return {"ok": True, "user_id": uid, "status": "active"}
 
 
 async def _exec_audit_safe(actor, action, target_id=None, before=None, meta=None):
