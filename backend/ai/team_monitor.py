@@ -27,6 +27,14 @@ from datetime import datetime, timezone
 logger = logging.getLogger("lcewai.team_monitor")
 
 MONITOR_INTERVAL_SEC = 300        # 5 minutes between health cycles
+
+# T1-2: the monitor auto-revokes provider keys on 401/403. A provider-side
+# incident (quota 401, IP block, key rollover in flight) looks identical to a
+# revoked key, so revocation is opt-in AND defaults to dry-run: enabled with
+# TEAM_MONITOR_DRY_RUN unset/true, the monitor reports what it would revoke
+# without touching a single key. Set TEAM_MONITOR_DRY_RUN=false only after
+# watching a dry-run cycle on the real provider pool.
+DRY_RUN = os.getenv("TEAM_MONITOR_DRY_RUN", "true").strip().lower() in ("1", "true", "yes", "on")
 FAILURE_THRESHOLD    = 3          # consecutive failures before action
 AUTH_FAIL_THRESHOLD  = 1          # auth failures are immediate (401 = bad key, no retry)
 
@@ -202,26 +210,42 @@ async def _run_health_cycle() -> None:
 
         if error_type == "auth" and count >= AUTH_FAIL_THRESHOLD:
             # Bad key — revoke immediately
-            logger.warning("team_monitor: %s key auth failed — revoking", pt)
-            try:
-                await _db.api_keys.update_one(
-                    {"id": key_id},
-                    {"$set": {"status": "revoked", "revoked_at": _now(),
-                              "revoked_by": "team.supervisor"}},
+            logger.warning("team_monitor: %s key auth failed — %s", pt,
+                           "would revoke (DRY RUN)" if DRY_RUN else "revoking")
+            if not DRY_RUN:
+                try:
+                    await _db.api_keys.update_one(
+                        {"id": key_id},
+                        {"$set": {"status": "revoked", "revoked_at": _now(),
+                                  "revoked_by": "team.supervisor"}},
+                    )
+                except Exception:
+                    pass
+            else:
+                logger.info(
+                    "team_monitor: DRY RUN — %s key %s would be revoked (401/403); no change made",
+                    pt, key_id,
                 )
-            except Exception:
-                pass
 
             await log_team_action(
                 action=f"key.revoked.{pt}",
                 reason=f"{label} returned auth failure (401/403) — key is invalid",
-                outcome="key revoked; gateway will use next available provider",
-                meta={"provider_type": pt, "key_id": key_id, "error": error_type},
+                outcome=("DRY RUN — key would be revoked; no change made"
+                         if DRY_RUN else
+                         "key revoked; gateway will use next available provider"),
+                meta={"provider_type": pt, "key_id": key_id, "error_type": error_type,
+                      "dry_run": DRY_RUN},
             )
             any_action_taken = True
             _failure_counts[pt] = 0
 
-            # Reload gateway so this key is no longer used
+            if not DRY_RUN:
+                # Reload gateway so this key is no longer used
+                try:
+                    from ai.llm_gateway import reload_provider_keys
+                    await reload_provider_keys(_db)
+                except Exception:
+                    pass
             try:
                 from ai.llm_gateway import reload_provider_keys
                 await reload_provider_keys(_db)
