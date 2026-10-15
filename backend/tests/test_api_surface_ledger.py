@@ -27,12 +27,16 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 # partner API's five routes are wrapped by _IncludedRouter and only become
 # visible to this walk through the mount that serves them, so the countable
 # delta is the JSON 404 catch-all registered for unknown /api/* paths).
+# Re-measured 2026-10-15 after PRs #505-#512 (+3 paths from merged feature
+# work) and after removing the dead /api/ai/ai/chat and /api/ai/ai/helper
+# shadow routes that the double-prefixed routers/ai.py include used to mount
+# (-2 paths, -2 methods).
 # Bump deliberately, with a ledger update in the same commit, when the surface
 # changes on purpose.
-EXPECTED_API_PATHS = 357
-EXPECTED_API_METHODS = 411
-EXPECTED_TOTAL_PATHS = 894
-EXPECTED_TOTAL_METHODS = 1027
+EXPECTED_API_PATHS = 360
+EXPECTED_API_METHODS = 414
+EXPECTED_TOTAL_PATHS = 896
+EXPECTED_TOTAL_METHODS = 1029
 
 # The executive/admin surface is mounted at the root, not under /api. Its
 # disappearance would mean a whole router stopped mounting, so pin a sample
@@ -119,3 +123,43 @@ def test_root_mounted_executive_surface_is_present():
             f"no routes mounted under {prefix} — a root-mounted router "
             f"appears to have stopped mounting"
         )
+
+
+def test_no_duplicate_path_method_pairs():
+    """No path+method pair may be registered twice.
+
+    Two registrations of the same pair mean the first match wins and edits to
+    the second silently do nothing. This repo shipped exactly that: the
+    double-prefixed routers/ai.py include (prefix="/api/ai" + "/ai/chat")
+    mounted a shadow copy of /api/ai/chat at /api/ai/ai/chat. Both copies now
+    live at one path each and this guard keeps it that way.
+    """
+    by_path = _surface()
+    seen: dict = defaultdict(int)
+    for r in _walk(server.app.routes):
+        path = getattr(r, "path", None)
+        if not isinstance(path, str) or not path:
+            continue
+        for m in (getattr(r, "methods", None) or set()):
+            if m in ("HEAD", "OPTIONS"):
+                continue
+            seen[(path, m)] += 1
+    dupes = sorted(k for k, n in seen.items() if n > 1)
+    assert not dupes, (
+        f"duplicate path+method registrations: {dupes[:10]} — the first match "
+        f"wins, so the second registration is dead code that silently ignores edits"
+    )
+
+
+def test_no_doubled_router_prefixes():
+    """No route may carry a doubled namespace like /api/ai/ai/... .
+
+    A doubled prefix is the signature of a router included with a prefix that
+    repeats a segment already present in its own decorators.
+    """
+    by_path = _surface()
+    doubled = sorted(p for p in by_path if "/ai/ai/" in p)
+    assert not doubled, (
+        f"double-prefixed AI routes mounted: {doubled} — these are shadow "
+        f"copies of the real /api/ai/* handlers"
+    )
