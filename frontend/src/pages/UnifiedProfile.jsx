@@ -634,6 +634,11 @@ function ByokKeyCard({ workspaceState }) {
 }
 
 function SettingsTab({ profile, onSaved }) {
+  // refresh must come from this component's own scope: `refreshUser` exists
+  // only inside UnifiedProfile(), so referencing it here threw a
+  // ReferenceError that the surrounding catch turned into a false
+  // "Password change failed" even though the password HAD changed.
+  const { refresh: refreshUser } = useAuth();
   const EMPTY_SOCIAL   = { platform: "", handle: "", url: "", note: "" };
   const EMPTY_OFFERING = { icon: "✨", title: "", desc: "" };
   const EMPTY_COMMERCE = { label: "", desc: "", url: "" };

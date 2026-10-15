@@ -19,7 +19,26 @@ export default function CrossSiteLogin() {
 
   useEffect(() => {
     const token = searchParams.get("token");
-    const next = searchParams.get("next") || "/dashboard";
+    const nextRaw = searchParams.get("next") || "/dashboard";
+
+    // `next` arrives in a URL an attacker can craft, and this page applies it
+    // with window.location.assign AFTER a successful sign-in — an
+    // unvalidated value is an open redirect that hands the freshly
+    // authenticated user to any origin. Only accept same-site paths.
+    const next = (() => {
+      if (typeof nextRaw !== "string" || !nextRaw.startsWith("/") || nextRaw.startsWith("//")) {
+        return "/dashboard";
+      }
+      try {
+        // Resolve against this origin and compare hosts: blocks "/\\evil.com"
+        // and protocol-relative tricks the startsWith checks miss.
+        const resolved = new URL(nextRaw, window.location.origin);
+        if (resolved.origin !== window.location.origin) return "/dashboard";
+        return resolved.pathname + resolved.search + resolved.hash;
+      } catch {
+        return "/dashboard";
+      }
+    })();
 
     if (!token) {
       setStatus("No token provided. Redirecting to login…");
