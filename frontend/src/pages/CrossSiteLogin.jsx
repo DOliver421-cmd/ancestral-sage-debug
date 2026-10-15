@@ -19,7 +19,26 @@ export default function CrossSiteLogin() {
 
   useEffect(() => {
     const token = searchParams.get("token");
-    const next = searchParams.get("next") || "/dashboard";
+    const nextRaw = searchParams.get("next") || "/dashboard";
+
+    // `next` arrives in a URL an attacker can craft, and this page applies it
+    // with window.location.assign AFTER a successful sign-in — an
+    // unvalidated value is an open redirect that hands the freshly
+    // authenticated user to any origin. Only accept same-site paths.
+    const next = (() => {
+      if (typeof nextRaw !== "string" || !nextRaw.startsWith("/") || nextRaw.startsWith("//")) {
+        return "/dashboard";
+      }
+      try {
+        // Resolve against this origin and compare hosts: blocks "/\\evil.com"
+        // and protocol-relative tricks the startsWith checks miss.
+        const resolved = new URL(nextRaw, window.location.origin);
+        if (resolved.origin !== window.location.origin) return "/dashboard";
+        return resolved.pathname + resolved.search + resolved.hash;
+      } catch {
+        return "/dashboard";
+      }
+    })();
 
     if (!token) {
       setStatus("No token provided. Redirecting to login…");
@@ -47,13 +66,18 @@ export default function CrossSiteLogin() {
         // Store the local JWT
         localStorage.setItem("lce_token", data.token);
 
-        // Store user info
-        localStorage.setItem("lce_user", JSON.stringify({ role: data.role }));
+        // Store the full user object. This page used to persist only
+        // {role}, and the AuthProvider's /auth/me effect runs once on mount
+        // with empty deps - so after the cross-site token exchange the
+        // context still held user=null and Protected bounced the visitor
+        // back to /login (or, after a reload, a user with no id/email/name).
+        localStorage.setItem("lce_user", JSON.stringify(data.user || { role: data.role }));
 
         setStatus("Login successful! Redirecting…");
 
-        // Navigate to the intended page
-        setTimeout(() => navigate(next, { replace: true }), 500);
+        // Navigate with a full reload so the AuthProvider re-initialises
+        // from the cached user instead of relying on the one-shot effect.
+        setTimeout(() => { window.location.assign(next); }, 500);
       } catch (e) {
         setStatus("Connection error. Redirecting to login…");
         setTimeout(() => navigate("/login", { replace: true }), 2000);

@@ -522,7 +522,15 @@ function ByokKeyCard({ workspaceState }) {
     try {
       await api.post("/byok/key", { provider, key });
       const { data } = await api.post(`/byok/key/${provider}/test`, { provider, key });
-      flash(`Key saved & verified (${data.latency_ms}ms). Your AI requests now route through your key.`);
+      // The provider's test result decides the message. A rejected key used
+      // to print "Key saved & verified (undefinedms) ... routes through your
+      // key" while listing it as ACTIVE - the opposite of the truth. (The
+      // standalone /byok page has always checked data.ok; this copy did not.)
+      if (data?.ok) {
+        flash(`Key saved & verified (${data.latency_ms}ms). Your AI requests now route through your key.`);
+      } else {
+        flash(`Key saved, but the provider rejected it: ${data?.error || "verification failed"}. AI requests will not route through this key yet.`);
+      }
       setKeyInput("");
       const { data: st } = await api.get("/byok/status");
       setStatus(st);
@@ -626,6 +634,11 @@ function ByokKeyCard({ workspaceState }) {
 }
 
 function SettingsTab({ profile, onSaved }) {
+  // refresh must come from this component's own scope: `refreshUser` exists
+  // only inside UnifiedProfile(), so referencing it here threw a
+  // ReferenceError that the surrounding catch turned into a false
+  // "Password change failed" even though the password HAD changed.
+  const { refresh: refreshUser } = useAuth();
   const EMPTY_SOCIAL   = { platform: "", handle: "", url: "", note: "" };
   const EMPTY_OFFERING = { icon: "✨", title: "", desc: "" };
   const EMPTY_COMMERCE = { label: "", desc: "", url: "" };
@@ -691,7 +704,19 @@ function SettingsTab({ profile, onSaved }) {
     if (pwForm.next.length < 8) { toast.error("Minimum 8 characters"); return; }
     setSavingPw(true);
     try {
-      await api.post("/auth/change-password", { current_password: pwForm.current, new_password: pwForm.next });
+      // A password change is a session-revocation point: the backend bumps
+      // token_version and returns a FRESH token. Adopting it is what keeps
+      // the caller signed in - the /settings page already does this, this copy
+      // ignored it, so the profile drawer logged the user out on the next
+      // navigation while still showing "Password changed!".
+      const r = await api.post("/auth/change-password", { current_password: pwForm.current, new_password: pwForm.next });
+      if (r.data?.access_token) {
+        localStorage.setItem("lce_token", r.data.access_token);
+      }
+      if (r.data?.user) {
+        localStorage.setItem("lce_user", JSON.stringify(r.data.user));
+      }
+      if (typeof refreshUser === "function") await refreshUser();
       toast.success("Password changed!");
       setPwForm({ current: "", next: "", confirm: "" });
     } catch (err) {
@@ -1227,7 +1252,7 @@ function InlineCurriculum({ user, workspaceState }) {
 // ── Main component ─────────────────────────────────────────────────────────────
 export default function UnifiedProfile() {
   const { username } = useParams();
-  const { user } = useAuth();
+  const { user, refresh: refreshUser } = useAuth();
   const navigate = useNavigate();
 
   const [profile, setProfile]   = useState(null);
@@ -1265,14 +1290,18 @@ export default function UnifiedProfile() {
       if (full_name !== (user?.full_name || "")) body.full_name = full_name;
       if (email !== (user?.email || "")) body.email = email;
       const r = await api.patch("/auth/me", body);
-      // Keep the signed-in context in step with the change.
+      // Keep the signed-in context in step with the change. It used to write
+      // an "mh_user" localStorage key nothing reads, then call a refreshUser
+      // that was never destructured - so the save persisted server-side while
+      // "Signed in as" and every useAuth() consumer kept showing the stale
+      // name until a manual reload.
       try {
         const fresh = await api.get("/auth/me");
         if (fresh?.data) {
-          localStorage.setItem("mh_user", JSON.stringify({ ...fresh.data, token: null }));
-          if (typeof refreshUser === "function") refreshUser();
+          localStorage.setItem("lce_user", JSON.stringify(fresh.data));
         }
       } catch { /* the header updates on next sign-in */ }
+      if (typeof refreshUser === "function") await refreshUser();
       setDetailsMsg({ ok: true, text: "Saved. Your details are updated." });
       void r;
     } catch (err) {
@@ -1565,7 +1594,12 @@ export default function UnifiedProfile() {
             </div>
             <div className="flex items-center gap-2 shrink-0">
               {isOwner && (
-                <button onClick={() => setActiveTab("settings")} className="flex items-center gap-1.5 text-xs font-bold border border-ink/20 px-3 py-1.5 rounded-full hover:border-copper transition-colors">
+                // "settings" is only a rendered tab inside the no-profile
+                // early-return block; in the main profile view this setter
+                // was a silent no-op (the Edit button did nothing at all).
+                // The workspace drawer renders SettingsTab from the same
+                // component tree and already works.
+                <button onClick={() => setActiveTool("settings")} data-testid="profile-edit-open" className="flex items-center gap-1.5 text-xs font-bold border border-ink/20 px-3 py-1.5 rounded-full hover:border-copper transition-colors">
                   <Edit3 className="w-3.5 h-3.5" /> Edit
                 </button>
               )}
@@ -1928,7 +1962,7 @@ export default function UnifiedProfile() {
                     </Link>
                   ))}
                   <div className="pt-2 border-t border-ink/8">
-                    <button onClick={() => setActiveTab("settings")}
+                    <button onClick={() => setActiveTool("settings")} data-testid="profile-edit-commerce-open"
                       className="flex items-center gap-3 py-2 px-2 rounded-lg hover:bg-copper/5 transition-colors group w-full text-left">
                       <Edit3 className="w-4 h-4 text-copper/60 group-hover:text-copper shrink-0 transition-colors" />
                       <span className="text-sm font-bold text-ink/70 group-hover:text-ink transition-colors">Edit Profile & Commerce</span>
