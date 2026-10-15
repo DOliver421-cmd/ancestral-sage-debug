@@ -76,6 +76,28 @@ the running server:
 | Total unique paths | 888 | **894** |
 | Total route-method entries | 1016 | **1027** |
 
+### Update — 2026-10-15 (Tier 1 batch #515-#519; +5 `/api` paths, +4 `/api` methods, +5 total paths)
+
+Five new routes, all verified against the running server in this session. None of
+them shadow an existing path — the walk reports 361 `/api` paths where the
+previous baseline had 360.
+
+| Route | File | What it does |
+|---|---|---|
+| `GET /api/nam/status` | `routers/nam.py` | Operational read the Hybrid NAM console header consumes: AI availability, providers active, budget, constitutional hash |
+| `GET /api/competition/context/{context_id}` | `routers/competition.py` | Read one arena work context — the write side (`POST /competition/task`) already pushed rounds into `activity_history`; without this the write was a black hole |
+| `GET /api/academy/enrollments` | `routers/academy.py` | Canonical enrollment list across the caller's students, aggregated from the same atomic `course_slugs` arrays the mutation endpoint uses |
+| `GET /api/academy/students/{student_id}/courses` | `routers/academy.py` | Per-student enrollment read — the `EnrollmentChange` model and the atomic `$addToSet`/`$pull` mutation both existed, but the only read was the mutation's own response |
+| `POST /api/admin/users/{uid}/restore` | `routers/users.py` | Reverse of the soft-delete (`DELETE /admin/users/{uid}`); the old delete was a permanent purge, so an accidental deletion was unrecoverable |
+
+| Measure | 2026-10-11 (Soup work) |
+|---|---|
+| `/api` unique paths | 357 | **361** |
+| `/api` route-method entries | 411 | **415** |
+| Root-mounted (non-`/api`) unique paths | 537 | **542** |
+| Total unique paths | 894 | **899** |
+| Total route-method entries | 1027 | **1033** |
+
 The pinned constants in `backend/tests/test_api_surface_ledger.py` are bumped
 in the same change, per the instruction in the 2026-09-29 update above.
 

@@ -31,12 +31,20 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 # work) and after removing the dead /api/ai/ai/chat and /api/ai/ai/helper
 # shadow routes that the double-prefixed routers/ai.py include used to mount
 # (-2 paths, -2 methods).
+# Re-measured 2026-10-15 after the Tier 1 batch (#515-#519): +5 paths, +4
+# methods — all five are read/admin routes added in this session, none of them
+# shadowing an existing path:
+#   /api/nam/status (GET)                    routers/nam.py
+#   /api/competition/context/{context_id}    routers/competition.py
+#   /api/academy/enrollments (GET)            routers/academy.py
+#   /api/academy/students/{student_id}/courses (GET)  routers/academy.py
+#   /api/admin/users/{uid}/restore (POST)    routers/users.py
 # Bump deliberately, with a ledger update in the same commit, when the surface
 # changes on purpose.
-EXPECTED_API_PATHS = 360
-EXPECTED_API_METHODS = 414
-EXPECTED_TOTAL_PATHS = 896
-EXPECTED_TOTAL_METHODS = 1029
+EXPECTED_API_PATHS = 361
+EXPECTED_API_METHODS = 415
+EXPECTED_TOTAL_PATHS = 899
+EXPECTED_TOTAL_METHODS = 1033
 
 # The executive/admin surface is mounted at the root, not under /api. Its
 # disappearance would mean a whole router stopped mounting, so pin a sample
