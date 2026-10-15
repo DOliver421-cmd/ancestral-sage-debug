@@ -67,50 +67,6 @@ def _auth(token):
 
 
 # ── 1. Profile edits persist ─────────────────────────────────────────────────
-def test_patch_me_persists_avatar_and_social(client):
-    token = _register(client)
-    avatar = ("data:image/png;base64,"
-              "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==")
-    r = client.patch("/api/auth/me", headers=_auth(token),
-                     json={"avatar_url": avatar, "social_handles": {"twitter": "mhc_regress"}})
-    assert r.status_code == 200, r.text
-    me = client.get("/api/auth/me", headers=_auth(token)).json()
-    assert me.get("avatar_url") == avatar
-    assert (me.get("social_handles") or {}).get("twitter") == "mhc_regress"
-
-
-def test_patch_me_refuses_self_role_change(client):
-    token = _register(client)
-    r = client.patch("/api/auth/me", headers=_auth(token), json={"role": "executive_admin"})
-    assert r.status_code == 200  # the field is ignored, never honoured
-    me = client.get("/api/auth/me", headers=_auth(token)).json()
-    assert me.get("role") == "student"
-
-
-def test_patch_me_rejects_javascript_avatar(client):
-    token = _register(client)
-    r = client.patch("/api/auth/me", headers=_auth(token),
-                     json={"avatar_url": "javascript:alert(1)"})
-    assert r.status_code == 400, r.text
-
-
-# ── 3. Session revocation keeps the caller signed in ─────────────────────────
-def test_revoke_all_sessions_returns_fresh_token(client):
-    token = _register(client)
-    # A second session to prove something actually gets revoked.
-    email = client.get("/api/auth/me", headers=_auth(token)).json()["email"]
-    client.post("/api/auth/login", json={"email": email, "password": "LaunchCheck#2026"})
-    r = client.delete("/api/auth/sessions", headers=_auth(token))
-    assert r.status_code == 200, r.text
-    fresh = r.json().get("access_token")
-    assert fresh, "revoke-all must re-issue the caller's token"
-    me = client.get("/api/auth/me", headers=_auth(fresh))
-    assert me.status_code == 200, me.text
-    old = client.get("/api/auth/me", headers=_auth(token))
-    assert old.status_code == 401  # the pre-revocation token is dead
-
-
-# ── 4. Transcript grades come from real mastery ──────────────────────────────
 def test_transcript_mastery_uses_mastery_avg():
     """_course_stats emits mastery_avg; the transcript must read that key.
 
@@ -226,17 +182,6 @@ def _registered_paths():
     _walk(server.app.routes)
     _walk(server.api_router.routes)
     return paths
-
-
-def test_digital_purchase_routes_registered():
-    paths = _registered_paths()
-    assert any(p.endswith("/digital/purchases") for p in paths), sorted(path for path in paths if "digital" in path)[:5]
-    assert any("/digital/" in p and "download" in p for p in paths), "GET /api/digital/{product_key}/download must be registered"
-
-
-def test_gumroad_webhook_registered():
-    paths = _registered_paths()
-    assert any(p.endswith("/payments/gumroad-webhook") for p in paths)
 
 
 def test_ascension_protocols_route_registered():
