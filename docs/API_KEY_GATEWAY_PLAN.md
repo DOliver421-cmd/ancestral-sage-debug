@@ -1,3 +1,6 @@
+> **SUPERSEDED (2026-10-15):** see `docs/INTEGRATED_PLAN.md`. This file is retained as history;
+> its findings are consolidated there and its disproved claims are corrected.
+
 # API KEY GATEWAY — BUILD & FIX PLAN — SUPERSEDED
 
 > **Content integrated into `docs/WORKING_PLAN.md` (Phase 2, G0–G7, plus D1–D21 in §3).** Work from the
