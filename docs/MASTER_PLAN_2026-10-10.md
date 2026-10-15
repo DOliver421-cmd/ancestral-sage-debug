@@ -1,3 +1,6 @@
+> **SUPERSEDED (2026-10-15):** see `docs/INTEGRATED_PLAN.md`. This file is retained as history;
+> its findings are consolidated there and its disproved claims are corrected.
+
 # MASTER PLAN — MoreHelp Center, 2026-10-10 — SUPERSEDED
 
 > **Content integrated into `docs/WORKING_PLAN.md`.** Work from the working plan; this file is history.

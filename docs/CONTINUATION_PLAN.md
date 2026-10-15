@@ -1,3 +1,6 @@
+> **SUPERSEDED (2026-10-15):** see `docs/INTEGRATED_PLAN.md`. This file is retained as history;
+> its findings are consolidated there and its disproved claims are corrected.
+
 # MoreHelp Center / WAI Homeschool Academy — CONTINUATION PLAN
 
 **Purpose:** allow the next session to continue correctly without drift. Written by the

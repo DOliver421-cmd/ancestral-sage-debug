@@ -1,3 +1,6 @@
+> **SUPERSEDED (2026-10-15):** see `docs/INTEGRATED_PLAN.md`. This file is retained as history;
+> its findings are consolidated there and its disproved claims are corrected.
+
 # WORKING PLAN — MoreHelp Center / WAI Homeschool Academy
 
 **Single source of truth for delivery. Authored 2026-10-10 from executed evidence.**

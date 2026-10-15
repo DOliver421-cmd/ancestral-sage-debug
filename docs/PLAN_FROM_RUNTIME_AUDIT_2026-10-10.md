@@ -1,3 +1,6 @@
+> **SUPERSEDED (2026-10-15):** see `docs/INTEGRATED_PLAN.md`. This file is retained as history;
+> its findings are consolidated there and its disproved claims are corrected.
+
 # PLAN FROM RUNTIME AUDIT — 2026-10-10 — SUPERSEDED
 
 > **Content integrated into `docs/WORKING_PLAN.md` (R1–R17 across Phases 0–5).** Work from the working plan;
