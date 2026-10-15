@@ -74,6 +74,34 @@ export function isPageEnabled(pathname, user = null) {
   return isNavItemVisible(pathKey(pathname), user, gates[pathKey(pathname)]);
 }
 
+/**
+ * isPageReachable — "is this page open for business right now?"
+ *
+ * Distinct from isPageEnabled: this answers only the executive-control
+ * question (did an exec close this page? enabled / navigation_visible) and
+ * deliberately IGNORES the audience rules isNavItemVisible applies - role,
+ * tier, and public_access - which are about WHO may see a nav entry, not
+ * about whether the page behind it is live.
+ *
+ * Why it exists: AccessGate used isPageEnabled, so a logged-out visitor
+ * opening a shared link to an internal page (/profile, /settings,
+ * /dashboard, ...) saw "This page is currently offline — the executive team
+ * has temporarily closed this page", which is false. The page is not closed;
+ * the visitor simply isn't signed in, and Protected's /login?returnTo=...
+ * redirect is the correct destination. AccessGate now uses this function,
+ * so an exec-disabled page still shows the offline card while anonymous
+ * visitors on live pages reach the auth redirect.
+ */
+export function isPageReachable(pathname, user = null) {
+  const key = pathKey(pathname);
+  const policy = gates[key];
+  if (policy === false) return false;
+  if (!policy || typeof policy !== "object") return true;
+  if (policy.enabled === false) return false;
+  if (policy.navigation_visible === false) return false;
+  return true;
+}
+
 /** Fetch the gate map once; safe to call from anywhere. */
 export function loadGates() {
   if (loading) return loading;
