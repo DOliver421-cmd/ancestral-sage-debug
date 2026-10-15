@@ -308,6 +308,26 @@ def _unlock_state(lessons: List[dict], progress: dict) -> dict:
 
 
 # ── Public catalog ───────────────────────────────────────────────────────────
+@router.get("/ascension-protocols")
+async def ascension_protocols():
+    """The Ascension Protocols catalog entry.
+
+    The Curriculum Explorer (/academy/curriculum) has always called
+    GET /api/ascension-protocols to populate its "Protocols" source section —
+    but no backend route existed, so the request 404'd, the catch swallowed
+    it, and the section rendered permanently empty ("Protocols: 0") even
+    though the full practice course is published at /ascension-protocols.
+    Returns a list (the explorer maps over it like the other sources)."""
+    from academy_content.ascension_protocols import ASCENSION_PROTOCOLS
+    entry = dict(ASCENSION_PROTOCOLS)
+    entry.setdefault("category", "adult")
+    entry.setdefault("course_type", "adult")
+    entry["lesson_count"] = sum(
+        len(u.get("lessons", [])) for u in entry.get("units", [])
+    )
+    return [entry]
+
+
 @router.get("/academy/curriculum-audit")
 async def curriculum_audit():
     """Per-grade completeness: required cores vs present, missing subjects.
@@ -1190,7 +1210,7 @@ def _compliance_payload(kind: str, student: dict, rows: list, summary: dict, rec
             "subject": r["subject_label"] or r["subject"],
             "grade_label": r["grade_label"],
             "progress_pct": pct,
-            "avg_mastery": r["stats"].get("avg_score"),
+            "avg_mastery": r["stats"].get("mastery_avg"),
             "status": r["status"],
             "passing_score": r["passing_score"],
         })
