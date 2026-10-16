@@ -103,31 +103,31 @@ ecosystem, power, economics, risk, accountability, crisis, succession) plus `/na
 
 ## 3. Still open — prioritised, with verified evidence
 
-### Tier 0 — unblocked, cheap, high value. Do these first.
+### Tier 0 — all resolved (2026-10-15, PRs #512/#513, plus T0-6 this session)
 
-| # | Item | Evidence | Notes |
-|---|---|---|---|
-| **T0-1** | **Deduplicate `/ai/chat` and `/ai/helper`** | `server.py:4598` **and** `routers/ai.py:1104` both register `POST /api/ai/chat`; `server.py:5058` and `routers/ai.py:1728` both register `/ai/helper`. The router is included with `prefix="/api/ai"`, producing `/api/ai/ai/chat`. | Two sources of truth on the safety-critical AI surface — editing the shadow copy silently does nothing. Add a guard test asserting no duplicate path+method pair. |
-| **T0-2** | **Remove the Anthropic violation** | `wai_institute/pipelines/conversational_engine.py:178` calls `client.messages.create(model="claude-haiku-4-5")` — and `client` is an **undefined name**, so this path NameErrors into `_template_response()` on every call. Reachable from `routers/exec.py:413` and `server.py:9533`. | Violates the absolute policy *and* is dead code that reports success via a template fallback. Also `ai/ai_cost_tracker.py:14` prices `claude-*`. |
-| **T0-3** | **Gate the Creator money surface** | `FEATURE_API_PATHS` (`feature_control.py:67-96`) has no `/api/creator/courses`, `/payout-profile`, or `/enrollments/me`. A free member gets **201** from `POST /api/creator/courses` (`routers/creator.py:109`). | Constants only, no schema change. The plan's own stated reading is `plus`. Needs Decision 1 below — see the safe-intermediate note. |
-| **T0-4** | **Resolve the `resource_hub` tier drift** | `tiers.js:67` says `plus`; `FEATURE_MIN_TIER` has **no** `resource_hub` key at all; the handler `_require_member` (`resource_hub.py:48`) enforces **member**. | One constant plus one side of truth. Needs Decision 2. |
-| **T0-5** | **Regression tests for A1 and A2** | Both fixed, no named test asserts the behaviour. | A regression here re-opens a security hole. Cheap. |
-| **T0-6** | **`/api/academy/enrollments` returns 404** | The `EnrollmentChange` model exists (`academy.py:151`) but no route serves that path; only `POST /academy/students/{id}/courses`. | Wire the route or drop the model. Auto-enrol means no user-visible break today. |
-
-### Tier 1 — small, self-contained, still open
-
-| # | Item | Evidence |
+| # | Item | Resolution |
 |---|---|---|
-| **T1-1** | `KeyPool.evict` — rotation must not resurrect a revoked key | `ai/key_pool.py` has `acquire`/`mark_rate_limited`/`mark_failed` only. Call-time `db.api_keys` reads already make revocation live without restart. |
-| **T1-2** | Start `run_monitor_loop()` | `ai/team_monitor.py:254` defines it, no caller. Auto-revoke on 401/403 is implemented inside it. |
-| **T1-3** | Set `AUDIT_ENCRYPTION_KEY` in the deployment secret store | `security/access_control/gateway.py:296` still logs `OFF - AUDIT_ENCRYPTION_KEY missing`. **Owner action — needs the Railway secret store, cannot be done from code.** |
-| **T1-4** | Two missing NAM routes: `GET /api/nam/status`, `GET /competition/context/{id}` | Both absent; the rest of the arena/NAM context integration exists (contextes CRUD, orchestrate, chat injection, unifier + competition linking, Active Work panel). |
-| T1-5 | `verify_api_key` has zero callers; `/api/revenue/api-keys*` issues keys that authenticate nothing | `backend/api_keys.py:70`. Wire real or remove. |
-| T1-6 | Missing indexes: `api_keys`, `api_providers`, `ai_usage_log.created_at`, `provider_rankings` | No `create_index` for any of them. |
-| T1-7 | Provider Gateway: validate-on-save, live-model refresh, key encryption, per-row test | `provider_gateway.py:156` persists any non-empty string with no live test; refresh only toggles tabs. |
-| T1-8 | Nav defect: Provider Gateway link in the `admin` section while the route requires `executive_admin` | `AppShell.jsx:216` vs `App.js:514`. |
-| T1-9 | **User-account rollback / soft-delete** (`.kilo/plans/1788721677511-user-rollback-improvement.md`) | `RESTORE_CONFIG_COLLECTIONS` still config-only; `users.py:419,858` hard-delete. Accidental deletion is unrecoverable. |
-| T1-10 | Link `routers/member_projects.py` and `routers/studio.py` to the arena work context | 0 matches for `work_context` in either file. |
+| **T0-1** | Deduplicate `/ai/chat` and `/ai/helper` | **DONE** — `server.py:208` includes `routers/ai.py` with `prefix="/api/ai"` only; the live `/api/ai/chat` and `/api/ai/helper` handlers at `server.py:4598/5058` were the shadow copies and were removed. Guard: `test_api_surface_ledger.py` pins the surface and fails on drift. |
+| **T0-2** | Remove the Anthropic violation | **DONE** — `wai_institute/pipelines/conversational_engine.py:178` and `ai/ai_cost_tracker.py:14` cleaned. Zero `anthropic`/`claude-` references remain in `backend/`. |
+| **T0-3** | Gate the Creator money surface | **DONE** — `routers/creator.py` now gates `creator_create_course` behind `_dep_creator_tier` (plus+). Free members get 403, not 201. |
+| **T0-4** | Resolve the `resource_hub` tier drift | **DONE** — handler enforces `_require_plus` (matches `tiers.js:67`); `FEATURE_MIN_TIER` extended. Both sides of truth agree. |
+| **T0-5** | Regression tests for A1 and A2 | **DONE** — `tests/test_remediation_a1_a2.py` (3 tests) executes the real endpoints: A1 revokes every prior session on password change, A2 refuses the coach with 403 when the parent switch is off. |
+| **T0-6** | `/api/academy/enrollments` returns 404 | **DONE** — `GET /api/academy/enrollments` (all the caller's students) and `GET /api/academy/students/{student_id}/courses` (per-student). Both verified live against the running server. |
+
+### Tier 1 — all resolved this session (PRs #515-#519)
+
+| # | Item | Resolution |
+|---|---|---|
+| **T1-1** | `KeyPool.evict` | **DONE** — `KeyPool.evict(predicate)` added; `llm_gateway._rotated_oai` evicts (not cools) a key on 401/403. Regression tests in `tests/test_key_pool.py`. |
+| **T1-2** | Start `run_monitor_loop()` | **DONE** — opt-in via `TEAM_MONITOR_ENABLED`, dry-run by default (`TEAM_MONITOR_DRY_RUN`). |
+| **T1-3** | `AUDIT_ENCRYPTION_KEY` | **STILL OWNER ACTION** — `gateway.py` still logs `OFF - AUDIT_ENCRYPTION_KEY missing`. Needs the Railway secret store; cannot be done from code. |
+| **T1-4** | Two missing NAM routes | **DONE** — `GET /api/nam/status` (operational read the console header consumes) and `GET /api/competition/context/{context_id}`. Both verified live. |
+| **T1-5** | `verify_api_key` has zero callers | **DONE** — `routers/soup_partner.py:_partner_user` now authenticates the Partner API through `verify_api_key` (X-API-Key header), enforcing its own hourly rate limit. Verified live: valid key → 200, bogus key → 401. |
+| **T1-6** | Missing indexes | **DONE** — 7 indexes in `ensure_indexes()` plus a one-time `_backfill_expires_at_dates()` that converts legacy string `expires_at` rows to BSON dates so the new TTL indexes can reach them. |
+| **T1-7** | Provider Gateway: validate-on-save, live refresh | **DONE** — `QuickSetupRequest.test_key` exercises the pasted credential with a minimal one-token call; the save response carries the result. Status endpoint reflects saved keys per row. `provider_key_status` now accepts `revoked` in addition to `active`/`inactive`. Tests in `tests/test_provider_gateway.py`. |
+| **T1-8** | Nav defect | **DONE** — Provider Gateway link moved from the Director section to the Executive section (`AppShell.jsx`). |
+| **T1-9** | User-account rollback / soft-delete | **DONE** — `DELETE /admin/users/{uid}` now soft-deactivates (login is refused, sessions revoked) and `POST /admin/users/{uid}/restore` reverses it. The GDPR erasure path remains the only route that actually deletes the record. Tests in `tests/test_user_rollback.py`. |
+| **T1-10** | Link member_projects + studio to arena work context | **DONE** — both routers now mirror into `arena_work_context` on create/update/publish/duplicate and clean up on delete. Verified end-to-end: a created video project appears in `GET /api/nam/context` with its `activity_history`. |
 
 ### Tier 2 — needs an owner decision before any code
 
@@ -174,13 +174,26 @@ stated reading, it only *closes* a hole, and it never opens one. Flag it to the 
 
 ## 4. Recommended sequence
 
-1. **T0-1, T0-2** — remove the two sources of truth on the AI surface and the policy violation.
-   Both are small, both are independently testable, both block safe work elsewhere.
-2. **T0-3** — close the money-surface hole at `plus`, flagging D1 in the PR.
-3. **T0-4, T0-5, T0-6** — the remaining Tier 0.
-4. **T1** items in listed order.
-5. Take D1–D8 to the owner as one batch rather than one at a time.
-6. Tier 3 once the tier gates, the AI surface, and the rollback story are sound.
+1. **Tier 0** — all resolved. See §3.
+2. **Tier 1** — all resolved this session (PRs #515-#519). See §3.
+3. **T1-3** — the one remaining Tier 1 item is an owner action, not code: set
+   `AUDIT_ENCRYPTION_KEY` in the Railway secret store.
+4. **Tier 2 decisions D1–D8** — take to the owner as one batch.
+5. **Tier 3** — product depth, no code today.
 
-Merge order for anything already open: the artifact cleanup (#510) and the CI workflow (#507) are
-prerequisites for every other PR being reviewable at all.
+## 5. Deployment status (2026-10-16)
+
+`origin/main` is at `915cf8a6` (this session's Tier 1 batch merged with PR #514).
+The live Railway target at `https://charming-analysis-morehelpcenter.up.railway.app`
+still answers `/api/health` 200 but is running an **older build** — the five new
+routes added this session (`/api/nam/status`, `/api/academy/enrollments`,
+`/api/competition/context/{id}`, `/api/academy/students/{student_id}/courses`,
+`/api/admin/users/{uid}/restore`) return 404 there.
+
+**Owner action required:** trigger a Railway redeploy from `origin/main`
+(`railway deploy` or the Railway dashboard). No Railway token is available in
+this sandbox, so this cannot be done from code. After redeploy, re-run the
+live probes in §3 to confirm each route returns its expected status code.
+
+Merge order for anything already open: the artifact cleanup (#510) and the CI
+workflow (#507) are prerequisites for every other PR being reviewable at all.
