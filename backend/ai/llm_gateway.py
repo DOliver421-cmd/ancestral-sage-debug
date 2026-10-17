@@ -108,14 +108,26 @@ _PROVIDER_TYPE_TO_GLOBAL = {
 }
 
 async def reload_provider_keys(db) -> int:
-    """Read active provider keys from MongoDB and update module globals.
+    """Read active provider keys from MongoDB and update module globals AND the
+    rotating pools.
 
-    Env vars always win — a non-empty env var is never overwritten, because
-    those keys are static for the process lifetime and a revoked env-var key
-    can only be removed by restarting the worker. DB keys (the exec Provider
-    Gateway pool) fill every gap, and since the query filters `status:
-    "active"`, a revoked DB key is simply absent from the result — reload can
-    never resurrect one.
+    Two things had to move together or the reload was a no-op:
+
+    1. **The rotating pools are constructed once, at import time, from
+       `os.environ`.** Filling the module globals alone left the pools empty,
+       and every rotating tier in call_llm() reads the pool (`pool.acquire()`,
+       `_PROVIDER_KEY_POOLS[p].size`) — never the global. So a key saved in the
+       exec Provider Gateway for groq/cerebras/sambanova/gemini/nvidia/deepinfra/
+       novita/hyperbolic/perplexity was decrypted, stored in a global nobody
+       read, and the tier stayed silently skipped. That is the root cause of
+       "AI_PROVIDER_UNAVAILABLE with keys already saved": the keys existed, the
+       reload ran, and the chain still saw nothing.
+
+    2. **Env vars always win.** A non-empty env var is never overwritten, because
+       those keys are static for the process lifetime and a revoked env-var key
+       can only be removed by restarting the worker. DB keys fill every gap, and
+       since the query filters `status: "active"`, a revoked DB key is simply
+       absent from the result — reload can never resurrect one.
     """
     import sys
     # Shared self-healing vault (keyvault.py): env var → MongoDB-persisted → ephemeral.
@@ -128,6 +140,9 @@ async def reload_provider_keys(db) -> int:
 
     loaded = 0
     module = sys.modules[__name__]
+    # provider_type → list of plaintext keys, gathered before the globals are
+    # written so the pools can be rebuilt from the same source of truth.
+    db_keys_by_type: dict = {}
     try:
         # Use the same collections as provider_gateway.py: api_keys + api_providers
         keys = await db.api_keys.find({"status": "active"}).to_list(200)
@@ -142,9 +157,6 @@ async def reload_provider_keys(db) -> int:
             global_name = _PROVIDER_TYPE_TO_GLOBAL.get(provider_type, "")
             if not global_name:
                 continue
-            # Only fill if env var is currently empty
-            if getattr(module, global_name, ""):
-                continue
             encrypted = key_doc.get("encrypted_key", "")
             if not encrypted:
                 continue
@@ -153,13 +165,39 @@ async def reload_provider_keys(db) -> int:
                     plaintext = fernet.decrypt(encrypted.encode() if isinstance(encrypted, str) else encrypted).decode()
                 else:
                     plaintext = encrypted  # stored unencrypted (no secret set)
-                setattr(module, global_name, plaintext)
-                loaded += 1
-                logger.info("llm_gateway: loaded %s from DB (provider_type=%s)", global_name, provider_type)
             except Exception as e:
                 logger.warning("llm_gateway: failed to decrypt key for %s: %s", global_name, e)
+                continue
+            # Only fill if env var is currently empty. When an env var is set
+            # the DB key is skipped entirely — it must not be appended to the
+            # pool either, or the env key would be shadowed by a second copy.
+            if getattr(module, global_name, ""):
+                continue
+            setattr(module, global_name, plaintext)
+            db_keys_by_type.setdefault(provider_type, []).append(plaintext)
+            loaded += 1
+            logger.info("llm_gateway: loaded %s from DB (provider_type=%s)", global_name, provider_type)
     except Exception as e:
         logger.warning("llm_gateway: reload_provider_keys error: %s", e)
+
+    # Rebuild the rotating pools so DB keys are actually usable. The pools were
+    # built from os.environ at import; without this the globals above were
+    # invisible to every rotating tier. Env-var keys stay first in each pool.
+    for provider_type, plaintext_keys in db_keys_by_type.items():
+        pool = _PROVIDER_KEY_POOLS.get(provider_type)
+        if pool is None:
+            continue
+        env_name = _PROVIDER_TYPE_TO_GLOBAL.get(provider_type, "")
+        # parse_key_list dedups internally, so the merged list has no
+        # duplicates — the global and the DB key that filled it are the same
+        # plaintext and must not appear twice.
+        pool.keys = parse_key_list(
+            os.environ.get(f"{provider_type.upper()}_API_KEYS"),
+            getattr(module, env_name, ""),
+            *plaintext_keys,
+        )
+        pool._next = 0
+        pool._cooldowns = {}
     return loaded
 
 
