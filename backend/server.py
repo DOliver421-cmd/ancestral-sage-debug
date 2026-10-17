@@ -11275,23 +11275,6 @@ for _router_module_name, _router_mount_prefix in _ADDITIONAL_API_ROUTER_MODULES:
     app.include_router(_router_module.router, prefix=_router_mount_prefix)
 
 
-# Unified Access Control Gateway (security/access_control) - mounted per that
-# module's documented wiring (see security/access_control/wiring.py): bind
-# shared deps, expose the executive route-access dashboard under /api, then
-# wrap the app with the hard gate AFTER every route is registered (the gate
-# derives each route's handler rank at wrap time). The gate is an ADDITIONAL
-# exec-configurable restriction layer; with no exec route policy written it
-# changes nothing, and it never loosens any handler's own dependency.
-from security.access_control.wiring import mount_access_gateway as _mount_access_gateway
-
-access_gateway = _mount_access_gateway(
-    app=app,
-    api_router=api_router,
-    db=db,
-    audit=audit,
-    current_user=current_user,
-)
-
 
 # Unknown /api/* paths answer JSON — never the SPA HTML page (owner-approved
 # decision #3). Registered AFTER every real route so it only ever sees paths
