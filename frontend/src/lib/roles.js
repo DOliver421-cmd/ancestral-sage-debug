@@ -31,6 +31,8 @@ export const ROLE_RANK = {
   oversight: 5,
   admin: 6,
   executive_admin: 7,
+  owner: 10,
+  super_admin: 10,
 };
 
 // Ordered weakest → strongest (the canonical RBAC ladder).
@@ -42,6 +44,8 @@ export const ROLES_ALL = [
   "oversight",
   "admin",
   "executive_admin",
+  "owner",
+  "super_admin",
 ];
 
 // Human labels for the UI.
@@ -54,6 +58,8 @@ export const ROLE_LABELS = {
   oversight: "Oversight",
   admin: "Admin",
   executive_admin: "Executive Admin",
+  owner: "Owner",
+  super_admin: "Super Admin",
 };
 
 // Tailwind badge colors per role (for user rows / chips).
