@@ -41,8 +41,8 @@ export default function ConstructionPM() {
       setProjects((prev) => [r.data, ...prev]);
       setSelected(r.data);
       toast.success("Project created");
-    } catch {
-      toast.error("Failed to create project");
+    } catch (e) {
+      toast.error(`Create failed: ${e?.response?.data?.detail || e?.message || "unknown error"}`);
     }
   };
 
