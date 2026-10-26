@@ -44,7 +44,7 @@ router = APIRouter(tags=["construction-pm"])
 # token_version revocation + deactivation checks). Staff roles operate
 # open-read/write within the construction domain — no tier gates.
 
-_StaffRole = ("instructor", "support_staff", "oversight", "admin", "executive_admin")
+_StaffRole = ("instructor", "support_staff", "oversight", "admin", "executive_admin", "owner", "super_admin")
 
 _CURRENT_USER = None
 
@@ -59,7 +59,7 @@ async def _staff_user(authorization: Optional[str] = Header(None)) -> dict:
     if _CURRENT_USER is None:
         raise HTTPException(503, "Service starting up")
     user = await _CURRENT_USER(authorization)
-    if user.role not in _StaffRole:
+    if user.role not in _StaffRole and getattr(user, "feature_tier", None) not in ("owner", "executive", "enterprise"):
         raise HTTPException(403, "Staff access required")
     return {
         "id": user.id,
