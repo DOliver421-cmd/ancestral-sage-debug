@@ -49,7 +49,7 @@ _StaffRole = ("instructor", "support_staff", "oversight", "admin", "executive_ad
 _CURRENT_USER = None
 
 
-def _bind(current_user=None, audit=None, db=None, **kwargs):
+def bind(current_user=None, audit=None, db=None, **kwargs):
     global _CURRENT_USER
     if current_user is not None:
         _CURRENT_USER = current_user

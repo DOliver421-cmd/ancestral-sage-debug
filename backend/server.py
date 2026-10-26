@@ -269,7 +269,7 @@ _ADDITIONAL_API_ROUTER_MODULES = (
     ("simulation", "/api"),
     ("arena", ""),
     ("resource_hub", ""),
-    ("construction_pm", "/api"),
+    ("construction_pm", "/api/construction"),
     ("nasa_observatory", "/api"),
     # The Soup's Autonomous Partner API — ports the five routes the partner
     # page (mini-more-help-center/soup-partner.html) has always called, which
