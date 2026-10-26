@@ -95,7 +95,7 @@ rich-rst==2.1.0
 cyclopts==4.23.0
 docstring-parser==0.18.0
 detect-agent==0.6.0
-filelock==3.32.3
+filelock==4.2.1
 types-pyyaml==6.0.12.20260815
 types-tqdm==4.70.0.20260805
 # HuggingFace ecosystem
