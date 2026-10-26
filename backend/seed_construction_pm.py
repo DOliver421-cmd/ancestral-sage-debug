@@ -44,8 +44,8 @@ DIVISION26_CATALOG = [
     ("26-05-19-005", "26 05 19", "4/0 AWG THHN Copper", "lf", 4.95, 0.075),
     # 26 24 16 — Switchboards, Panels, and Disconnects
     ("26-24-16-001", "26 24 16", "100A 120/208V Main Lugs Panel (20-circuit)", "ea", 850.00, 4.00),
-    ("26-24-16-002", "26 24 16", "225A 120/208V Main Breaker Panel (42-circuit)", "ea", 1,850.00, 8.00),
-    ("26-24-16-003", "26 24 16", "1200A Main Distribution Switchboard", "ea", 24,000.00, 40.00),
+    ("26-24-16-002", "26 24 16", "225A 120/208V Main Breaker Panel (42-circuit)", "ea", 1850.00, 8.00),
+    ("26-24-16-003", "26 24 16", "1200A Main Distribution Switchboard", "ea", 24000.00, 40.00),
     ("26-24-16-004", "26 24 16", "30A NEMA 3R Disconnect Switch", "ea", 145.00, 1.50),
     ("26-24-16-005", "26 24 16", "60A Fused Disconnect Switch", "ea", 220.00, 2.00),
     # 26 09 23 — Lighting Control Devices
@@ -57,8 +57,8 @@ DIVISION26_CATALOG = [
     ("26-27-26-002", "26 27 26", "20A GFCI Receptacle", "ea", 18.50, 0.45),
     ("26-27-26-003", "26 27 26", "Single Pole 20A Switch", "ea", 2.80, 0.25),
     # 26 32 13 — Generator Backup & ATS
-    ("26-32-13-001", "26 32 13", "200A Automatic Transfer Switch (3-pole)", "ea", 2,400.00, 6.00),
-    ("26-32-13-002", "26 32 13", "40kW Diesel Generator (Skid-mounted)", "ea", 18,500.00, 16.00),
+    ("26-32-13-001", "26 32 13", "200A Automatic Transfer Switch (3-pole)", "ea", 2400.00, 6.00),
+    ("26-32-13-002", "26 32 13", "40kW Diesel Generator (Skid-mounted)", "ea", 18500.00, 16.00),
     # 26 27 13 — Metering & Isolated Grounds
     ("26-27-13-001", "26 27 13", "Isolated Ground Duplex Receptacle", "ea", 24.00, 0.35),
     ("26-27-13-002", "26 27 13", "Revenue Grade kWh Meter (3-phase)", "ea", 480.00, 1.75),
