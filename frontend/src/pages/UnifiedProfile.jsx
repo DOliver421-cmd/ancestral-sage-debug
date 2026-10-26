@@ -22,6 +22,7 @@ import { FEATURE_TIER_RANK, FEATURE_TIER_LABEL, canAccess } from "../lib/tiers";
 import SharePanel from "../components/SharePanel";
 import WorkspacePanel from "../components/WorkspacePanel";
 import ResourceHubPanel from "../components/ResourceHubPanel";
+import ProducerOnZeroBudgetTab from "../components/ProducerOnZeroBudgetTab";
 import {
   Music, BookOpen, Users, Edit3, Camera, Send, Mic, MicOff, GraduationCap,
   Volume2, VolumeX, Play, Pause, Settings, ExternalLink,
@@ -1534,7 +1535,8 @@ export default function UnifiedProfile() {
     { key: "resources", label: "Resources", ownerOnly: true },
     { key: "create",   label: "Create",  ownerOnly: true },
     { key: "publish",  label: "Publish", ownerOnly: true },
-  ].filter(t => !t.ownerOnly || isOwner);
+    { key: "producer", label: "Producer on $0 Budget" },
+].filter(t => !t.ownerOnly || isOwner);
 
   const canUsePublisherAI = canAccess(user, viewerStatus, "publisher_ai");
   const canUseGhost       = canAccess(user, viewerStatus, "ghost");
@@ -1913,6 +1915,9 @@ export default function UnifiedProfile() {
 
               {/* ══ RESOURCES tab — Resource Hub embedded ══ */}
               {activeTab === "resources" && isOwner && <ResourceHubPanel user={user} />}
+
+              {/* ══ PRODUCER ON $0 BUDGET tab ══ */}
+              {activeTab === "producer" && <ProducerOnZeroBudgetTab />}
             </div>
 
             {/* ── Right rail (reduced — only share + revenue + upgrade) ── */}
