@@ -14,7 +14,7 @@ import {
   Gamepad2, Star, Radio, Globe, ChevronLeft, ChevronRight, Share2,
   Map, BrainCircuit, CreditCard, BarChart3, Wrench, ExternalLink,
   Lock, Search, HeartPulse, Landmark, TicketPercent, Menu, Swords,
-  ArrowLeft, Home, GraduationCap, Folder,
+  ArrowLeft, Home, GraduationCap, Folder, HardHat,
   Soup,
 } from "lucide-react";
 import { isWaiDoor, MORE_HOME } from "../lib/domain";
@@ -176,6 +176,7 @@ const STAFF_SECTIONS = [
       { to: "/instructor", label: "My Roster", icon: Users, testid: "nav-instructor" },
       { to: "/instructor/labs", label: "Lab Approvals", icon: ClipboardCheck, testid: "nav-lab-approvals" },
       { to: "/attendance", label: "Attendance", icon: Calendar, testid: "nav-attendance" },
+      { to: "/construction", label: "Project Management", icon: HardHat, testid: "nav-construction-pm" },
     ],
   },
   {
