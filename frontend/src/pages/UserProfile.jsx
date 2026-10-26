@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
 import { Edit2, Lock, ChevronDown, ChevronRight, ExternalLink, Tag, Search, Sparkles, ArrowRight } from "lucide-react";
 import PartnershipCard from "../components/PartnershipCard";
+import ProducerOnZeroBudgetTab from "../components/ProducerOnZeroBudgetTab";
 import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import AppShell from "../components/AppShell";
@@ -388,6 +389,7 @@ export default function UserProfile() {
     { id: "learning", label: "Learning" },
     { id: "ascension", label: "Ascension" },
     { id: "deals", label: "Deals" },
+    { id: "producer", label: "Producer on $0 Budget" },
   ];
   if (isOwnProfile) baseTabs.push({ id: "settings", label: "Settings" });
 
@@ -659,6 +661,9 @@ export default function UserProfile() {
             </div>
           </div>
         )}
+
+        {/* ═══════ PRODUCER ON $0 BUDGET ═══════ */}
+        {activeTab === "producer" && <ProducerOnZeroBudgetTab />}
 
         {/* ═══════ SETTINGS ═══════ */}
         {activeTab === "settings" && isOwnProfile && (

@@ -182,6 +182,7 @@ import LegacyTool from "./pages/LegacyTool";
 import AgentRegistryView from "./pages/aawab/AgentRegistryView";
 import AdminAawabDashboard from "./pages/aawab/AdminAawabDashboard";
 import CrossSiteLogin from "./pages/CrossSiteLogin";
+import ConstructionPM from "./pages/ConstructionPM";
 import { ROLE_RANK } from "./lib/roles";
 
 function Protected({ children, roles, loginRoute = "/login" }) {
@@ -367,6 +368,7 @@ function App() {
           <Route path="/academy/compliance" element={<Protected><AcademyCompliance /></Protected>} />
           <Route path="/academy/build" element={<Protected roles={["instructor", "support_staff", "oversight", "admin", "executive_admin"]}><AcademyBuildTracker /></Protected>} />
           <Route path="/simulation" element={<Protected><SimulationDashboard /></Protected>} />
+          <Route path="/construction" element={<Protected roles={["instructor", "support_staff", "oversight", "admin", "executive_admin"]}><ConstructionPM /></Protected>} />
           {/* Our Legacy, Our Future — the flagship book + campaign (public) */}
           <Route path="/our-legacy" element={<OurLegacy />} />
           {/* Vonns Saga — the multiverse choose-your-own-adventure (public) */}
