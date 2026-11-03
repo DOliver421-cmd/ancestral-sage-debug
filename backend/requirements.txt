@@ -14,7 +14,7 @@ motor==3.3.1
 # pins in May 2026 were undone by the same dependabot bump). To upgrade, bump
 # BOTH motor and pymongo together and run tests/test_dependency_compatibility.py.
 pymongo>=4.5,<4.6
-dnspython==2.8.0
+dnspython==2.9.0
 # Auth & Security
 bcrypt==4.0.1
 passlib==1.7.4
