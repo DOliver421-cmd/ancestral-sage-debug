@@ -1562,6 +1562,20 @@ async def _on_startup_impl():
     except Exception as _e:
         logger.warning("STARTUP: seed_hub_resources failed (non-fatal): %s", _e)
 
+    # ── Electrical Project Management seed (owner session 2026-11-04) ──────────
+    # The /construction page (ConstructionPM.jsx) calls /api/construction/projects
+    # on mount.  Without this seed the Division 26 catalog is empty, so the list
+    # returns zero projects and every estimate/field-log/EVM call 404s — the
+    # page renders "No electrical projects yet" with a working-looking Create
+    # button that cannot actually produce a usable project.  Seed runs at boot
+    # against the same bound db the router uses (idempotent: deletes + re-inserts).
+    try:
+        from seed_construction_pm import seed as _seed_construction_pm
+        await _seed_construction_pm(db)
+        logger.info("STARTUP: construction_pm seed complete")
+    except Exception as _e:
+        logger.warning("STARTUP: construction_pm seed failed (non-fatal): %s", _e)
+
     # ── Hybrid NAM knowledge corpus (owner session 2026-09-04) ────────────────
     # Seeds the Knowledge Forge through the same idempotent pipeline the
     # /api/nam/knowledge endpoints use: existing knowledge_ids are skipped,
