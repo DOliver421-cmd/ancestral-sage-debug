@@ -219,16 +219,23 @@ def _calc_extended(material_cost, labor_hours, qty, multipliers, blended_rate, f
     }
 
 
-async def seed():
-    mongo_url = os.environ.get("MONGO_URL")
-    if not mongo_url:
-        print("ERROR: MONGO_URL environment variable is required")
-        sys.exit(1)
+async def seed(db=None):
+    """Populate the construction_pm collections.
 
-    client = AsyncIOMotorClient(mongo_url)
-    db = client[DB_NAME]
-
-    print(f"Connected to MongoDB database: {DB_NAME}")
+    When *db* is supplied (the bound Motor handle from server.py startup) the
+    seed writes to the SAME database the router reads from and never opens a
+    second client.  When called standalone (``MONGO_URL=... python
+    seed_construction_pm.py``) it connects directly to MongoDB.
+    """
+    opened_client = None
+    if db is None:
+        mongo_url = os.environ.get("MONGO_URL")
+        if not mongo_url:
+            print("ERROR: MONGO_URL environment variable is required")
+            sys.exit(1)
+        opened_client = AsyncIOMotorClient(mongo_url)
+        db = opened_client[DB_NAME]
+        print(f"Connected to MongoDB database: {DB_NAME}")
 
     # ───── Clear existing construction_pm data (idempotent re-seed) ─────
     for coll in [
@@ -399,12 +406,34 @@ async def seed():
             )
     print(f"Recalculated {len(benchmark_docs)} labor benchmarks from field logs.")
 
+    # ── Indexes (idempotent) ───────────────────────────────────────────────────
+    # The router declares these but nothing ever called ensure_indexes, so on a
+    # fresh deploy the unique indexes were missing and upserts could duplicate.
+    # Declared here (rather than importing the router) so the standalone seed and
+    # the startup path both get them without an import-order dependency.
+    try:
+        await db.construction_projects.create_index("owner_id")
+        await db.construction_projects.create_index("job_number", unique=True)
+        await db.construction_projects.create_index("current_phase")
+        await db.construction_division26.create_index("csi_code", unique=True)
+        await db.construction_division26.create_index("item_id", unique=True)
+        await db.construction_estimate_versions.create_index("project_id")
+        await db.construction_crew_blends.create_index("project_id")
+        await db.construction_daily_logs.create_index("project_id")
+        await db.construction_daily_logs.create_index("item_id")
+        await db.construction_benchmarks.create_index("item_id", unique=True)
+        await db.construction_blueprints.create_index("project_id")
+        print("Ensured construction_pm indexes.")
+    except Exception as _ie:
+        print(f"WARNING: construction_pm index ensure failed: {_ie}")
+
     # Summary
     print("\n✅ Seed complete. Summary:")
     for proj in SEED_PROJECTS:
         print(f"  • {proj['job_number']} — {proj['client_name']} — ${proj['contract_value']:,} — {proj['current_phase']}")
 
-    client.close()
+    if opened_client is not None:
+        opened_client.close()
 
 
 if __name__ == "__main__":
