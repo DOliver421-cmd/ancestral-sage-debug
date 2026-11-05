@@ -24,7 +24,7 @@ import sys
 from datetime import datetime, timezone
 from motor.motor_asyncio import AsyncIOMotorClient
 
-DB_NAME = os.environ.get("MONGO_DB_NAME", "morehelp_center")
+DB_NAME = os.environ.get("DB_NAME", os.environ.get("MONGO_DB_NAME", "morehelp_center"))
 
 # ── CSI Division 26 catalog ───────────────────────────────────────────────────
 # (item_id, csi_code, description, uom, default_material_cost, default_labor_hours)
