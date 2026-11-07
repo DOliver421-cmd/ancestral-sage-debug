@@ -6,7 +6,7 @@ WORKDIR /frontend
 COPY frontend/package*.json ./
 RUN npm ci --legacy-peer-deps
 
-ARG CACHE_BUST=20260921v2
+ARG CACHE_BUST=20261106v1
 RUN echo "CACHE_BUST=${CACHE_BUST}" && touch /frontend/.cache-bust
 COPY frontend/ ./
 

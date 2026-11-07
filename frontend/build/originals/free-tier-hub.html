@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>W.A.I. Free Sandbox & Resource Hub</title>
+    <style>
+        body {
+            font-family: system-ui, sans-serif;
+            background: #090d16;
+            color: #e2e8f0;
+            padding: 30px;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .card {
+            background: #111827;
+            border: 1px solid #1f2937;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        h1, h2 { color: #38bdf8; }
+        textarea {
+            width: 97%; height: 100px;
+            background: #030712; color: #fff;
+            border: 1px solid #374151; padding: 10px;
+            border-radius: 4px; font-family: monospace;
+        }
+        button {
+            background: #38bdf8; color: #090d16;
+            border: none; padding: 10px 20px;
+            border-radius: 4px; font-weight: bold; cursor: pointer;
+        }
+        button:hover { background: #0ea5e9; }
+        .paywall-badge {
+            background: #f59e0b; color: #000;
+            font-size: 11px; padding: 2px 6px;
+            border-radius: 3px; font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>🌐 W.A.I. Free Tier Workspace</h1>
+    <p>Client-side processing enabled. Zero server lag.</p>
+
+    <!-- BUILT-IN TOOL 1: PROMPT BUILDER -->
+    <div class="card">
+        <h2>🛠️ Client-Side Prompt Optimizer</h2>
+        <p>Inject structural variables into your raw instructions instantly:</p>
+        <input type="text" id="roleInput" placeholder="e.g., Senior Python Engineer" style="width:97%; padding:8px; margin-bottom:10px;"><br>
+        <textarea id="taskInput" placeholder="Type your core task here..."></textarea><br><br>
+        <button onclick="compilePrompt()">Compile Production Prompt</button>
+        <h3>Result:</h3>
+        <textarea id="outputPrompt" readonly></textarea>
+    </div>
+
+    <!-- PREMIUM ANCHOR PORTAL -->
+    <div class="card" style="border-color: #f59e0b;">
+        <h2>🚀 Upgrade Your Operational Capabilities</h2>
+        <p>Unlock architectural configuration templates, advanced quarantine filters, and complete system masterclasses.</p>
+        <p>
+            <span class="paywall-badge">TRIAL</span> 7-Day Access Pass: <strong>$4.99</strong><br><br>
+            <span class="paywall-badge">CORE</span> Tier 1 Premium: <strong>$11.00 / month</strong><br><br>
+            <span class="paywall-badge">PRO</span> Tier 2 Architecture: <strong>$22.00 / month</strong>
+        </p>
+        <button onclick="location.href='/signup';" style="background:#f59e0b;">Access Premium Pipelines</button>
+    </div>
+
+    <script>
+        function compilePrompt() {
+            const role = document.getElementById("roleInput").value || "General Assistant";
+            const task = document.getElementById("taskInput").value;
+            const compiled = `[SYSTEM CONTEXT]: You are an expert ${role}.\n[CONSTRAINT]: Provide complete, un-fragmented code blocks optimized for resource containment.\n[TASK]: ${task}`;
+            document.getElementById("outputPrompt").value = compiled;
+        }
+    </script>
+</body>
+</html>

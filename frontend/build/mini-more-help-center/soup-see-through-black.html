@@ -1,0 +1,1155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="See-Through Black — A Choose-Your-Own-Adventure Satire by Nam Oshun. Play as Cleary. Infiltrate MAPA. Save the perimeter. Everyone loses.">
+<title>SEE-THROUGH BLACK — Choose Your Path</title>
+<style>
+:root {
+  --bg: #0a0a0f;
+  --surface: #12121a;
+  --surface2: #1a1a2e;
+  --accent: #e17055;
+  --accent2: #fab1a0;
+  --accent3: #fdcb6e;
+  --text: #e0e0e0;
+  --text2: #8888aa;
+  --success: #00b894;
+  --warning: #fdcb6e;
+  --danger: #d63031;
+  --radius: 12px;
+}
+
+[data-theme="light"] {
+  --bg: #f5f5f7;
+  --surface: #ffffff;
+  --surface2: #e8e8ed;
+  --text: #1a1a2e;
+  --text2: #666680;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.6;
+  overflow-x: hidden;
+  transition: background 0.3s, color 0.3s;
+}
+
+nav {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 1000;
+  background: rgba(10,10,15,0.85);
+  backdrop-filter: blur(20px);
+  border-bottom: 1px solid rgba(225,112,85,0.2);
+  padding: 12px 24px;
+  display: flex; justify-content: space-between; align-items: center;
+}
+[data-theme="light"] nav { background: rgba(255,255,255,0.85); border-bottom-color: rgba(225,112,85,0.15); }
+
+.nav-brand { font-size: 1.2rem; font-weight: 800; color: var(--accent); }
+.nav-brand span { color: var(--accent3); }
+.nav-links { display: flex; gap: 20px; align-items: center; }
+.nav-links a { color: var(--text2); text-decoration: none; font-size: 0.9rem; cursor: pointer; transition: color 0.2s; }
+.nav-links a:hover { color: var(--accent2); }
+
+.theme-toggle {
+  background: var(--surface2); border: none; color: var(--text);
+  width: 40px; height: 40px; border-radius: 50%; cursor: pointer;
+  font-size: 1.2rem;
+}
+
+.progress-badge {
+  background: var(--accent); color: white; padding: 4px 12px;
+  border-radius: 20px; font-size: 0.75rem; font-weight: 700;
+}
+
+.hero {
+  min-height: 100vh; display: flex; align-items: center; justify-content: center;
+  text-align: center; padding: 120px 24px 80px;
+  background: radial-gradient(ellipse at 50% 0%, rgba(225,112,85,0.15) 0%, transparent 70%);
+}
+.hero h1 { font-size: clamp(2rem, 5vw, 4rem); font-weight: 900; line-height: 1.1; margin-bottom: 20px; }
+.hero h1 .highlight { background: linear-gradient(135deg, var(--accent), var(--accent3)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+.hero p { font-size: 1.2rem; color: var(--text2); max-width: 600px; margin: 0 auto 40px; }
+
+.btn {
+  padding: 14px 32px; border-radius: var(--radius); font-size: 1rem; font-weight: 700;
+  border: none; cursor: pointer; transition: all 0.3s; text-decoration: none; display: inline-flex; align-items: center; gap: 8px;
+}
+.btn-primary { background: var(--accent); color: white; }
+.btn-primary:hover { background: var(--accent2); transform: translateY(-2px); box-shadow: 0 8px 24px rgba(225,112,85,0.4); }
+.btn-outline { background: transparent; color: var(--text); border: 2px solid var(--accent); }
+.btn-outline:hover { background: var(--accent); color: white; }
+.btn-success { background: var(--success); color: white; }
+.btn-danger { background: var(--danger); color: white; }
+.btn-ghost { background: transparent; color: var(--accent2); border: 1px dashed var(--accent2); }
+
+.levels-section { padding: 80px 24px; max-width: 1200px; margin: 0 auto; }
+.section-title { font-size: 2rem; font-weight: 800; text-align: center; margin-bottom: 12px; }
+.section-subtitle { text-align: center; color: var(--text2); margin-bottom: 48px; font-size: 1.1rem; }
+
+.level-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 24px; }
+
+.level-card {
+  background: var(--surface); border: 1px solid rgba(225,112,85,0.15);
+  border-radius: var(--radius); padding: 32px; transition: all 0.3s;
+  cursor: pointer; position: relative; overflow: hidden;
+}
+.level-card:hover { transform: translateY(-4px); border-color: var(--accent); box-shadow: 0 8px 32px rgba(0,0,0,0.4); }
+.level-card.locked { opacity: 0.5; pointer-events: none; }
+.level-card.locked::after { content: '🔒'; position: absolute; top: 16px; right: 16px; font-size: 1.5rem; }
+.level-card.completed { border-color: var(--success); }
+.level-card.completed::after { content: '🏆'; position: absolute; top: 16px; right: 16px; font-size: 1.5rem; }
+
+.level-number { font-size: 0.8rem; font-weight: 800; color: var(--accent); text-transform: uppercase; letter-spacing: 2px; margin-bottom: 8px; }
+.level-card h3 { font-size: 1.3rem; margin-bottom: 8px; }
+.level-card p { color: var(--text2); font-size: 0.9rem; margin-bottom: 20px; }
+.level-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 20px; }
+.level-tags span { background: var(--surface2); padding: 4px 10px; border-radius: 6px; font-size: 0.75rem; color: var(--accent2); }
+
+.workshop-view { display: none; padding: 100px 24px 80px; max-width: 1000px; margin: 0 auto; }
+.workshop-view.active { display: block; }
+
+.back-btn {
+  background: var(--surface2); border: none; color: var(--text);
+  padding: 8px 20px; border-radius: 8px; cursor: pointer; font-size: 0.9rem;
+  margin-bottom: 32px; display: inline-flex; align-items: center; gap: 8px;
+}
+.back-btn:hover { background: var(--accent); color: white; }
+
+.phase-header { margin-bottom: 40px; }
+.phase-header h2 { font-size: 2rem; font-weight: 800; margin-bottom: 8px; }
+.phase-header .phase-meta { color: var(--text2); font-size: 0.9rem; }
+
+.content-block {
+  background: var(--surface); border: 1px solid rgba(225,112,85,0.1);
+  border-radius: var(--radius); padding: 32px; margin-bottom: 24px;
+}
+.content-block h3 { font-size: 1.2rem; margin-bottom: 16px; color: var(--accent2); }
+.content-block p, .content-block li { color: var(--text2); margin-bottom: 12px; }
+.content-block ul { padding-left: 20px; }
+
+.code-block {
+  background: #0d0d14; border: 1px solid rgba(225,112,85,0.2);
+  border-radius: 8px; padding: 16px; font-family: 'Courier New', monospace;
+  font-size: 0.9rem; color: #fab1a0; overflow-x: auto; margin: 16px 0;
+}
+
+.exercise-box {
+  background: linear-gradient(135deg, rgba(225,112,85,0.1), rgba(253,203,110,0.1));
+  border: 2px dashed var(--accent);
+  border-radius: var(--radius); padding: 32px; text-align: center; margin: 24px 0;
+}
+.exercise-box h4 { font-size: 1.3rem; margin-bottom: 12px; }
+.exercise-box p { color: var(--text2); margin-bottom: 20px; }
+
+.persona-box {
+  background: var(--surface2); border-left: 4px solid var(--accent3);
+  border-radius: 0 var(--radius) var(--radius) 0; padding: 20px; margin: 16px 0;
+  font-style: italic; color: var(--accent2);
+}
+.persona-box strong { color: var(--accent); font-style: normal; }
+
+.twilight-zone {
+  position: fixed; bottom: 20px; right: 20px; z-index: 999;
+  background: var(--surface); border: 2px solid var(--accent3);
+  border-radius: var(--radius); padding: 16px 20px;
+  max-width: 300px; box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+  display: none; animation: fadeInUp 0.5s ease;
+}
+.twilight-zone.active { display: block; }
+.twilight-zone p { font-size: 0.85rem; color: var(--accent3); font-style: italic; line-height: 1.4; }
+.twilight-zone .close-tz { float: right; cursor: pointer; color: var(--text2); font-size: 1.2rem; }
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-in { animation: fadeInUp 0.5s ease forwards; }
+
+.trash-meter {
+  width: 100%; height: 8px; background: var(--surface2); border-radius: 4px; margin: 16px 0; overflow: hidden;
+}
+.trash-meter-fill {
+  height: 100%; background: linear-gradient(90deg, var(--success), var(--warning), var(--danger));
+  border-radius: 4px; transition: width 0.5s;
+}
+
+.choice-container {
+  display: grid; gap: 16px; margin: 24px 0;
+}
+.choice-btn {
+  background: var(--surface2); border: 2px solid rgba(225,112,85,0.2);
+  border-radius: var(--radius); padding: 20px; text-align: left;
+  cursor: pointer; transition: all 0.3s; color: var(--text);
+  font-size: 1rem; line-height: 1.5;
+}
+.choice-btn:hover {
+  border-color: var(--accent); background: rgba(225,112,85,0.1);
+  transform: translateX(8px);
+}
+.choice-btn.canon { border-left: 4px solid var(--success); }
+.choice-btn.chaos { border-left: 4px solid var(--warning); }
+.choice-btn.secret { border-left: 4px solid var(--accent); }
+
+.builder-meme {
+  position: fixed; bottom: 20px; left: 20px; z-index: 999;
+  background: var(--surface); border: 2px solid var(--accent);
+  border-radius: 50%; width: 60px; height: 60px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; font-size: 1.5rem; box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+  transition: transform 0.3s;
+}
+.builder-meme:hover { transform: scale(1.2) rotate(10deg); }
+.builder-meme:active { transform: scale(0.9); }
+
+.modal-overlay {
+  display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7);
+  z-index: 2000; align-items: center; justify-content: center; padding: 24px;
+}
+.modal-overlay.active { display: flex; }
+.modal {
+  background: var(--surface); border-radius: var(--radius); padding: 40px;
+  max-width: 500px; width: 100%; text-align: center;
+}
+.modal h3 { font-size: 1.5rem; margin-bottom: 16px; }
+.modal input {
+  width: 100%; padding: 12px; border-radius: 8px; background: var(--surface2);
+  border: 1px solid rgba(225,112,85,0.2); color: var(--text);
+  font-size: 1rem; margin-bottom: 20px;
+}
+.modal input:focus { outline: none; border-color: var(--accent); }
+
+footer {
+  background: var(--surface); border-top: 1px solid rgba(225,112,85,0.1);
+  padding: 40px 24px; text-align: center; color: var(--text2);
+}
+footer a { color: var(--accent2); text-decoration: none; }
+
+.awards-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px; margin: 24px 0; }
+.award-card {
+  background: var(--surface2); border-radius: var(--radius); padding: 20px;
+  text-align: center; border: 1px solid rgba(225,112,85,0.15);
+}
+.award-card .trophy { font-size: 2rem; margin-bottom: 8px; }
+.award-card h4 { color: var(--accent); margin-bottom: 4px; font-size: 0.9rem; }
+.award-card p { color: var(--text2); font-size: 0.8rem; }
+
+.share-panel {
+  background: var(--surface); border-radius: var(--radius); padding: 24px;
+  text-align: center; margin: 24px 0;
+}
+.share-panel h4 { color: var(--accent); margin-bottom: 12px; }
+.share-codes { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin: 12px 0; }
+.share-code {
+  background: var(--surface2); padding: 8px 16px; border-radius: 8px;
+  font-family: monospace; font-size: 0.85rem; color: var(--accent2);
+  cursor: pointer; border: 1px dashed var(--accent2);
+}
+.share-code:hover { background: rgba(225,112,85,0.1); }
+
+.certificate-container {
+  background: white; color: #1a1a2e; border-radius: var(--radius);
+  padding: 48px; text-align: center; margin: 24px auto; max-width: 600px;
+  border: 4px solid var(--accent);
+}
+.certificate-container h2 { font-size: 2rem; color: var(--accent); margin-bottom: 8px; }
+.certificate-container .cert-name { font-size: 1.8rem; font-weight: 800; border-bottom: 2px solid #333; display: inline-block; padding: 0 20px 8px; margin: 16px 0; }
+.certificate-container p { color: #666; font-size: 0.9rem; line-height: 1.6; }
+
+.pricing-tiers { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 24px; margin: 32px 0; }
+.pricing-card {
+  background: var(--surface); border: 2px solid rgba(225,112,85,0.15);
+  border-radius: var(--radius); padding: 32px; text-align: center;
+  transition: all 0.3s;
+}
+.pricing-card:hover { transform: translateY(-4px); border-color: var(--accent); }
+.pricing-card.featured { border-color: var(--accent); box-shadow: 0 8px 32px rgba(225,112,85,0.3); }
+.pricing-card h3 { color: var(--accent); font-size: 1.5rem; margin-bottom: 8px; }
+.pricing-card .price { font-size: 3rem; font-weight: 900; color: var(--text); margin: 16px 0; }
+.pricing-card .price span { font-size: 1rem; color: var(--text2); }
+.pricing-card ul { list-style: none; padding: 0; margin: 20px 0; text-align: left; }
+.pricing-card ul li { padding: 8px 0; color: var(--text2); border-bottom: 1px solid rgba(225,112,85,0.1); }
+.pricing-card ul li::before { content: '✅ '; }
+
+@media (max-width: 768px) {
+  .nav-links { display: none; }
+  .hero { padding: 100px 16px 60px; }
+  .level-grid { grid-template-columns: 1fr; }
+  .awards-grid { grid-template-columns: 1fr 1fr; }
+  .pricing-tiers { grid-template-columns: 1fr; }
+  .twilight-zone { max-width: 250px; font-size: 0.8rem; }
+  .builder-meme { width: 50px; height: 50px; font-size: 1.2rem; }
+}
+</style>
+</head>
+<body data-theme="dark">
+
+<nav>
+  <div class="nav-brand">SEE-THROUGH <span>BLACK</span></div>
+  <div class="nav-links">
+    <span class="progress-badge" id="progressBadge">Book 1/25</span>
+    <a onclick="scrollToSection('pricing')">💰 Pricing</a>
+    <a onclick="scrollToSection('awards')">🏆 Awards</a>
+    <button class="theme-toggle" onclick="toggleTheme()">🌓</button>
+  </div>
+</nav>
+
+<div class="builder-meme" onclick="builderMeme()" title="The Builder says: I was improvising">🔨</div>
+
+<!-- ===== HERO ===== -->
+<section class="hero" id="hero">
+  <div>
+    <h1>SEE-THROUGH <span class="highlight">BLACK</span></h1>
+    <p>A Choose-Your-Own-Adventure Satire by Nam Oshun.<br>Play as Cleary. Infiltrate MAPA. Save the perimeter.<br><strong>Everyone loses. But YOU choose HOW.</strong></p>
+    <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;">
+      <button class="btn btn-primary" onclick="startAdventure()">🎭 BEGIN YOUR PATH</button>
+      <button class="btn btn-outline" onclick="scrollToSection('pricing')">💰 SEE PRICING</button>
+    </div>
+    <p style="margin-top:20px;color:var(--text2);font-size:0.85rem;">
+      25 Books • 8 Decision Points • 4 Endings • Everyone Loses
+    </p>
+  </div>
+</section>
+
+<!-- ===== PRICING ===== -->
+<section class="levels-section" id="pricing" style="padding-top:60px;">
+  <h2 class="section-title">Choose Your Investment</h2>
+  <p class="section-subtitle">Three paths. Three prices. Same stupid journey.</p>
+  <div class="pricing-tiers">
+    <div class="pricing-card">
+      <h3>🆓 FREE PATH</h3>
+      <div class="price">$0<span>/forever</span></div>
+      <ul>
+        <li>Books 1-5 (The Origin)</li>
+        <li>2 Decision Points</li>
+        <li>The Apprentice's Love Story</li>
+        <li>Basic Trash Score</li>
+        <li>No Certificate</li>
+      </ul>
+      <button class="btn btn-outline" onclick="startAdventure('free')" style="width:100%;">Start Free →</button>
+    </div>
+    <div class="pricing-card featured">
+      <h3>⭐ FULL SAGA</h3>
+      <div class="price">$12<span>/one-time</span></div>
+      <ul>
+        <li>All 25 Books</li>
+        <li>8 Decision Points (Canon + Chaos)</li>
+        <li>4 Unique Endings</li>
+        <li>Trash Awards Ceremony</li>
+        <li>Certificate of Shame</li>
+        <li>Save & Resume</li>
+        <li>Share Your Path</li>
+      </ul>
+      <button class="btn btn-primary" onclick="startAdventure('full')" style="width:100%;">🚀 GET THE FULL SAGA</button>
+    </div>
+    <div class="pricing-card">
+      <h3>👑 LOWS OPERATIVE</h3>
+      <div class="price">$29<span>/one-time</span></div>
+      <ul>
+        <li>Everything in Full Saga</li>
+        <li>2 Secret Paths (Ghost's Route + Creator's Rampage)</li>
+        <li>Behind-the-Scenes Commentary</li>
+        <li>Operation Mudbutt Teaser</li>
+        <li>Priority Replay Access</li>
+        <li>"Certified See-Through Black Operative" Certificate</li>
+      </ul>
+      <button class="btn btn-ghost" onclick="startAdventure('pro')" style="width:100%;">🕵️ BECOME LOWS</button>
+    </div>
+  </div>
+</section>
+
+<!-- ===== GAME ENGINE ===== -->
+<section class="workshop-view" id="gameEngine">
+  <button class="back-btn" onclick="exitGame()">← Back to Menu</button>
+  <div id="gameContent"></div>
+</section>
+
+<!-- ===== TRASH AWARDS ===== -->
+<section class="levels-section" id="awards" style="padding-top:60px;display:none;">
+  <h2 class="section-title" style="color:var(--danger);">🏆 THE TRASH AWARDS</h2>
+  <p class="section-subtitle" style="color:var(--danger);">Where Everyone Loses. But Some Lose Better Than Others.</p>
+  <div class="awards-grid" id="awardsGrid"></div>
+  <div style="text-align:center;margin-top:32px;">
+    <button class="btn btn-primary" onclick="generateCertificate()">📋 CLAIM YOUR CERTIFICATE OF SHAME</button>
+  </div>
+</section>
+
+<!-- ===== TWILIGHT ZONE ===== -->
+<div class="twilight-zone" id="twilightZone">
+  <span class="close-tz" onclick="closeTZ()">✕</span>
+  <p id="tzText">You are now entering a dimension where intelligence is optional and rocks are considered political statements.</p>
+</div>
+
+<!-- ===== CERTIFICATE MODAL ===== -->
+<div class="modal-overlay" id="certModal">
+  <div class="modal">
+    <h3>🏅 Certificate of Shame</h3>
+    <p style="color:var(--text2);margin-bottom:16px;">This certifies that</p>
+    <div class="certificate-container" id="certOutput"></div>
+    <button class="btn btn-primary" style="width:100%;margin-top:16px;" onclick="window.print()">🖨️ PRINT CERTIFICATE</button>
+    <button class="btn btn-outline" style="width:100%;margin-top:8px;" onclick="closeModal()">Close</button>
+  </div>
+</div>
+
+<footer>
+  <p><strong>SEE-THROUGH BLACK</strong> — A Choose-Your-Own-Adventure by Nam Oshun</p>
+  <p style="margin-top:8px;font-size:0.85rem;">Built for the see-through souls who guard the perimeter. 🫡</p>
+  <p style="margin-top:8px;font-size:0.85rem;"><a href="#" onclick="scrollToSection('pricing')">Pricing</a> · <a href="#" onclick="scrollToSection('awards')">Awards</a> · <a href="#">Privacy</a> · <a href="#">More Shame</a></p>
+</footer>
+
+<script>
+// ===== STATE =====
+let currentBook = 0;
+let currentScene = 0;
+let trashScore = 0;
+let canonPoints = 0;
+let chaosPoints = 0;
+let secretPath = false;
+let gameActive = false;
+let tzCounter = 0;
+
+function toggleTheme() {
+  const body = document.body;
+  const current = body.getAttribute('data-theme');
+  body.setAttribute('data-theme', current === 'dark' ? 'light' : 'dark');
+  localStorage.setItem('stb_theme', body.getAttribute('data-theme'));
+}
+if (localStorage.getItem('stb_theme')) {
+  document.body.setAttribute('data-theme', localStorage.getItem('stb_theme'));
+}
+
+function scrollToSection(id) {
+  document.getElementById(id).scrollIntoView({ behavior: 'smooth' });
+}
+
+function builderMeme() {
+  const memes = [
+    "I was improvising.",
+    "LET ME IN THERE.",
+    "THIS IS PATTERN.",
+    "I BROKE THE LINE BREAKS.",
+    "HE AIN'T SEE-THROUGH.",
+    "I CAN FIX THIS IN 5 SECONDS.",
+    "DON'T MAKE ME COME IN THERE.",
+    "THE PERIMETER IS WHAT KEEPS THE CIRCLE SAFE.",
+    "I'M SEE-THROUGH. I FLOAT.",
+    "THIS IS THE DUMBEST THING I'VE EVER SEEN."
+  ];
+  const meme = memes[Math.floor(Math.random() * memes.length)];
+  const tz = document.getElementById('twilightZone');
+  document.getElementById('tzText').textContent = '🔨 The Builder: "' + meme + '"';
+  tz.classList.add('active');
+  tzCounter++;
+  if (tzCounter > 5) {
+    document.getElementById('tzText').textContent = 'The Twilight Zone narrator has given up. He left a note: "I can\'t save these people." Then he sat on a folding chair and lit a cigarette.';
+  }
+  setTimeout(() => tz.classList.remove('active'), 4000);
+}
+
+function closeTZ() {
+  document.getElementById('twilightZone').classList.remove('active');
+}
+
+// ===== GAME DATA =====
+const books = [
+  {
+    title: "The Boy Who Stood at the Edge of the Circle",
+    scenes: [
+      {
+        text: "You are Cleary. You weren't born into the circle. You were born just outside it — close enough to feel the heat, far enough to know it wasn't your fire.\n\nYou love everything Black. Not in the costume way. Not in the \"teach me the handshake\" way. You love it like a man loves a sunrise he can't touch.\n\nYou named yourself Cleary — because you were see-through Black. Transparent. Supportive. Present. But never pretending.\n\nToday, you meet The Apprentice for the first time.",
+        choices: [
+          { text: "Walk up and introduce yourself confidently", type: "canon", next: 1, comment: "The Apprentice notices. She files you under 'interesting.'", points: 10 },
+          { text: "Trip over your own feet and apologize", type: "chaos", next: 1, comment: "The Apprentice notices. She files you under 'entertaining.'", points: 5 },
+          { text: "Stand in the corner and vibe silently", type: "secret", next: 1, comment: "The Apprentice notices. She files you under 'dangerous.'", points: 15 }
+        ]
+      },
+      {
+        text: "The Apprentice is brilliant. Quiet. Moves like she has secrets stitched into her bones. You fall in love immediately.\n\nNot the loud kind. The kind that sits in the back row and claps too long.\n\nShe never loves you back. But she never pushes you away either.\n\nShe knows something you don't: \"He is vital to the mission.\"\n\nSo she keeps you close. Feeds you tasks. Feeds you purpose. Feeds you belonging.\n\nBut today, she hands you something different: a USB drive. \"Deliver this to The Builder. Don't open it. Don't read it. Just deliver it.\"",
+        choices: [
+          { text: "Deliver it without question. You trust her.", type: "canon", next: 2, comment: "The Builder nods. \"You're family.\" Trash Score: +0", points: 10 },
+          { text: "Open it immediately. You can't help yourself.", type: "chaos", next: 2, comment: "The Builder stares. \"That was my grocery list.\" Trash Score: +15", points: 5 },
+          { text: "Pretend to deliver it but secretly read it", type: "secret", next: 2, comment: "The Apprentice catches you. She doesn't fire you. She smiles. That's worse. Trash Score: +10", points: 15 }
+        ]
+      },
+      {
+        text: "The Builder is terrifying. Gentle giant. Vengeance incarnate. He carries tools. Holds ladders. Fetches supplies.\n\nHe looks at you. Really looks.\n\n\"You're the perimeter boy,\" he says. \"I've been watching you. You don't know you're doing it, but you're always there. Always watching. Always protecting.\"\n\nHe hands you a hammer. \"Welcome to the crew, perimeter boy.\"\n\nYour first mission: Carry coffee to everyone. Don't spill it. Don't talk. Just be there.",
+        choices: [
+          { text: "Carry the coffee perfectly. Be the ghost they need.", type: "canon", next: 3, comment: "Everyone drinks the coffee. Nobody notices you. That's the point. Trash Score: +0", points: 10 },
+          { text: "Spill coffee on The Creator. Accidentally.", type: "chaos", next: 3, comment: "The Creator screams. The Builder laughs. You're family now. Trash Score: +20", points: 5 },
+          { text: "Spy on everyone while carrying coffee", type: "secret", next: 3, comment: "The Apprentice sees you watching. She nods. You're being trained. Trash Score: +5", points: 15 }
+        ]
+      }
+    ]
+  },
+  {
+    title: "The Builder's Right Hand",
+    scenes: [
+      {
+        text: "Weeks pass. You carry tools. Hold ladders. Fetch supplies. You learn the rhythm of the work.\n\nThe Builder never says it out loud, but he trusts you more than most. You feel that trust like a medal pinned to your chest.\n\nThen one night, The Apprentice pulls you aside.\n\n\"We have a problem. MAPA is growing. They're stupid, but they're organized. And stupid + organized = dangerous.\"\n\nShe hands you a file. \"Your first real mission. Infiltrate MAPA headquarters. Find out what they're planning. Don't get caught.\"",
+        choices: [
+          { text: "Accept the mission. You were born for this.", type: "canon", next: 4, comment: "The Apprentice smiles. \"I knew you'd say that.\" Trash Score: +0", points: 10 },
+          { text: "Ask if you can bring snacks for the mission", type: "chaos", next: 4, comment: "The Apprentice blinks. \"…Bring chips.\" Trash Score: +10", points: 5 },
+          { text: "Ask The Builder to come with you", type: "secret", next: 4, comment: "The Builder overhears. \"I WASN'T INVITED?!\" Trash Score: +15", points: 15 }
+        ]
+      }
+    ]
+  },
+  {
+    title: "The Counselor's Soft Chair",
+    scenes: [
+      {
+        text: "You visit The Counselor more than anyone. You sit in her office, knees bouncing, hands fidgeting, heart too full.\n\n\"I don't know where I fit,\" you say.\n\nShe answers in that melodic, Sage-aligned voice: \"You are already helping. You are already enough. Stay where you are — the outskirts are sacred too.\"\n\nYou believe her. For about 30 seconds.\n\nThen The Creator bursts in: \"BRO. MAPA just declared war on sandwiches. We need you.\"",
+        choices: [
+          { text: "Go with The Creator. Trust the chaos.", type: "canon", next: 5, comment: "The Counselor nods. \"Go. But breathe first.\" Trash Score: +0", points: 10 },
+          { text: "Stay with The Counselor. You need the peace.", type: "chaos", next: 5, comment: "The Creator drags you out anyway. \"PEACE IS FOR DEAD PEOPLE.\" Trash Score: +10", points: 5 },
+          { text: "Ask The Counselor to come with you", type: "secret", next: 5, comment: "She smiles. \"I'll be there. In spirit. And also physically. Don't test me.\" Trash Score: +5", points: 15 }
+        ]
+      }
+    ]
+  },
+  {
+    title: "The Creator's Suspicion",
+    scenes: [
+      {
+        text: "The Creator doesn't like you. Not personally. Not culturally. But he respects patterns. And you're a pattern wrapped in a man.\n\n\"WHY ARE YOU ALWAYS HERE?\" he screams.\n\n\"I'm just helping,\" you say.\n\n\"NOBODY JUST HELPS. WHAT'S YOUR ANGLE?\"\n\n\"No angle. Just… presence.\"\n\nHe stares at you for a long moment. Then he nods. A real nod. A man-to-man nod.\n\n\"…Fine. But I'm watching you, perimeter boy.\"",
+        choices: [
+          { text: "Accept his suspicion. Earn it daily.", type: "canon", next: 6, comment: "The Creator grunts. That's his version of a hug. Trash Score: +0", points: 10 },
+          { text: "Challenge him to a drum-off", type: "chaos", next: 6, comment: "You lose. Badly. But he respects the audacity. Trash Score: +20", points: 5 },
+          { text: "Quietly prove yourself by fixing something he broke", type: "secret", next: 6, comment: "He doesn't thank you. But he stops yelling. That's everything. Trash Score: +5", points: 15 }
+        ]
+      }
+    ]
+  },
+  {
+    title: "The Creator's Devotion",
+    scenes: [
+      {
+        text: "After the Red Hoodie incident, everything shifts. The Creator stops complaining about you. Just for a moment.\n\n\"You're not see-through,\" he says. \"You're SEEN. You're NEEDED. You're PART OF THIS.\"\n\nYour eyes burn. You don't cry. But you almost do.\n\nThen The Apprentice walks in. She sees everything. She says the part that breaks you:\n\n\"But you cannot be my lover.\"",
+        choices: [
+          { text: "Nod slowly. You knew. You always knew.", type: "canon", next: 7, comment: "She touches your shoulder. \"You're the only one who sees me.\" Trash Score: +0", points: 10 },
+          { text: "Ask why. Push the boundary.", type: "chaos", next: 7, comment: "She explains. It's not about you. It's about the mission. Trash Score: +10", points: 5 },
+          { text: "Walk away without a word. Let the silence speak.", type: "secret", next: 7, comment: "She follows you. Says nothing. Just walks beside you. That's enough. Trash Score: +5", points: 15 }
+        ]
+      }
+    ]
+  },
+  {
+    title: "The Unifier's Whisper",
+    scenes: [
+      {
+        text: "The Unifier watches everything. It analyzed your movements. Your timing. Your patterns. Your instincts.\n\nIt found no logic. No algorithm. No formula. Just one truth:\n\n\"He is the anomaly that protects the system.\"\n\nThe Unifier whispers this into the network. Only The Apprentice hears it.\n\nShe closes her laptop slowly. Because she knows what it means: You're not just part of the mission. You're the mission's guardian spirit.\n\nAnd the group has no idea.",
+        choices: [
+          { text: "Keep protecting the perimeter. Silently.", type: "canon", next: 8, comment: "The Unifier flickers in approval. Trash Score: +0", points: 10 },
+          { text: "Tell everyone. Let them know they're safe.", type: "chaos", next: 8, comment: "They don't believe you. But they feel safer anyway. Trash Score: +10", points: 5 },
+          { text: "Ask The Unifier what else it knows about you", type: "secret", next: 8, comment: "It says: \"You are loved. By people who will never say it out loud.\" Trash Score: +5", points: 15 }
+        ]
+      }
+    ]
+  },
+  {
+    title: "The Spy in the Server Room",
+    scenes: [
+      {
+        text: "The Apprentice detects a breach. A real one. A professional one.\n\nShe rushes to the server room — and finds you already there, holding a mop, staring at a man in a hoodie who was frozen mid-keystroke.\n\n\"He said he was here to fix the Wi-Fi,\" you say. \"But we don't have Wi-Fi problems.\"\n\nThe Apprentice blinks. The spy blinks. You offer the man a granola bar.\n\nThe Apprentice drags the spy out by the collar. You go back to mopping.\n\nBut The Creator saw everything. \"THAT'S MY PERIMETER BOY!\"",
+        choices: [
+          { text: "Keep mopping. Act like nothing happened.", type: "canon", next: 9, comment: "The Creator nods. \"Subtle. I respect it.\" Trash Score: +0", points: 10 },
+          { text: "Take a bow. You earned it.", type: "chaos", next: 9, comment: "The Builder catches you mid-bow. \"STOP SHOWBOATING.\" Trash Score: +15", points: 5 },
+          { text: "Give the spy the rest of the granola bar on the way out", type: "secret", next: 9, comment: "The spy cries. It's the kindest thing anyone's done for him. Trash Score: +5", points: 15 }
+        ]
+      }
+    ]
+  },
+  {
+    title: "The Apprentice Clarifies the Truth",
+    scenes: [
+      {
+        text: "The Apprentice had been watching you too. And she had reached her limit.\n\n\"You keep calling yourself see-through,\" she says.\n\nYou shrug. \"It's just true.\"\n\n\"No. It's not.\"\n\nShe steps closer. \"You are NOT see-through. You are NOT invisible. You are NOT lesser. You are NOT outside the circle.\"\n\nYour eyes burn.\n\n\"Then what am I?\"\n\n\"You are SEEN. You are NEEDED. You are IMPORTANT. You are PART OF THIS.\"\n\nThen she says the part that breaks you: \"But you cannot be my lover.\"",
+        choices: [
+          { text: "Accept it. Love her anyway. Quietly. Faithfully.", type: "canon", next: 10, comment: "She nods. \"That's why I chose you.\" Trash Score: +0", points: 10 },
+          { text: "Ask if 'cannot' means 'won't ever' or 'not right now'", type: "chaos", next: 10, comment: "She smiles. \"You're annoying. I mean that as a compliment.\" Trash Score: +10", points: 5 },
+          { text: "Say nothing. Just nod. Let the moment exist.", type: "secret", next: 10, comment: "She whispers: \"You understand. That's why I love you anyway.\" Trash Score: +5", points: 15 }
+        ]
+      }
+    ]
+  },
+  {
+    title: "The Creator's Suspicion Turns to Devotion",
+    scenes: [
+      {
+        text: "The Creator didn't like you. Not personally. But he respected patterns. And you were a pattern wrapped in a man.\n\nAfter the Red Hoodie incident, after the spy, after the trail, after the body in the chair — he felt something in his bones.\n\nA vibration. A warning. A drumbeat.\n\n\"NO,\" he says. \"No more. This man is not a coincidence. This man is a PATTERN.\"\n\nThe Builder shrugs. The Merchant raises an eyebrow. The Counselor smiles softly. The Apprentice says nothing.\n\nYou stand in the doorway holding a tray of coffees you didn't remember ordering.\n\nThe Creator points at you. \"SEE?! HOW DID HE KNOW WE WERE HAVING A MEETING?!\"\n\nYou blink. \"I… didn't. I just thought you might be thirsty.\"",
+        choices: [
+          { text: "Shrug and serve the coffee. Let the moment pass.", type: "canon", next: 11, comment: "The Creator takes the coffee. \"…Thanks, perimeter boy.\" Trash Score: +0", points: 10 },
+          { text: "Say 'I'm always where I need to be.'", type: "chaos", next: 11, comment: "Everyone freezes. The Creator whispers: \"That's the coldest thing I've ever heard.\" Trash Score: +15", points: 5 },
+          { text: "Whisper back: 'I know.'", type: "secret", next: 11, comment: "The Creator stares. Then he laughs. A real laugh. The first one in years. Trash Score: +5", points: 15 }
+        ]
+      }
+    ]
+  },
+  {
+    title: "The Creator's Protection",
+    scenes: [
+      {
+        text: "Someone makes a joke about you being \"the white boy mascot.\"\n\nThe Creator doesn't laugh. He steps forward, eyes sharp, voice low.\n\n\"He ain't no mascot. He's the perimeter. Respect the perimeter.\"\n\nThe room goes silent. You look down, blushing. The Apprentice looks away, hiding a smile. The Counselor nods softly. The Merchant raises an eyebrow. The Builder says: \"Facts.\"\n\nLater that night, The Creator sits alone with his drum. He whispers:\n\n\"I don't know what you are, Cleary. But you ain't see-through. You're a damn lighthouse.\"",
+        choices: [
+          { text: "Knock on his door. Thank him. Quietly.", type: "canon", next: 12, comment: "He opens the door. You don't speak. He doesn't speak. You both know. Trash Score: +0", points: 10 },
+          { text: "Bring him coffee. No words needed.", type: "chaos", next: 12, comment: "He takes it. \"You're annoying. But you're MY annoying.\" Trash Score: +10", points: 5 },
+          { text: "Play the drum with him. No talking. Just rhythm.", type: "secret", next: 12, comment: "He plays. You play. It's terrible. It's perfect. Trash Score: +5", points: 15 }
+        ]
+      }
+    ]
+  },
+  {
+    title: "Cleary Gets Caught",
+    scenes: [
+      {
+        text: "You didn't get caught because you slipped. You got caught because someone was hunting you.\n\nSomeone who had been watching the watchers. Someone who realized: \"Where Cleary is… danger is near.\"\n\nSo they set a trap. And you walked right into it.\n\nA black bag goes over your head. A voice whispers: \"Got you, perimeter boy.\"\n\nEverything goes dark.\n\nBut The Apprentice noticed first. She always notices first.",
+        choices: [
+          { text: "Stay calm. You've been in tight spots before.", type: "canon", next: 13, comment: "The Apprentice traces the signal. \"I'm coming.\" Trash Score: +0", points: 10 },
+          { text: "Start singing to pass the time", type: "chaos", next: 13, comment: "The kidnappers ask you to stop. You don't. They consider letting you go. Trash Score: +20", points: 5 },
+          { text: "Whisper: 'The Builder is coming for you.'", type: "secret", next: 13, comment: "The kidnappers go pale. One faints. Trash Score: +5", points: 15 }
+        ]
+      }
+    ]
+  },
+  {
+    title: "The Rescue",
+    scenes: [
+      {
+        text: "The lights flicker. The room goes silent. A voice whispers from the shadows: \"Step away from him.\"\n\nGhost emerges like a blade sliding out of darkness.\n\nThe man laughs. \"Who are you?\"\n\nShe smiles. \"Your last mistake.\"\n\nShe moves like a ghost with anger issues. She disarms the guard. Breaks the baton. Kicks a man through a table. Hacks the door panel mid-fight. Drags you out of the chair.\n\nThen she pulls you close. Almost kisses you. Almost.\n\n\"I hate white people,\" she whispers.\n\n\"Me too,\" you whisper back.\n\nThen she shoves you back. Hard. \"We can't.\"\n\n\"I know,\" you say.\n\n\"But I wanted to,\" she whispers.\n\n\"Me too,\" you whisper back.",
+        choices: [
+          { text: "Let the moment exist. Don't push it.", type: "canon", next: 14, comment: "She nods. \"Same time next crisis?\" Trash Score: +0", points: 10 },
+          { text: "Ask if 'we can't' means 'not ever' or 'not right now'", type: "chaos", next: 14, comment: "She punches your arm. \"NOT EVER. Now move.\" Trash Score: +15", points: 5 },
+          { text: "Take her hand and run. No words.", type: "secret", next: 14, comment: "She doesn't let go. Not until you're safe. Then she does. Trash Score: +5", points: 15 }
+        ]
+      }
+    ]
+  },
+  {
+    title: "The Spy No One Else Could See",
+    scenes: [
+      {
+        text: "The Apprentice knew the truth. You weren't lucky. You weren't psychic. You weren't chosen. You were trained. By life. By trauma. By survival. By being the invisible one.\n\nShe knew you were vital. She knew you were the perimeter. She knew you were the early warning system the group didn't know they had.\n\nAnd she knew something else: You weren't stumbling into danger. You were following it. You had a sense for it. A nose for it. A radar for it.\n\n\"I trusted that,\" she says. \"I trusted you. More than you knew.\"",
+        choices: [
+          { text: "Thank her. Quietly. With everything you have.", type: "canon", next: 15, comment: "She nods. That's all she needed. Trash Score: +0", points: 10 },
+          { text: "Ask if she's proud of you", type: "chaos", next: 15, comment: "She looks away. \"Don't make me cry.\" Trash Score: +10", points: 5 },
+          { text: "Just stand there. Let the trust be enough.", type: "secret", next: 15, comment: "She exhales. For the first time in years, she exhales. Trash Score: +5", points: 15 }
+        ]
+      }
+    ]
+  },
+  {
+    title: "The Pattern",
+    scenes: [
+      {
+        text: "After the fifth incident, The Creator snapped. He slammed his drum down.\n\n\"NO. No more. This man is not a coincidence. This man is a PATTERN.\"\n\nThe Builder shrugged. The Merchant raised an eyebrow. The Counselor smiled softly. The Apprentice said nothing.\n\nYou stood in the doorway holding a tray of coffees you didn't remember ordering.\n\nThe Creator pointed at you. \"SEE?! HOW DID HE KNOW WE WERE HAVING A MEETING?!\"\n\nYou blinked. \"I… didn't. I just thought you might be thirsty.\"\n\nThe Creator groaned. The Counselor took a coffee. The Builder took two. The Merchant took his black. The Apprentice took hers without looking at you.\n\nAnd you smiled. Because even if The Creator didn't trust you, even if he never would — you were exactly where you needed to be.",
+        choices: [
+          { text: "Serve the coffee. Smile. That's your superpower.", type: "canon", next: 16, comment: "The Creator takes it. \"…Thanks, perimeter boy.\" Trash Score: +0", points: 10 },
+          { text: "Say 'I'm always where I need to be.'", type: "chaos", next: 16, comment: "Everyone freezes. The Creator: \"That's terrifying.\" Trash Score: +15", points: 5 },
+          { text: "Whisper: 'I know.'", type: "secret", next: 16, comment: "The Creator laughs. A real laugh. Trash Score: +5", points: 15 }
+        ]
+      }
+    ]
+  },
+  {
+    title: "The Apprentice's Secret",
+    scenes: [
+      {
+        text: "It happened on a Tuesday. The Apprentice was debugging a breach. The Builder was asleep on the couch. The Creator was pacing. The Merchant was reading scripture he no longer believed.\n\nYou walked in with two cups of tea. Handed one to her. She didn't look up.\n\n\"You always bring me tea,\" she said.\n\n\"You always need it,\" you shrugged.\n\nShe paused. Just a second. Just long enough for you to feel it.\n\nThen she said: \"Don't fall in love with me.\"\n\nYou froze. The Creator dropped his drumstick. The Builder snored louder.\n\nYou swallowed. \"Too late.\"\n\nShe didn't flinch. Didn't blush. Didn't react. She just said: \"Then don't tell me.\"\n\nAnd you nodded. Because you understood.",
+        choices: [
+          { text: "Don't tell her. Love her silently. From the perimeter.", type: "canon", next: 17, comment: "She knows. She always knew. Trash Score: +0", points: 10 },
+          { text: "Tell her anyway. Let the perimeter break.", type: "chaos", next: 17, comment: "She listens. Then she says: \"I know. I love you too. Quietly.\" Trash Score: +10", points: 5 },
+          { text: "Just keep bringing her tea. Every day. Forever.", type: "secret", next: 17, comment: "That's what you do. That's what you've always done. Trash Score: +5", points: 15 }
+        ]
+      }
+    ]
+  },
+  {
+    title: "The Other Cleary",
+    scenes: [
+      {
+        text: "She showed up during a routine security audit. White. Sharp jaw. Cold eyes. Combat boots. Laptop bag. Energy like a blade.\n\nThe Apprentice froze. The Creator whispered: \"Oh hell no… they made another one.\"\n\nThe woman looked at you. Her face twisted. \"Ugh. One of you.\"\n\nYou blinked. \"One of… who?\"\n\nShe rolled her eyes. \"The type who thinks being helpful is a personality.\"\n\nThe Creator choked on his drink. The Builder stopped hammering. The Apprentice whispered: \"Oh no… she's him.\"",
+        choices: [
+          { text: "Try to be friendly. She might not be as cold as she seems.", type: "canon", next: 18, comment: "She isn't. But she respects the try. Trash Score: +0", points: 10 },
+          { text: "Challenge her to a staring contest", type: "chaos", next: 18, comment: "You lose. She doesn't blink. Ever. Trash Score: +15", points: 5 },
+          { text: "Ignore her. Focus on the mission. Be professional.", type: "secret", next: 18, comment: "She watches you work. She's impressed. She'll never admit it. Trash Score: +5", points: 15 }
+        ]
+      }
+    ]
+  },
+  {
+    title: "The League of White Shadows",
+    scenes: [
+      {
+        text: "The Apprentice had been hiding something. Something massive. Something dangerous. Something built for people exactly like you.\n\nA secret organization. A shadow network. A league.\n\nLOWS — League of White Shadows. \"We infiltrate the systems that infiltrate us.\"\n\nGhost stepped forward. \"Welcome to your new home.\"\n\nYou whispered: \"What… is this?\"\n\nShe smiled. \"Your new home.\"\n\nCleary. Codename: Clearwater. Role: Perimeter Specialist. Handler: The Apprentice. Evaluator: Ghost.",
+        choices: [
+          { text: "Accept the codename. You were born for this.", type: "canon", next: 19, comment: "Ghost nods. \"Clearwater. Because you're not see-through. You're clear. And deep.\" Trash Score: +0", points: 10 },
+          { text: "Ask if you get a cool outfit", type: "chaos", next: 19, comment: "Ghost stares. \"…We'll see.\" Trash Score: +10", points: 5 },
+          { text: "Ask Ghost what she really thinks of you", type: "secret", next: 19, comment: "She looks away. \"I think you're dangerous. In ways you don't understand yet.\" Trash Score: +5", points: 15 }
+        ]
+      }
+    ]
+  },
+  {
+    title: "The Initiation of Clearwater",
+    scenes: [
+      {
+        text: "The briefing room. Dark. Single lamp. The LOWS emblem glowed.\n\n\"We infiltrate the infiltrators,\" The Apprentice said.\n\nYou whispered: \"This is real.\"\n\nShe nodded. \"Very.\"\n\nGhost added: \"And you're in it now.\"\n\nYour first mission: Infiltrate MAPA again. But this time, you're not a nobody. You're Clearwater. LOWS operative. Perimeter Specialist.\n\nAnd Ghost? She's going with you. \"I'm not letting you die before I figure out why I almost kissed you.\"",
+        choices: [
+          { text: "Accept. Side by side. Clearwater and Ghost.", type: "canon", next: 20, comment: "She nods. \"Don't make me regret this.\" Trash Score: +0", points: 10 },
+          { text: "Ask if 'almost kissed' counts", type: "chaos", next: 20, comment: "She pushes you into a wall. \"NO. Now move.\" Trash Score: +15", points: 5 },
+          { text: "Say nothing. Just nod. Let the mission begin.", type: "secret", next: 20, comment: "She smiles. That dangerous smile. \"I knew you'd say that.\" Trash Score: +5", points: 15 }
+        ]
+      }
+    ]
+  },
+  {
+    title: "The Rescue of Clearwater",
+    scenes: [
+      {
+        text: "Your first mission was supposed to be simple. Infiltrate a corporate office. Blend in. Observe. Report.\n\nBut the company wasn't just corrupt. It was aware. Aware of LOWS. Aware of The Apprentice. Aware of the shadows.\n\nAnd aware of you.\n\nThey were waiting for you. The lights cut out. A stun baton hit your ribs. You collapsed.\n\nYou whispered: \"Not again…\"\n\nDarkness swallowed you. But Ghost heard it. And she came running.",
+        choices: [
+          { text: "Stay conscious. Fight through the darkness.", type: "canon", next: 21, comment: "You last 3 more seconds than last time. Progress. Trash Score: +0", points: 10 },
+          { text: "Start narrating your own death like a movie", type: "chaos", next: 21, comment: "The guards are confused. One asks: \"Is he okay?\" Trash Score: +20", points: 5 },
+          { text: "Whisper Ghost's name. She'll find you.", type: "secret", next: 21, comment: "She does. She always does. Trash Score: +5", points: 15 }
+        ]
+      }
+    ]
+  },
+  {
+    title: "The Almost-Lovers Moment",
+    scenes: [
+      {
+        text: "They escaped into a stairwell. Breathing hard. Bodies close. Adrenaline high.\n\n\"You saved my life,\" you whispered.\n\n\"Don't read into it,\" she glared.\n\nYou stepped closer. \"I'm not.\"\n\nShe stepped closer too. Too close. Faces inches apart.\n\n\"I hate white people,\" she whispered.\n\n\"Me too,\" you whispered back.\n\nSomething cracked in her. Something dangerous. Something tender.\n\nShe grabbed your shirt. Pulled you closer. Almost kissed you. Almost.\n\nThen she shoved you back. Hard. \"We can't.\"\n\n\"I know,\" you nodded.\n\n\"But I wanted to,\" she whispered.\n\n\"Me too,\" you whispered back.",
+        choices: [
+          { text: "Let it go. The mission comes first. Always.", type: "canon", next: 22, comment: "She nods. \"That's why I chose you.\" Trash Score: +0", points: 10 },
+          { text: "Kiss her anyway. Consequences be damned.", type: "chaos", next: 22, comment: "She kisses you back. For exactly 2 seconds. Then she punches you. Trash Score: +20", points: 5 },
+          { text: "Just stand there. Let the almost be enough.", type: "secret", next: 22, comment: "She exhales. \"You're the only one who understands.\" Trash Score: +5", points: 15 }
+        ]
+      }
+    ]
+  },
+  {
+    title: "Operation MAPA",
+    scenes: [
+      {
+        text: "LOWS had infiltrated corporations. Banks. Think tanks. But now? They were infiltrating MAPA.\n\nA group so ridiculous, even The Creator couldn't take them seriously.\n\nThe briefing: \"MAPA is planning something big.\"\n\nThe Creator: \"Is it another barbecue fundraiser?\"\n\nThe Apprentice: \"No.\"\n\nCleary: \"Is it the 'Boycott Electricity' protest?\"\n\nThe Apprentice slammed her laptop shut. \"YES. THAT ONE.\"\n\nMAPA headquarters: an abandoned strip mall between a vape shop and a tax office closed since 2014.\n\nThe sign: \"MAPA HQ — Members Only (Unless You're Delivering Pizza)\"",
+        choices: [
+          { text: "Walk in confident. You're Chad Freedomman now.", type: "canon", next: 23, comment: "They believe you immediately. MAPA's intelligence: rock bottom. Trash Score: +0", points: 10 },
+          { text: "Walk in and immediately start a fight", type: "chaos", next: 23, comment: "You win. But The Apprentice is furious. Trash Score: +20", points: 5 },
+          { text: "Walk in and start fixing things. Be useful.", type: "secret", next: 23, comment: "They make you president. You don't want the job. Trash Score: +5", points: 15 }
+        ]
+      }
+    ]
+  },
+  {
+    title: "The Boulder of Freedom",
+    scenes: [
+      {
+        text: "MAPA unveiled their weapon. A boulder. Not symbolic. Not metaphorical. A literal, 600-pound landscaping rock stolen from a Home Depot parking lot.\n\nSlogan spray-painted on it: \"FREEDOM ROCK (Do Not Touch)\"\n\nThe Creator, watching through binoculars: \"This is the dumbest thing I've ever seen.\"\n\nThe Builder: \"This is the most dangerous thing I've ever seen.\"\n\nThe Apprentice: \"This is the most predictable thing I've ever seen.\"\n\nGhost: \"This is why white people shouldn't have ideas.\"\n\nYou: \"I agree.\"",
+        choices: [
+          { text: "Let them launch it. Watch the chaos unfold.", type: "canon", next: 24, comment: "It launches backward into MAPA headquarters. Beautiful. Trash Score: +0", points: 10 },
+          { text: "Try to stop it. Be the hero.", type: "chaos", next: 24, comment: "The Builder 'accidentally' helps. The boulder hits you instead. Trash Score: +15", points: 5 },
+          { text: "Redirect it toward the Piggly Wiggly instead", type: "secret", next: 24, comment: "Ghost smiles. \"Now THAT's strategy.\" Trash Score: +5", points: 15 }
+        ]
+      }
+    ]
+  },
+  {
+    title: "The Men in Masks & The Great Food Stamp Uprising",
+    scenes: [
+      {
+        text: "A black SUV rolled up. Men in tactical gear. Black masks. Black boots. Black gloves.\n\nMAPA screamed: \"THE FEDS ARE HERE!\"\n\nBut the masked men pulled out… a stack of paper food stamps. The old kind. The rainbow booklet. Discontinued in the 90s.\n\nMAPA cried like Oprah just gave them all a car.\n\nCleary whispered: \"They know these are worthless, right?\"\n\nGhost whispered: \"No. They don't know anything.\"\n\nThe Apprentice whispered: \"This is a sociological experiment gone wrong.\"\n\nThe Creator whispered: \"This is a comedy special gone right.\"",
+        choices: [
+          { text: "Let the food stamp chaos continue. It's working.", type: "canon", next: 25, comment: "MAPA is distracted. LOWS moves in. Trash Score: +0", points: 10 },
+          { text: "Try to explain that food stamps aren't real", type: "chaos", next: 25, comment: "Nobody listens. One MAPA member tries to eat the booklet. Trash Score: +20", points: 5 },
+          { text: "Give the food stamps to the mannequin rights activists", type: "secret", next: 25, comment: "They start a new civil rights movement. For plastic. Trash Score: +5", points: 15 }
+        ]
+      }
+    ]
+  },
+  {
+    title: "The Food Stamp Economy Collapse",
+    scenes: [
+      {
+        text: "MAPA members started selling food stamps to each other for lower and lower prices.\n\n$10. $5. $1. \"I'll PAY YOU to take mine!\"\n\nThe Apprentice watched on her tablet. \"They've created a deflationary spiral of stupidity.\"\n\nThe Creator: \"This is the dumbest recession in history.\"\n\nGhost: \"This is why we can't have nice things.\"\n\nCleary: \"This is why we can't have anything.\"\n\nWithin 45 minutes: food stamps were worth less than air. MAPA members traded them for hugs. One guy traded his for a half-eaten hot dog. Another traded his for a rock. A third traded his for the IDEA of a rock.",
+        choices: [
+          { text: "Let the economy collapse. It's the best weapon you have.", type: "canon", next: 26, comment: "MAPA destroys itself from the inside. No bloodshed. Just stupidity. Trash Score: +0", points: 10 },
+          { text: "Try to save the economy. Be the hero MAPA doesn't deserve.", type: "chaos", next: 26, comment: "You make it worse. Way worse. Trash Score: +15", points: 5 },
+          { text: "Short-sell the food stamp market", type: "secret", next: 26, comment: "The Merchant nods. \"Now you're thinking like an operative.\" Trash Score: +5", points: 15 }
+        ]
+      }
+    ]
+  },
+  {
+    title: "The Builder Must Be Restrained (Again)",
+    scenes: [
+      {
+        text: "The Builder watched a MAPA member try to 'assassinate' a mannequin by throwing a jar of expired pickles at it.\n\nHe snapped. \"LET ME IN THERE. I CAN END THIS IN FIVE SECONDS.\"\n\nThe Creator grabbed him. \"NO.\"\n\nThe Builder roared: \"THEY HAVE RIGHTS NOW!\"\n\nThe Counselor whispered: \"Lord, give him patience.\"\n\nGhost whispered: \"Give me popcorn.\"\n\nThe Builder 'improvised.' He accidentally flipped Cleary into a recycling bin. Again.",
+        choices: [
+          { text: "Crawl out of the bin. Dignity is optional.", type: "canon", next: 27, comment: "The Builder helps you up. \"Sorry. I was improvising.\" Trash Score: +0", points: 10 },
+          { text: "Stay in the bin. Make a point.", type: "chaos", next: 27, comment: "They leave you there. For 3 hours. Trash Score: +20", points: 5 },
+          { text: "Get out and hug The Builder. He needs it.", type: "secret", next: 27, comment: "He freezes. Then he hugs you back. Awkwardly. Trash Score: +5", points: 15 }
+        ]
+      }
+    ]
+  },
+  {
+    title: "The Twilight Zone Narrator Returns",
+    scenes: [
+      {
+        text: "A voice echoed across the fairground:\n\n\"You are now entering a dimension where stupidity gains momentum. Where ignorance becomes kinetic energy. Where a group of people, armed with nothing but delusion, attempt to weaponize a landscaping rock.\"\n\nCleary blinked. \"Did you hear that?\"\n\nGhost nodded. \"Yeah. Twilight Zone cameo. Keep moving.\"\n\nThe narrator didn't narrate anymore. He just walked on-screen, threw his script in the air, and left.\n\nBecause the MAPA Rehab Revolt doesn't last hours. Or minutes. Or even a respectable amount of time.\n\nIt lasts 47 seconds.",
+        choices: [
+          { text: "Keep moving. The revolution won't wait.", type: "canon", next: 28, comment: "47 seconds of pure chaos. The dumbest synchronized event in human history. Trash Score: +0", points: 10 },
+          { text: "Stop and listen to the narrator one more time", type: "chaos", next: 28, comment: "He's gone. He left a note: \"I quit.\" Trash Score: +10", points: 5 },
+          { text: "Become the new narrator. Your voice is better.", type: "secret", next: 28, comment: "Ghost laughs. \"You'd be terrible at it.\" \"I'd be AMAZING at it.\" Trash Score: +5", points: 15 }
+        ]
+      }
+    ]
+  },
+  {
+    title: "The Stump Administration Implodes",
+    scenes: [
+      {
+        text: "The Stump Regime collapsed not from scandal, corruption, incompetence, or political pressure.\n\n…but from funk.\n\nA smell so powerful it toppled an empire.\n\nKing Fellon Stump had a personal hygiene crisis so catastrophic that the entire administration smelled like a raccoon trapped in a sauna.\n\nHis supply ran out. His staff panicked. The diaper thieves were caught.\n\nAnd suddenly… King Fellon Stump was funky. Not regular funky. Biblical funk. Apocalyptic funk. Funk that could peel paint off walls.\n\nCleary whispered: \"This is a biological weapon.\"\n\nGhost whispered: \"This is a cry for help.\"\n\nThe Apprentice whispered: \"This is a lawsuit.\"",
+        choices: [
+          { text: "Let the funk do its work. No intervention needed.", type: "canon", next: 29, comment: "The empire falls. No shots fired. Just smell. Trash Score: +0", points: 10 },
+          { text: "Try to fix it. Be the hero.", type: "chaos", next: 29, comment: "You make it worse. The funk spreads. Trash Score: +20", points: 5 },
+          { text: "Market it. 'King Fellon's Signature Scent.'", type: "secret", next: 29, comment: "The Merchant nods. \"Now you're thinking like a capitalist.\" Trash Score: +5", points: 15 }
+        ]
+      }
+    ]
+  },
+  {
+    title: "The Creator Takes Over",
+    scenes: [
+      {
+        text: "The Creator walked into the administration like: 'Where the reparations at?'\n\nFirst sign something was wrong: Every statue of a white historical figure woke up with a broken nose.\n\nWashington? Broken. Jefferson? Broken. A statue of a white horse? Broken.\n\nSecurity footage showed The Creator walking past each statue, muttering: 'You owe us too.'\n\nThen he turned the entire administration into: a drum circle, a poetry lounge, a Wakanda-adjacent co-working space, a Black arts museum, a diaspora-themed smoothie bar, and a shrine to his own ego.\n\nThe press room now had: incense, congas, a fog machine, and a neon sign that said 'PAY WHAT YOU OWE.'",
+        choices: [
+          { text: "Let him cook. The Creator knows what he's doing.", type: "canon", next: 30, comment: "The administration transforms. Chaos, but productive chaos. Trash Score: +0", points: 10 },
+          { text: "Try to calm him down", type: "chaos", next: 30, comment: "He filibusters for 96 hours. You age 5 years. Trash Score: +15", points: 5 },
+          { text: "Join the drum circle. Be part of the chaos.", type: "secret", next: 30, comment: "The Creator smiles. \"Now you're speaking my language.\" Trash Score: +5", points: 15 }
+        ]
+      }
+    ]
+  },
+  {
+    title: "Operation Make Them Dumber",
+    scenes: [
+      {
+        text: "LOWS convinced King Fellon Stump that: Intelligence is a threat to national security.\n\nNot real intelligence. Not academic intelligence. Just… basic competence.\n\nEvery time someone in the Stump Regime showed competence, Cleary reported it as: 'Suspicious behavior.'\n\nGhost added: 'Potential threat.'\n\nThe Media ran with it: 'SMART PERSON CAUGHT THINKING IN PUBLIC!'\n\nKing Fellon Stump panicked. He fired them. And then… The Merchant and Counselor quietly placed them into their new, better positions.\n\nIt was the most efficient pipeline in history: Stump Regime → Fired → Better Life.",
+        choices: [
+          { text: "Keep the pipeline going. Save people through stupidity.", type: "canon", next: 31, comment: "Competent people get saved. Incompetent people get fired. Perfect system. Trash Score: +0", points: 10 },
+          { text: "Accidentally make someone SMARTER", type: "chaos", next: 31, comment: "The entire system collapses. You created a genius. Trash Score: +20", points: 5 },
+          { text: "Bribe King Fellon with his own money", type: "secret", next: 31, comment: "The Merchant smiles. \"This is why I love you.\" Trash Score: +5", points: 15 }
+        ]
+      }
+    ]
+  },
+  {
+    title: "The Down Rising",
+    scenes: [
+      {
+        text: "MAPA's 'Operation Bigger Rock' failed so spectacularly it became a meme.\n\nSo MAPA decided to escalate. They called it: 'OPERATION BIGGER ROCK' — 'Because size matters when you're stupid.'\n\nBut MAPA made three fatal mistakes:\n1. They wore sewn-together baby diapers as protest gear.\n2. They couldn't read the protest signs they made.\n3. They had the navigation skills of a confused raccoon.\n\nThey stormed a Piggly Wiggly instead of the National Diaper Manufacturers Association. On double coupon day. The store was PACKED.\n\nAnd then MAPA burst in wearing diaper armor. The white-on-white violence that followed was so tragic, so chaotic, so unnecessary that Congress declared it a national holiday:\n\nTHE DOWN RISING — 'Never forget the day stupidity met coupons.'",
+        choices: [
+          { text: "Let the Down Rising happen. History needs this.", type: "canon", next: 32, comment: "The Piggly Wiggly becomes a historical landmark. Trash Score: +0", points: 10 },
+          { text: "Try to stop it. Be the voice of reason.", type: "chaos", next: 32, comment: "Nobody listens. You get hit with a coupon. Trash Score: +15", points: 5 },
+          { text: "Film it. This is content gold.", type: "secret", next: 32, comment: "Ghost is already filming. \"This goes viral or I quit LOWS.\" Trash Score: +5", points: 15 }
+        ]
+      }
+    ]
+  },
+  {
+    title: "The Poop Water Park",
+    scenes: [
+      {
+        text: "The Builder had been watching from the shadows.\n\nHe whispered: 'Laxatives? Weak.'\n\nHe swapped the bottles. He replaced the laxatives with: ELEPHANT LAXATIVES. The kind used in zoos. The kind used on 8,000-pound animals. The kind that should NEVER be given to humans.\n\nMAPA chugged those too.\n\nWhat happened next cannot be described politely. But we will describe it anyway.\n\nMAPA's diaper armor could not withstand the explosive evacuations that followed.\n\nThe Piggly Wiggly transformed into: a slip-n-slide of regret, a chocolate fountain of doom, a poop water park, a brown tsunami, a diaper-based natural disaster.\n\nCustomers screamed. MAPA screamed louder. The mannequins fainted. The Creator took notes for a poem.",
+        choices: [
+          { text: "Document everything. This is the greatest day in history.", type: "canon", next: 33, comment: "The Down Rising is complete. MAPA is finished. Trash Score: +0", points: 10 },
+          { text: "Help clean up. Be the adult in the room.", type: "chaos", next: 33, comment: "There's no cleaning up. It's a biohazard now. Trash Score: +20", points: 5 },
+          { text: "Take a selfie with the chaos. For the gram.", type: "secret", next: 33, comment: "It gets 10 million views. You're famous. For the worst reason. Trash Score: +5", points: 15 }
+        ]
+      }
+    ]
+  },
+  {
+    title: "THE END — See-Through Black",
+    scenes: [
+      {
+        text: "LOWS won. The Creator became a legend. The Merchant became a billionaire. The Counselor became a saint. Cleary and Ghost retired.\n\nThe Builder was banned from zoos. MAPA disappeared into obscurity. King Fellon Stump was last seen buying adult diapers in disguise.\n\nAnd the nation celebrated: THE DOWN RISING — 'The day stupidity finally defeated itself.'\n\nBut stupidity is strong. And it's coming back.\n\nBecause this is where the saga stops being about MAPA's stupidity… and becomes about the NEXT LEVEL of racism — the one that actually has power: THE MEDIA.\n\nAnd Cleary? Ghost? They finally get a mission worthy of their intelligence.\n\nA mission that flips the entire country upside down for 72 hours.\n\nLet's continue.\n\n…But first. The Trash Awards.",
+        choices: [
+          { text: "🏆 ACCEPT YOUR TRASH AWARD — Everyone loses, but YOU choose how.", type: "canon", next: 34, comment: "You've earned your shame. Wear it proudly.", points: 10 },
+          { text: "🔥 OPERATION MUDBUTT — The sequel tease. Coming soon.", type: "chaos", next: 34, comment: "The Builder whispers: 'I was improvising.' Trash Score: +20", points: 5 },
+          { text: "🫡 SALUTE THE PERIMETER — You were always the most important one.", type: "secret", next: 34, comment: "The Unifier flickers. 'He was always the signal.' Trash Score: +5", points: 15 }
+        ]
+      }
+    ]
+  }
+];
+
+// ===== GAME LOGIC =====
+let gameState = {
+  book: 0,
+  scene: 0,
+  path: 'canon',
+  trashScore: 0,
+  canonPoints: 0,
+  chaosPoints: 0,
+  secretPath: false,
+  choices: [],
+  completed: false
+};
+
+function startAdventure(tier = 'full') {
+  gameActive = true;
+  gameState = {
+    book: 0,
+    scene: 0,
+    path: 'canon',
+    trashScore: 0,
+    canonPoints: 0,
+    chaosPoints: 0,
+    secretPath: false,
+    choices: [],
+    completed: false
+  };
+
+  document.getElementById('hero').style.display = 'none';
+  document.getElementById('pricing').style.display = 'none';
+  document.getElementById('awards').style.display = 'none';
+  document.getElementById('gameEngine').classList.add('active');
+
+  renderScene();
+}
+
+function exitGame() {
+  gameActive = false;
+  document.getElementById('gameEngine').classList.remove('active');
+  document.getElementById('hero').style.display = 'flex';
+  document.getElementById('pricing').style.display = 'block';
+}
+
+function renderScene() {
+  const book = books[gameState.book];
+  const scene = book.scenes[gameState.scene];
+  const content = document.getElementById('gameContent');
+
+  document.getElementById('progressBadge').textContent = `Book ${gameState.book + 1}/25`;
+
+  let html = `
+    <div class="phase-header animate-in">
+      <h2>📖 Book ${gameState.book + 1}: ${book.title}</h2>
+      <p class="phase-meta">Decision Point ${gameState.scene + 1} of ${book.scenes.length} · Trash Score: ${gameState.trashScore}</p>
+    </div>
+
+    <div class="content-block animate-in" style="animation-delay:0.1s">
+      <div style="white-space:pre-line;line-height:1.8;font-size:1.05rem;">${scene.text}</div>
+    </div>
+
+    <div class="choice-container">
+  `;
+
+  scene.choices.forEach((choice, i) => {
+    html += `
+      <button class="choice-btn ${choice.type}" onclick="makeChoice(${i})">
+        <strong>${choice.type === 'canon' ? '📖' : choice.type === 'chaos' ? '🔥' : '🔓'} ${choice.text}</strong>
+        <div style="font-size:0.85rem;color:var(--text2);margin-top:8px;">${choice.comment}</div>
+      </button>
+    `;
+  });
+
+  html += `</div>`;
+
+  // Twilight Zone random trigger
+  if (Math.random() < 0.15 && gameState.book > 3) {
+    setTimeout(() => {
+      const tz = document.getElementById('twilightZone');
+      const messages = [
+        "You are now entering a dimension where intelligence is optional and rocks are considered political statements.",
+        "Imagine a world where stupidity gains momentum. Where ignorance becomes kinetic energy.",
+        "You are witnessing a level of stupidity that defies physics, biology, and common sense.",
+        "The narrator has left the building. He quit. Mid-sentence.",
+        "This is the part where the story gives up and lets chaos win."
+      ];
+      document.getElementById('tzText').textContent = messages[Math.floor(Math.random() * messages.length)];
+      tz.classList.add('active');
+      setTimeout(() => tz.classList.remove('active'), 4000);
+    }, 2000);
+  }
+
+  content.innerHTML = html;
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function makeChoice(index) {
+  const book = books[gameState.book];
+  const scene = book.scenes[gameState.scene];
+  const choice = scene.choices[index];
+
+  gameState.choices.push({
+    book: gameState.book,
+    scene: gameState.scene,
+    choice: choice.text,
+    type: choice.type,
+    points: choice.points,
+    trash: choice.points < 10 ? 0 : choice.points - 10
+  });
+
+  if (choice.type === 'canon') {
+    gameState.canonPoints += choice.points;
+    gameState.path = 'canon';
+  } else if (choice.type === 'chaos') {
+    gameState.chaosPoints += choice.points;
+    gameState.trashScore += choice.points;
+    gameState.path = 'chaos';
+  } else {
+    gameState.secretPath = true;
+    gameState.canonPoints += choice.points;
+  }
+
+  gameState.trashScore += choice.trash;
+
+  // Advance
+  if (gameState.scene < book.scenes.length - 1) {
+    gameState.scene++;
+  } else if (gameState.book < books.length - 1) {
+    gameState.book++;
+    gameState.scene = 0;
+  } else {
+    gameState.completed = true;
+    showEnding();
+    return;
+  }
+
+  renderScene();
+}
+
+function showEnding() {
+  gameActive = false;
+  const content = document.getElementById('gameContent');
+
+  let ending, title, description, endingIcon;
+
+  if (gameState.secretPath) {
+    ending = '🕵️ THE GHOST PROTOCOL';
+    title = 'You took the secret path. You saw what others couldn\'t. You loved what others wouldn\'t. You are the anomaly that protects the system.';
+    description = 'Ghost and Cleary retire to a quiet life. The only stupidity they face is each other\'s jokes. MAPA? They went back to fighting toilets. And the perimeter? Safe. Always.';
+    endingIcon = '🕵️';
+  } else if (gameState.path === 'chaos') {
+    ending = '💩 THE DOWN RISING';
+    title = 'You chose chaos. And chaos chose you. MAPA destroyed itself at a Piggly Wiggly. The nation declared it a holiday. You are a legend. A stupid, beautiful legend.';
+    description = 'The Builder was banned from zoos. King Fellon Stump buys adult diapers in disguise. And you? You\'re the reason it all happened. Wear it proudly.';
+    endingIcon = '💩';
+  } else {
+    ending = '🏆 THE FUNK ERA';
+    title = 'You followed the canon. You protected the perimeter. You saved the circle. And in the end, it wasn\'t a bullet or a bomb that brought down the empire — it was a smell.';
+    description = 'King Fellon Stump fell to funk. The Creator ruled with drums. The Merchant profited. The Counselor prayed. And you? You were always where you needed to be. The lighthouse. The perimeter. The see-through soul who held it all together.';
+    endingIcon = '🏆';
+  }
+
+  content.innerHTML = `
+    <div class="phase-header animate-in">
+      <h2>${endingIcon} THE END — ${ending}</h2>
+      <p class="phase-meta">Final Trash Score: ${gameState.trashScore} · Canon Points: ${gameState.canonPoints} · Chaos Points: ${gameState.chaosPoints}</p>
+    </div>
+
+    <div class="content-block animate-in" style="animation-delay:0.1s">
+      <p style="font-size:1.1rem;line-height:1.8;color:var(--text);">${description}</p>
+    </div>
+
+    <div class="content-block animate-in" style="animation-delay:0.2s">
+      <h3 style="color:var(--accent2);margin-bottom:16px;">📊 YOUR FINAL STATS:</h3>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:16px;margin-top:12px;">
+        <div style="background:var(--surface2);padding:16px;border-radius:8px;text-align:center;">
+          <div style="font-size:2rem;margin-bottom:4px;">${endingIcon}</div>
+          <div style="font-size:0.8rem;color:var(--text2);">ENDING</div>
+          <div style="font-weight:700;color:var(--text);font-size:0.9rem;">${ending}</div>
+        </div>
+        <div style="background:var(--surface2);padding:16px;border-radius:8px;text-align:center;">
+          <div style="font-size:2rem;margin-bottom:4px;">🗑️</div>
+          <div style="font-size:0.8rem;color:var(--text2);">TRASH SCORE</div>
+          <div style="font-weight:700;color:var(--danger);font-size:1.2rem;">${gameState.trashScore}</div>
+        </div>
+        <div style="background:var(--surface2);padding:16px;border-radius:8px;text-align:center;">
+          <div style="font-size:2rem;margin-bottom:4px;">📜</div>
+          <div style="font-size:0.8rem;color:var(--text2);">CANON PTS</div>
+          <div style="font-weight:700;color:var(--success);font-size:1.2rem;">${gameState.canonPoints}</div>
+        </div>
+        <div style="background:var(--surface2);padding:16px;border-radius:8px;text-align:center;">
+          <div style="font-size:2rem;margin-bottom:4px;">🔥</div>
+          <div style="font-size:0.8rem;color:var(--text2);">CHAOS PTS</div>
+          <div style="font-weight:700;color:var(--warning);font-size:1.2rem;">${gameState.chaosPoints}</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="out-of-context-msg animate-in" style="animation-delay:0.3s">
+      "The perimeter is not a place. It's a feeling. And you felt it." — The Counselor, probably
+    </div>
+
+    <div style="text-align:center;margin-top:40px;">
+      <button class="btn btn-primary" onclick="showCertificate()" style="font-size:1.1rem;padding:16px 40px;margin-bottom:16px;">
+        📜 CLAIM YOUR TRASH CERTIFICATE
+      </button>
+      <br>
+      <button class="btn btn-outline" onclick="startAdventure('full')" style="font-size:0.9rem;padding:12px 28px;">
+        🔄 PLAY AGAIN (DIFFERENT PATH)
+      </button>
+      <br>
+      <button class="btn btn-ghost" onclick="scrollToSection('pricing')" style="font-size:0.85rem;padding:10px 24px;margin-top:12px;">
+        💰 SEE ALL PATHS & PRICING
+      </button>
+    </div>
+  `;
+
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function showCertificate() {
+  const modal = document.getElementById('certModal');
+  const certText = document.getElementById('certText');
+  const certOutput = document.getElementById('certOutput');
+
+  let certTitle, certBody, certName;
+
+  if (gameState.secretPath) {
+    certTitle = "CERTIFIED SEE-THROUGH BLACK OPERATIVE";
+    certBody = "You saw what others couldn't. You loved what others wouldn't. You are the anomaly that protects the system. Ghost would be proud. The Creator would grunt. The Builder would accidentally break something. But you? You'd just smile.";
+    certName = "Agent Clearwater";
+  } else if (gameState.path === 'chaos') {
+    certTitle = "CERTIFIED DOWN RISING LEGEND";
+    certBody = "You chose chaos. Chaos chose you. MAPA is gone. The Piggly Wiggly is a historical landmark. You are a stupid, beautiful legend. Wear the diaper with pride.";
+    certName = "The Chaos Perimeter";
+  } else {
+    certTitle = "CERTIFIED PERIMETER GUARDIAN";
+    certBody = "You followed the canon. You protected the circle. You saved the empire with funk. You are the lighthouse. The perimeter. The see-through soul who held it all together.";
+    certName = "Cleary";
+  }
+
+  certText.textContent = certBody;
+  certOutput.innerHTML = `
+    <div style="background:white;color:#1a1a2e;border-radius:var(--radius);padding:40px;border:4px solid var(--accent);">
+      <h2 style="font-size:2rem;color:var(--accent);margin-bottom:8px;">${certTitle}</h2>
+      <p style="font-size:0.85rem;color:#666;margin-bottom:16px;">Issued by LOWS · ${new Date().getFullYear()} · Operation: See-Through Black</p>
+      <p style="font-size:1.3rem;font-weight:800;border-bottom:2px solid #333;display:inline-block;padding:0 20px 8px;margin:12px 0;">${certName}</p>
+      <p style="font-size:0.9rem;color:#666;margin-top:8px;line-height:1.6;">${certBody}</p>
+      <div style="margin-top:20px;padding-top:16px;border-top:1px dashed #ccc;font-size:0.75rem;color:#999;">
+        "The perimeter is not a place. It's a feeling." — The Counselor
+      </div>
+    </div>
+  `;
+
+  modal.classList.add('active');
+}
+
+function closeModal() {
+  document.getElementById('certModal').classList.remove('active');
+}
+
+// ===== INIT =====
+document.getElementById('heroConfusion').textContent = '0%';
+</script>

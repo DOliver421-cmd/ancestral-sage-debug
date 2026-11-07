@@ -1,0 +1,938 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SOUP AINP — The Calendar (Final Section)</title>
+<style>
+:root {
+  --bg: #0a0a12;
+  --surface: #12121e;
+  --surface2: #1a1a2e;
+  --accent: #e17055;
+  --accent2: #fab1a0;
+  --text: #e8e8f0;
+  --text2: #8888aa;
+  --success: #00b894;
+  --warning: #fdcb6e;
+  --danger: #d63031;
+  --gold: #ffd700;
+  --radius: 12px;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.7;
+  overflow-x: hidden;
+}
+
+nav {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+  background: rgba(10,10,18,0.95);
+  backdrop-filter: blur(20px);
+  border-bottom: 1px solid rgba(225,112,85,0.2);
+  padding: 12px 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.nav-brand { font-size: 1.1rem; font-weight: 800; color: var(--accent); }
+.nav-brand span { color: var(--accent2); }
+
+.nav-links { display: flex; gap: 16px; align-items: center; }
+.nav-links a {
+  color: var(--text2);
+  text-decoration: none;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: color 0.3s;
+}
+.nav-links a:hover { color: var(--accent2); }
+
+.theme-toggle {
+  background: var(--surface2);
+  border: none;
+  color: var(--text);
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 1.1rem;
+}
+
+.hero {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 100px 24px 80px;
+  background: radial-gradient(ellipse at 50% 0%, rgba(225,112,85,0.12) 0%, transparent 70%);
+  position: relative;
+  overflow: hidden;
+}
+
+.hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(45deg, transparent, transparent 35px, rgba(225,112,85,0.03) 35px, rgba(225,112,85,0.03) 36px);
+  animation: slideBg 20s linear infinite;
+}
+
+@keyframes slideBg { to { transform: translate(50px, 50px); } }
+
+.hero h1 {
+  font-size: clamp(2rem, 6vw, 4.5rem);
+  font-weight: 900;
+  line-height: 1.05;
+  margin-bottom: 16px;
+}
+
+.hero h1 .highlight {
+  background: linear-gradient(135deg, var(--accent), var(--accent2), var(--gold));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.hero p {
+  font-size: 1.1rem;
+  color: var(--text2);
+  max-width: 600px;
+  margin: 0 auto 32px;
+}
+
+.btn {
+  padding: 14px 32px;
+  border-radius: var(--radius);
+  font-size: 1rem;
+  font-weight: 700;
+  border: none;
+  cursor: pointer;
+  transition: all 0.3s;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-primary { background: var(--accent); color: white; }
+.btn-primary:hover { background: var(--accent2); transform: translateY(-3px); box-shadow: 0 8px 30px rgba(225,112,85,0.4); }
+
+.btn-outline { background: transparent; color: var(--text); border: 2px solid var(--accent); }
+.btn-outline:hover { background: var(--accent); color: white; }
+
+.btn-ghost { background: transparent; color: var(--accent2); border: 1px dashed var(--accent); }
+.btn-ghost:hover { background: rgba(225,112,85,0.1); }
+
+.section {
+  padding: 80px 24px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.section-title {
+  font-size: 2rem;
+  font-weight: 800;
+  margin-bottom: 8px;
+  color: var(--accent);
+}
+
+.section-subtitle {
+  font-size: 1rem;
+  color: var(--text2);
+  margin-bottom: 40px;
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid rgba(225,112,85,0.15);
+  border-radius: var(--radius);
+  padding: 28px;
+  transition: all 0.3s;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+}
+
+.card:hover { transform: translateY(-4px); border-color: var(--accent); box-shadow: 0 8px 32px rgba(0,0,0,0.4); }
+
+.card.locked { opacity: 0.5; pointer-events: none; }
+.card.locked::after { content: '🔒'; position: absolute; top: 12px; right: 12px; font-size: 1.3rem; }
+
+.card.completed { border-color: var(--success); }
+.card.completed::after { content: '✅'; position: absolute; top: 12px; right: 12px; font-size: 1.3rem; }
+
+.card-number { font-size: 0.75rem; font-weight: 800; color: var(--accent); text-transform: uppercase; letter-spacing: 2px; margin-bottom: 8px; }
+.card h3 { font-size: 1.2rem; margin-bottom: 8px; }
+.card p { color: var(--text2); font-size: 0.85rem; margin-bottom: 16px; }
+.card-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 16px; }
+.card-tags span { background: var(--surface2); padding: 3px 8px; border-radius: 4px; font-size: 0.7rem; color: var(--accent2); }
+
+.expanded-section {
+  display: none;
+  background: var(--surface);
+  border: 1px solid rgba(225,112,85,0.1);
+  border-radius: var(--radius);
+  padding: 40px;
+  margin-top: 24px;
+  animation: fadeIn 0.4s ease;
+}
+
+.expanded-section.active { display: block; }
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.expanded-section h2 {
+  font-size: 1.6rem;
+  color: var(--accent);
+  margin-bottom: 16px;
+  border-bottom: 2px solid rgba(225,112,85,0.2);
+  padding-bottom: 12px;
+}
+
+.expanded-section h3 {
+  font-size: 1.2rem;
+  color: var(--accent2);
+  margin: 24px 0 12px;
+}
+
+.expanded-section p {
+  color: var(--text2);
+  margin-bottom: 12px;
+  line-height: 1.7;
+}
+
+.highlight-box {
+  background: rgba(225,112,85,0.08);
+  border-left: 4px solid var(--accent);
+  padding: 16px 20px;
+  margin: 16px 0;
+  border-radius: 0 var(--radius) var(--radius) 0;
+}
+
+.highlight-box p { color: var(--text); }
+
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
+  margin: 24px 0;
+}
+
+.calendar-item {
+  background: var(--surface2);
+  border: 1px solid rgba(225,112,85,0.15);
+  border-radius: var(--radius);
+  padding: 20px;
+  text-align: center;
+  transition: all 0.3s;
+}
+
+.calendar-item:hover {
+  border-color: var(--accent);
+  transform: translateY(-4px);
+}
+
+.calendar-item .date {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--accent);
+  margin-bottom: 8px;
+}
+
+.calendar-item .name {
+  font-size: 0.9rem;
+  color: var(--text);
+  margin-bottom: 4px;
+}
+
+.calendar-item .type {
+  font-size: 0.7rem;
+  color: var(--accent2);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.rank-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+  margin: 24px 0;
+}
+
+.rank-item {
+  background: rgba(255,215,0,0.08);
+  border: 1px solid rgba(255,215,0,0.2);
+  border-radius: 8px;
+  padding: 20px;
+  text-align: center;
+  transition: all 0.3s;
+}
+
+.rank-item:hover {
+  border-color: var(--gold);
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(255,215,0,0.2);
+}
+
+.rank-item .rank-num {
+  font-size: 1.5rem;
+  font-weight: 900;
+  color: var(--gold);
+  margin-bottom: 8px;
+}
+
+.rank-item .rank-name {
+  font-size: 0.9rem;
+  color: var(--text);
+  font-weight: 600;
+}
+
+.rank-item .rank-desc {
+  font-size: 0.75rem;
+  color: var(--text2);
+  margin-top: 4px;
+}
+
+.event-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 20px;
+  margin: 24px 0;
+}
+
+.event-card {
+  background: var(--surface2);
+  border: 2px solid rgba(225,112,85,0.2);
+  border-radius: var(--radius);
+  padding: 24px;
+  transition: all 0.3s;
+}
+
+.event-card:hover {
+  border-color: var(--accent);
+  transform: translateX(4px);
+}
+
+.event-card h4 {
+  color: var(--accent2);
+  font-size: 1.1rem;
+  margin-bottom: 12px;
+}
+
+.event-card p {
+  color: var(--text2);
+  font-size: 0.85rem;
+  margin-bottom: 8px;
+}
+
+.event-card .event-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 12px;
+}
+
+.event-card .event-tags span {
+  background: var(--surface);
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  color: var(--accent);
+}
+
+.season-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 16px;
+  margin: 24px 0;
+}
+
+.season-card {
+  background: var(--surface2);
+  border: 1px solid rgba(225,112,85,0.15);
+  border-radius: var(--radius);
+  padding: 24px;
+  text-align: center;
+  transition: all 0.3s;
+}
+
+.season-card:hover {
+  border-color: var(--accent);
+  transform: translateY(-4px);
+}
+
+.season-card .season-num {
+  font-size: 2rem;
+  font-weight: 900;
+  color: var(--accent);
+  margin-bottom: 8px;
+}
+
+.season-card .season-name {
+  font-size: 1.1rem;
+  color: var(--text);
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.season-card .season-weeks {
+  font-size: 0.85rem;
+  color: var(--accent2);
+  margin-bottom: 12px;
+}
+
+.section-nav {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 40px;
+  gap: 16px;
+}
+
+.section-nav .btn { flex: 1; justify-content: center; }
+
+.confusion-popup {
+  position: fixed;
+  bottom: -100px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--surface);
+  border: 2px solid var(--accent);
+  border-radius: var(--radius);
+  padding: 16px 24px;
+  max-width: 500px;
+  width: 90%;
+  z-index: 2000;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.6);
+  text-align: center;
+  transition: bottom 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+
+.confusion-popup.show { bottom: 30px; }
+
+.confusion-popup h4 { color: var(--accent); margin-bottom: 8px; }
+.confusion-popup p { color: var(--text2); font-size: 0.85rem; }
+
+.modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.8);
+  z-index: 3000;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.modal-overlay.active { display: flex; }
+
+.modal {
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: 40px;
+  max-width: 550px;
+  width: 100%;
+  text-align: center;
+  border: 2px solid var(--accent);
+}
+
+.modal h3 { font-size: 1.6rem; margin-bottom: 16px; color: var(--accent); }
+.modal p { color: var(--text2); margin-bottom: 20px; line-height: 1.7; }
+
+footer {
+  background: var(--surface);
+  border-top: 1px solid rgba(225,112,85,0.1);
+  padding: 40px 24px;
+  text-align: center;
+  color: var(--text2);
+}
+
+footer a { color: var(--accent2); text-decoration: none; }
+
+@media (max-width: 768px) {
+  .nav-links { display: none; }
+  .hero { padding: 80px 16px 60px; }
+  .grid { grid-template-columns: 1fr; padding: 0 16px; }
+  .section { padding: 60px 16px; }
+  .expanded-section { padding: 24px 16px; }
+}
+</style>
+</head>
+<body data-theme="dark">
+
+<nav>
+  <div class="nav-brand">SOUP <span>AINP</span></div>
+  <div class="nav-links">
+    <a onclick="scrollToSection('hero')">HOME</a>
+    <a onclick="scrollToSection('cosmic')">COSMIC</a>
+    <a onclick="scrollToSection('seasons')">SEASONS</a>
+    <a onclick="scrollToSection('ranks')">RANKS</a>
+    <a onclick="scrollToSection('events')">EVENTS</a>
+    <a onclick="scrollToSection('master')">MASTER</a>
+  </div>
+  <button class="theme-toggle" onclick="toggleTheme()">🌓</button>
+</nav>
+
+<!-- ===== HERO ===== -->
+<section class="hero" id="hero">
+  <div style="position:relative;z-index:1;">
+    <h1>THE <span class="highlight">CALENDAR</span></h1>
+    <p style="font-size:1rem;color:var(--text2);margin-bottom:8px;font-style:italic;">"Time is not linear. Time is a weapon. We weaponize it beautifully."</p>
+    <p style="font-size:0.85rem;color:var(--text2);margin-bottom:32px;font-style:italic;">— SECTION F, THE COSMIC‑CULTURAL CALENDAR</p>
+
+    <div style="background:rgba(0,0,0,0.3);border:1px solid rgba(225,112,85,0.2);border-radius:var(--radius);padding:20px;margin-bottom:32px;max-width:500px;margin-left:auto;margin-right:auto;">
+      <p style="font-size:0.8rem;color:var(--accent2);line-height:1.6;">
+        <strong style="color:var(--accent);">🗓️ THE COSMIC‑CULTURAL CALENDAR.</strong><br>
+        5 Seasons. 7 Ranks. 5 Flagship Events. 30+ Holy Days.<br>
+        Every date has purpose. Every season has power. Every rank has meaning.
+      </p>
+    </div>
+
+    <button class="btn btn-primary" onclick="scrollToSection('cosmic')">🔥 ENTER THE CALENDAR</button>
+    <p style="margin-top:16px;font-size:0.75rem;color:var(--text2);">FINAL SECTION | ALL 6 SECTIONS COMPLETE</p>
+  </div>
+</section>
+
+<!-- ===== COSMIC-CULTURAL CALENDAR ===== -->
+<section class="section" id="cosmic">
+  <h2 class="section-title">🌌 THE COSMIC‑CULTURAL CALENDAR</h2>
+  <p class="section-subtitle">30+ Holy Days. Sacred Time. Ritual Anchors.</p>
+
+  <div class="card completed" onclick="toggleExpand('exp-cosmic')">
+    <div class="card-number">COSMIC CALENDAR</div>
+    <h3>Sacred Dates & Ritual Anchors</h3>
+    <p>Juneteenth. Kwanzaa. Malcolm X Day. Solstices. Equinoxes. Rare moons. The full annual rhythm.</p>
+    <div class="card-tags"><span>SACRED</span><span>CULTURAL</span><span>COSMIC</span></div>
+  </div>
+
+  <div class="expanded-section" id="exp-cosmic">
+    <h2>🌌 COSMIC‑CULTURAL CALENDAR — ALL HOLY DAYS</h2>
+
+    <div class="calendar-grid">
+      <div class="calendar-item">
+        <div class="date">JUNE 19</div>
+        <div class="name">JUNETEENTH</div>
+        <div class="type">LIBERATION DAY</div>
+      </div>
+      <div class="calendar-item">
+        <div class="date">JUNE 21</div>
+        <div class="name">SUMMER SOLSTICE</div>
+        <div class="type">COSMIC PEAK</div>
+      </div>
+      <div class="calendar-item">
+        <div class="date">JULY 4</div>
+        <div class="name">INDEPENDENCE DAY</div>
+        <div class="type">NATIONAL</div>
+      </div>
+      <div class="calendar-item">
+        <div class="date">JULY 7</div>
+        <div class="name">KWAZAA (DAY 1)</div>
+        <div class="type">CULTURAL WEEK</div>
+      </div>
+      <div class="calendar-item">
+        <div class="date">AUG 13</div>
+        <div class="name">MALCOLM X DAY</div>
+        <div class="type">LIBERATION</div>
+      </div>
+      <div class="calendar-item">
+        <div class="date">SEP 22</div>
+        <div class="name">AUTUMN EQUINOX</div>
+        <div class="type">COSMIC BALANCE</div>
+      </div>
+      <div class="calendar-item">
+        <div class="date">OCT 13</div>
+        <div class="name">COLUMBUS DAY (RECLAIMED)</div>
+        <div class="type">INDIGENOUS</div>
+      </div>
+      <div class="calendar-item">
+        <div class="date">NOV 20</div>
+        <div class="name">TRANS DAY OF REMEMBRANCE</div>
+        <div class="type">MEMORIAL</div>
+      </div>
+      <div class="calendar-item">
+        <div class="date">DEC 21</div>
+        <div class="name">WINTER SOLSTICE</div>
+        <div class="type">COSMIC PEAK</div>
+      </div>
+      <div class="calendar-item">
+        <div class="date">DEC 26 – JAN 1</div>
+        <div class="name">KWANZAA (7 DAYS)</div>
+        <div class="type">CULTURAL WEEK</div>
+      </div>
+      <div class="calendar-item">
+        <div class="date">JAN 15</div>
+        <div class="name">MLK DAY</div>
+        <div class="type">LIBERATION</div>
+      </div>
+      <div class="calendar-item">
+        <div class="date">FEB 2</div>
+        <div class="name">GROUNDHOG / IMBOLC</div>
+        <div class="type">COSMIC</div>
+      </div>
+      <div class="calendar-item">
+        <div class="date">MAR 20</div>
+        <div class="name">SPRING EQUINOX</div>
+        <div class="type">COSMIC BALANCE</div>
+      </div>
+      <div class="calendar-item">
+        <div class="date">APR 1</div>
+        <div class="name">APRIL FOOLS (STRATEGIC)</div>
+        <div class="type">TACTICAL</div>
+      </div>
+      <div class="calendar-item">
+        <div class="date">MAY 1</div>
+        <div class="name">MAY DAY / BELTANE</div>
+        <div class="type">LABOR + COSMIC</div>
+      </div>
+      <div class="calendar-item">
+        <div class="date">RARE MOONS</div>
+        <div class="name">BLUE / SUPER / HARVEST</div>
+        <div class="type">COSMIC EVENTS</div>
+      </div>
+    </div>
+
+    <div class="highlight-box">
+      <p><strong>🌌 COSMIC PRINCIPLE:</strong> Every sacred date is a deployment window. Every solstice is a launch. Every equinox is a pivot. We don't just observe — we activate.</p>
+    </div>
+
+    <div class="section-nav">
+      <button class="btn btn-ghost" onclick="scrollToSection('hero')">← BACK</button>
+      <button class="btn btn-primary" onclick="scrollToSection('seasons')">NEXT: 5 SEASONS →</button>
+    </div>
+  </div>
+</section>
+
+<!-- ===== 5 SEASONS ===== -->
+<section class="section" id="seasons">
+  <h2 class="section-title">🌊 THE 5 SEASONS</h2>
+  <p class="section-subtitle">Community Development Cycle. Every 7 weeks. 5 cycles per year.</p>
+
+  <div class="card completed" onclick="toggleExpand('exp-seasons')">
+    <div class="card-number">5 SEASONS</div>
+    <h3>Community → Culture → Art → Activism → Rest</h3>
+    <p>Weeks 1–12. Weeks 13–24. Weeks 25–36. Weeks 37–49. Weeks 50–65.</p>
+    <div class="card-tags"><span>CYCLE</span><span>RHYTHM</span><span>GROWTH</span></div>
+  </div>
+
+  <div class="expanded-section" id="exp-seasons">
+    <h2>🌊 THE 5 SEASONS — FULL BREAKDOWN</h2>
+
+    <div class="season-grid">
+      <div class="season-card">
+        <div class="season-num">S1</div>
+        <div class="season-name">COMMUNITY</div>
+        <div class="season-weeks">Weeks 1–12</div>
+        <p style="color:var(--text2);font-size:0.85rem;margin-top:8px;">Digital circles. Rituals. Community events. Youth development. Chapter formation.</p>
+      </div>
+      <div class="season-card">
+        <div class="season-num">S2</div>
+        <div class="season-name">CULTURE</div>
+        <div class="season-weeks">Weeks 13–24</div>
+        <p style="color:var(--text2);font-size:0.85rem;margin-top:8px;">Product lines. MP3 drops. Visual poem releases. Micro‑courses. Creator development.</p>
+      </div>
+      <div class="season-card">
+        <div class="season-num">S3</div>
+        <div class="season-name">CREATION</div>
+        <div class="season-weeks">Weeks 25–36</div>
+        <p style="color:var(--text2);font-size:0.85rem;margin-top:8px;">Art as activism. Songs. Poems. Visual poems. Micro‑courses. Creative output.</p>
+      </div>
+      <div class="season-card">
+        <div class="season-num">S4</div>
+        <div class="season-name">ACTIVISM</div>
+        <div class="season-weeks">Weeks 37–49</div>
+        <p style="color:var(--text2);font-size:0.85rem;margin-top:8px;">Healing. Liberation. Healing curriculum. Community uplift. Chapter leadership. Ranking.</p>
+      </div>
+      <div class="season-card">
+        <div class="season-num">S5</div>
+        <div class="season-name">IMPACT</div>
+        <div class="season-weeks">Weeks 50–65</div>
+        <p style="color:var(--text2);font-size:0.85rem;margin-top:8px;">Advocacy. Healing. Liberation curriculum. Community uplift. Chapter leadership. Ranks. Awards. Summit.</p>
+      </div>
+    </div>
+
+    <div class="highlight-box">
+      <p><strong>🌊 SEASON PRINCIPLE:</strong> We don't burn out. We cycle. Every 7 weeks we pivot. Every 5 cycles we peak. The rhythm IS the resistance.</p>
+    </div>
+
+    <div class="section-nav">
+      <button class="btn btn-ghost" onclick="scrollToSection('cosmic')">← COSMIC</button>
+      <button class="btn btn-primary" onclick="scrollToSection('ranks')">NEXT: 7 RANKS →</button>
+    </div>
+  </div>
+</section>
+
+<!-- ===== 7 RANKS ===== -->
+<section class="section" id="ranks">
+  <h2 class="section-title">🏆 THE 7 RANKS</h2>
+  <p class="section-subtitle">Seed → Root → Stem → Bloom → Fruit + NAM OSHUN Award + Five Elements + Chapter of Year</p>
+
+  <div class="card completed" onclick="toggleExpand('exp-ranks')">
+    <div class="card-number">7 RANKS</div>
+    <h3>Progression. Service. Recognition.</h3>
+    <p>Not hierarchy. Growth. Everyone starts as Seed. Everyone can reach Fruit.</p>
+    <div class="card-tags"><span>RANKS</span><span>AWARDS</span><span>SERVICE</span></div>
+  </div>
+
+  <div class="expanded-section" id="exp-ranks">
+    <h2>🏆 THE 7 RANKS — FULL SYSTEM</h2>
+
+    <div class="rank-grid">
+      <div class="rank-item">
+        <div class="rank-num">1</div>
+        <div class="rank-name">SEED</div>
+        <div class="rank-desc">New member. Learning. Planted.</div>
+      </div>
+      <div class="rank-item">
+        <div class="rank-num">2</div>
+        <div class="rank-name">ROOT</div>
+        <div class="rank-desc">Grounded. Active. Showing up.</div>
+      </div>
+      <div class="rank-item">
+        <div class="rank-num">3</div>
+        <div class="rank-name">STEM</div>
+        <div class="rank-desc">Growing. Leading small groups.</div>
+      </div>
+      <div class="rank-item">
+        <div class="rank-num">4</div>
+        <div class="rank-name">BLOOM</div>
+        <div class="rank-desc">Visible. Creating. Teaching.</div>
+      </div>
+      <div class="rank-item">
+        <div class="rank-num">5</div>
+        <div class="rank-name">FRUIT</div>
+        <div class="rank-desc">Harvesting. Mentoring. Legacy.</div>
+      </div>
+      <div class="rank-item">
+        <div class="rank-num">⭐</div>
+        <div class="rank-name">NAM OSHUN AWARD</div>
+        <div class="rank-desc">Highest honor. Named by community.</div>
+      </div>
+      <div class="rank-item">
+        <div class="rank-num">🔥</div>
+        <div class="rank-name">FIVE ELEMENTS AWARD</div>
+        <div class="rank-desc">Mastery of all 5 elements.</div>
+      </div>
+    </div>
+
+    <div class="highlight-box">
+      <p><strong>🏆 RANK PRINCIPLE:</strong> Ranks are not about power. They're about responsibility. The higher you climb, the more you serve. Fruit doesn't just hang — it feeds others.</p>
+    </div>
+
+    <div class="section-nav">
+      <button class="btn btn-ghost" onclick="scrollToSection('seasons')">← SEASONS</button>
+      <button class="btn btn-primary" onclick="scrollToSection('events')">NEXT: 5 EVENTS →</button>
+    </div>
+  </div>
+</section>
+
+<!-- ===== 5 FLAGSHIP EVENTS ===== -->
+<section class="section" id="events">
+  <h2 class="section-title">🎪 THE 5 FLAGSHIP EVENTS</h2>
+  <p class="section-subtitle">Annual anchor events. Massive impact. Full deployment.</p>
+
+  <div class="card completed" onclick="toggleExpand('exp-events')">
+    <div class="card-number">5 EVENTS</div>
+    <h3>Welsing. PowerNomics. Revolutionary Days. Cosmic Gatherings. Annual Summit.</h3>
+    <p>Each event = full SOUP AINP activation. All 5 elements. All 7 ranks. All 60 tactics.</p>
+    <div class="card-tags"><span>FLAGSHIP</span><span>ANNUAL</span><span>MASSIVE</span></div>
+  </div>
+
+  <div class="expanded-section" id="exp-events">
+    <h2>🎪 THE 5 FLAGSHIP EVENTS — FULL DETAILS</h2>
+
+    <div class="event-grid">
+      <div class="event-card">
+        <h4>🩺 1. WELSING WELLNESS RETREAT</h4>
+        <p><strong>When:</strong> Spring Equinox (March 20)</p>
+        <p><strong>What:</strong> 50 people. Virtual space that feels like a garden. The Counselor leads. PRT writes poems in real time. The Builder builds a digital cabin. The Merchant feeds everyone. Sovereign says nothing. He doesn't need to.</p>
+        <p><strong>Elements:</strong> Knowledge + Community + Art + Activism + Social</p>
+        <div class="event-tags">
+          <span>HEALING</span>
+          <span>RETREAT</span>
+          <span>SPRING</span>
+        </div>
+      </div>
+
+      <div class="event-card">
+        <h4>💰 2. POWERNOMICS FESTIVAL</h4>
+        <p><strong>When:</strong> Summer Solstice (June 21)</p>
+        <p><strong>What:</strong> Economic empowerment fest. Cooperative market. Artist showcase. Financial literacy workshops. Credit union partnerships. Seed fund pitches.</p>
+        <p><strong>Elements:</strong> Economic Engine + Art + Community</p>
+        <div class="event-tags">
+          <span>ECONOMY</span>
+          <span>SUMMER</span>
+          <span>MARKET</span>
+        </div>
+      </div>
+
+      <div class="event-card">
+        <h4>🔥 3. REVOLUTIONARY DAYS</h4>
+        <p><strong>When:</strong> August 13 (Malcolm X Day)</p>
+        <p><strong>What:</strong> 3-day activation. Protest support. Legal observer deployment. Rapid response teams. Media saturation. Narrative takeover. Policy push.</p>
+        <p><strong>Elements:</strong> Activism + Art + Community + Social</p>
+        <div class="event-tags">
+          <span>ACTIVISM</span>
+          <span>AUGUST</span>
+          <span>PROTEST</span>
+        </div>
+      </div>
+
+      <div class="event-card">
+        <h4>🌌 4. COSMIC GATHERINGS</h4>
+        <p><strong>When:</strong> Solstices & Equinoxes (4x/year)</p>
+        <p><strong>What:</strong> Ritual. Poetry. Music. Visual art. Community bonding. Ancestral connection. The 7 Pantheon members lead different ceremonies.</p>
+        <p><strong>Elements:</strong> All 5 Elements</p>
+        <div class="event-tags">
+          <span>COSMIC</span>
+          <span>RITUAL</span>
+          <span>QUARTERLY</span>
+        </div>
+      </div>
+
+      <div class="event-card">
+        <h4>👑 5. THE ANNUAL SUMMIT</h4>
+        <p><strong>When:</strong> Winter Solstice (December 21)</p>
+        <p><strong>What:</strong> Year-end review. Rank ceremonies. Award presentations. Strategy planning. New season launch. The NAM OSHUN Award given. Five Elements Awards distributed. Chapter of the Year named.</p>
+        <p><strong>Elements:</strong> All 5 Elements + All 7 Ranks</p>
+        <div class="event-tags">
+          <span>SUMMIT</span>
+          <span>WINTER</span>
+          <span>AWARDS</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="highlight-box">
+      <p><strong>🎪 EVENT PRINCIPLE:</strong> Every event is a full system activation. We don't do "events." We do deployments. Every gathering is a launchpad.</p>
+    </div>
+
+    <div class="section-nav">
+      <button class="btn btn-ghost" onclick="scrollToSection('ranks')">← RANKS</button>
+      <button class="btn btn-primary" onclick="scrollToSection('master')">NEXT: MASTER INDEX →</button>
+    </div>
+  </div>
+</section>
+
+<!-- ===== MASTER INDEX — ALL 6 SECTIONS ===== -->
+<section class="section" id="master">
+  <h2 class="section-title">📕 THE MASTER INDEX</h2>
+  <p class="section-subtitle">All 6 sections. One file. Complete. Ready for platform team.</p>
+
+  <div class="card completed" onclick="toggleExpand('exp-master')">
+    <div class="card-number">MASTER</div>
+    <h3>SOUP AINP — Complete System</h3>
+    <p>Founder's Manual (25 sections) + Pantheon (7 origin stories) + Games (3 playable) + Training (4 packets) + 60 Tactics (full CSV) + Calendar (seasons/events/ranks).</p>
+    <div class="card-tags"><span>COMPLETE</span><span>READY</span><span>ONE FILE</span></div>
+  </div>
+
+  <div class="expanded-section" id="exp-master">
+    <h2>📕 MASTER INDEX — WHAT'S IN THIS FILE</h2>
+
+    <div class="highlight-box" style="background:rgba(255,215,0,0.08);border-left-color:var(--gold);">
+      <p style="color:var(--gold);font-size:1.1rem;font-weight:700;">📊 6 SECTIONS. 25 FOUNDER'S SECTIONS. 7 PANTHEON MEMBERS. 3 GAMES. 4 TRAINING PACKETS. 60 TACTICS. 5 SEASONS. 7 RANKS. 5 EVENTS. 1 CSV. 10 SAFEGUARDS.</p>
+      <p style="color:var(--text);margin-top:12px;">ALL IN ONE FILE. NO FOLDERS. NO CONFUSION. READY FOR YOUR PLATFORM AI TEAM.</p>
+    </div>
+
+    <div style="margin:24px 0;">
+      <h3 style="color:var(--accent);margin-bottom:16px;">📋 FILE CONTENTS:</h3>
+      <ul style="list-style:none;padding-left:0;">
+        <li style="padding:8px 0;border-bottom:1px solid rgba(225,112,85,0.1);">✅ <strong>Section A:</strong> Founder's Manual (25 sections, 5 unlocked)</li>
+        <li style="padding:8px 0;border-bottom:1px solid rgba(225,112,85,0.1);">✅ <strong>Section B:</strong> The Pantheon (7 origin stories + poems + voices)</li>
+        <li style="padding:8px 0;border-bottom:1px solid rgba(225,112,85,0.1);">✅ <strong>Section C:</strong> The Games (3 playable: See-Through Black, Confusion Engine, Legend of Nam Oshun)</li>
+        <li style="padding:8px 0;border-bottom:1px solid rgba(225,112,85,0.1);">✅ <strong>Section D:</strong> Training (4 packets: Policing, Housing, Health, Civic)</li>
+        <li style="padding:8px 0;border-bottom:1px solid rgba(225,112,85,0.1);">✅ <strong>Section E:</strong> 60 Tactics (full CSV + mapping + 10 safeguards)</li>
+        <li style="padding:8px 0;border-bottom:1px solid rgba(225,112,85,0.1);">✅ <strong>Section F:</strong> Calendar (Cosmic dates + 5 Seasons + 7 Ranks + 5 Events)</li>
+      </ul>
+    </div>
+
+    <div class="highlight-box">
+      <p><strong>🎯 YOUR NEXT STEP:</strong></p>
+      <p style="margin-top:8px;">1. Save this HTML file.<br>
+      2. Put it in ONE FOLDER with the other 5 files (A–E).<br>
+      3. Give the folder to your platform AI team.<br>
+      4. They decide how it fits into the platform.<br>
+      5. No confusion. No folders within folders. One file = one section. Clean.</p>
+    </div>
+
+    <div style="text-align:center;margin-top:40px;">
+      <button class="btn btn-primary" onclick="window.print()" style="font-size:1.1rem;padding:18px 40px;">🖨️ PRINT THIS FILE</button>
+      <p style="color:var(--text2);font-size:0.85rem;margin-top:16px;">Or save as PDF. One file. Complete. Ready.</p>
+    </div>
+
+    <div class="section-nav">
+      <button class="btn btn-ghost" onclick="scrollToSection('events')">← EVENTS</button>
+      <button class="btn btn-primary" onclick="scrollToSection('hero')">↑ TOP</button>
+    </div>
+  </div>
+</section>
+
+<!-- ===== MODAL ===== -->
+<div class="modal-overlay" id="certModal">
+  <div class="modal">
+    <h3>📕 SOUP AINP — COMPLETE</h3>
+    <p style="color:var(--text2);margin-bottom:20px;line-height:1.7;">All 6 sections delivered. 25 founder sections. 7 pantheon members. 3 games. 4 training packets. 60 tactics. 5 seasons. 7 ranks. 5 events. 1 CSV. 10 safeguards. One file. No folders. No confusion.</p>
+    <p style="color:var(--accent);font-weight:700;font-size:1.1rem;margin-bottom:20px;">Ready for your platform AI team. 🔥</p>
+    <button class="btn btn-primary" onclick="closeModal()">🔄 CLOSE & SAVE</button>
+  </div>
+</div>
+
+<div class="confusion-popup" id="confusionPopup">
+  <h4 id="popupTitle">✅ COMPLETE</h4>
+  <p id="popupText">6 sections. 1 file. No confusion. Ready for platform team.</p>
+</div>
+
+<script>
+function toggleTheme() {
+  const body = document.body;
+  const current = body.getAttribute('data-theme');
+  body.setAttribute('data-theme', current === 'dark' ? 'light' : 'dark');
+}
+
+function scrollToSection(id) {
+  document.getElementById(id).scrollIntoView({ behavior: 'smooth' });
+}
+
+function toggleExpand(id) {
+  const el = document.getElementById(id);
+  if (el.classList.contains('active')) {
+    el.classList.remove('active');
+  } else {
+    document.querySelectorAll('.expanded-section').forEach(s => s.classList.remove('active'));
+    el.classList.add('active');
+  }
+}
+
+function closeModal() {
+  document.getElementById('certModal').classList.remove('active');
+}
+
+function showPopup(title, text) {
+  const popup = document.getElementById('confusionPopup');
+  document.getElementById('popupTitle').textContent = title;
+  document.getElementById('popupText').textContent = text;
+  popup.classList.add('show');
+  setTimeout(() => popup.classList.remove('show'), 4000);
+}
+
+window.addEventListener('load', () => {
+  setTimeout(() => {
+    toggleExpand('exp-cosmic');
+  }, 500);
+});
+</script>
+
+</body>
+</html>

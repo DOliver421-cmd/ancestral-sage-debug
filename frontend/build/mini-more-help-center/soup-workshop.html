@@ -1,0 +1,901 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="Master ChatGPT like a pro — no tech skills needed. The Prompt Architect Workshop for real humans.">
+<title>The Prompt Architect — ChatGPT Workshop for Real Humans</title>
+<style>
+:root {
+  --bg: #0a0a0f;
+  --surface: #12121a;
+  --surface2: #1a1a2e;
+  --accent: #6c5ce7;
+  --accent2: #a29bfe;
+  --accent3: #fd79a8;
+  --text: #e0e0e0;
+  --text2: #8888aa;
+  --success: #00b894;
+  --warning: #fdcb6e;
+  --danger: #d63031;
+  --radius: 12px;
+}
+
+[data-theme="light"] {
+  --bg: #f5f5f7;
+  --surface: #ffffff;
+  --surface2: #e8e8ed;
+  --text: #1a1a2e;
+  --text2: #666680;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.6;
+  overflow-x: hidden;
+  transition: background 0.3s, color 0.3s;
+}
+
+nav {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 1000;
+  background: rgba(10,10,15,0.85);
+  backdrop-filter: blur(20px);
+  border-bottom: 1px solid rgba(108,92,231,0.2);
+  padding: 12px 24px;
+  display: flex; justify-content: space-between; align-items: center;
+}
+[data-theme="light"] nav { background: rgba(255,255,255,0.85); border-bottom-color: rgba(108,92,231,0.15); }
+
+.nav-brand { font-size: 1.2rem; font-weight: 800; color: var(--accent); }
+.nav-brand span { color: var(--accent3); }
+.nav-links { display: flex; gap: 20px; align-items: center; }
+.nav-links a { color: var(--text2); text-decoration: none; font-size: 0.9rem; cursor: pointer; transition: color 0.2s; }
+.nav-links a:hover { color: var(--accent2); }
+
+.theme-toggle {
+  background: var(--surface2); border: none; color: var(--text);
+  width: 40px; height: 40px; border-radius: 50%; cursor: pointer;
+  font-size: 1.2rem;
+}
+
+.progress-badge {
+  background: var(--accent); color: white; padding: 4px 12px;
+  border-radius: 20px; font-size: 0.75rem; font-weight: 700;
+}
+
+.hero {
+  min-height: 100vh; display: flex; align-items: center; justify-content: center;
+  text-align: center; padding: 120px 24px 80px;
+  background: radial-gradient(ellipse at 50% 0%, rgba(108,92,231,0.15) 0%, transparent 70%);
+}
+.hero h1 { font-size: clamp(2rem, 5vw, 4rem); font-weight: 900; line-height: 1.1; margin-bottom: 20px; }
+.hero h1 .highlight { background: linear-gradient(135deg, var(--accent), var(--accent3)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+.hero p { font-size: 1.2rem; color: var(--text2); max-width: 600px; margin: 0 auto 40px; }
+
+.btn {
+  padding: 14px 32px; border-radius: var(--radius); font-size: 1rem; font-weight: 700;
+  border: none; cursor: pointer; transition: all 0.3s; text-decoration: none; display: inline-flex; align-items: center; gap: 8px;
+}
+.btn-primary { background: var(--accent); color: white; }
+.btn-primary:hover { background: var(--accent2); transform: translateY(-2px); box-shadow: 0 8px 24px rgba(108,92,231,0.4); }
+.btn-outline { background: transparent; color: var(--text); border: 2px solid var(--accent); }
+.btn-outline:hover { background: var(--accent); color: white; }
+.btn-success { background: var(--success); color: white; }
+
+.levels-section { padding: 80px 24px; max-width: 1200px; margin: 0 auto; }
+.section-title { font-size: 2rem; font-weight: 800; text-align: center; margin-bottom: 12px; }
+.section-subtitle { text-align: center; color: var(--text2); margin-bottom: 48px; font-size: 1.1rem; }
+
+.level-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 24px; }
+
+.level-card {
+  background: var(--surface); border: 1px solid rgba(108,92,231,0.15);
+  border-radius: var(--radius); padding: 32px; transition: all 0.3s;
+  cursor: pointer; position: relative; overflow: hidden;
+}
+.level-card:hover { transform: translateY(-4px); border-color: var(--accent); box-shadow: 0 8px 32px rgba(0,0,0,0.4); }
+.level-card.locked { opacity: 0.5; pointer-events: none; }
+.level-card.locked::after { content: '🔒'; position: absolute; top: 16px; right: 16px; font-size: 1.5rem; }
+.level-card.completed { border-color: var(--success); }
+.level-card.completed::after { content: '✅'; position: absolute; top: 16px; right: 16px; font-size: 1.5rem; }
+
+.level-number { font-size: 0.8rem; font-weight: 800; color: var(--accent); text-transform: uppercase; letter-spacing: 2px; margin-bottom: 8px; }
+.level-card h3 { font-size: 1.3rem; margin-bottom: 8px; }
+.level-card p { color: var(--text2); font-size: 0.9rem; margin-bottom: 20px; }
+.level-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 20px; }
+.level-tags span { background: var(--surface2); padding: 4px 10px; border-radius: 6px; font-size: 0.75rem; color: var(--accent2); }
+
+.workshop-view { display: none; padding: 100px 24px 80px; max-width: 1000px; margin: 0 auto; }
+.workshop-view.active { display: block; }
+
+.back-btn {
+  background: var(--surface2); border: none; color: var(--text);
+  padding: 8px 20px; border-radius: 8px; cursor: pointer; font-size: 0.9rem;
+  margin-bottom: 32px; display: inline-flex; align-items: center; gap: 8px;
+}
+.back-btn:hover { background: var(--accent); color: white; }
+
+.phase-header { margin-bottom: 40px; }
+.phase-header h2 { font-size: 2rem; font-weight: 800; margin-bottom: 8px; }
+.phase-header .phase-meta { color: var(--text2); font-size: 0.9rem; }
+
+.content-block {
+  background: var(--surface); border: 1px solid rgba(108,92,231,0.1);
+  border-radius: var(--radius); padding: 32px; margin-bottom: 24px;
+}
+.content-block h3 { font-size: 1.2rem; margin-bottom: 16px; color: var(--accent2); }
+.content-block p, .content-block li { color: var(--text2); margin-bottom: 12px; }
+.content-block ul { padding-left: 20px; }
+
+.code-block {
+  background: #0d0d14; border: 1px solid rgba(108,92,231,0.2);
+  border-radius: 8px; padding: 16px; font-family: 'Courier New', monospace;
+  font-size: 0.9rem; color: #a29bfe; overflow-x: auto; margin: 16px 0;
+}
+
+.exercise-box {
+  background: linear-gradient(135deg, rgba(108,92,231,0.1), rgba(253,121,168,0.1));
+  border: 2px dashed var(--accent);
+  border-radius: var(--radius); padding: 32px; text-align: center; margin: 24px 0;
+}
+.exercise-box h4 { font-size: 1.3rem; margin-bottom: 12px; }
+.exercise-box p { color: var(--text2); margin-bottom: 20px; }
+
+.prompt-builder {
+  background: var(--surface); border: 1px solid rgba(108,92,231,0.15);
+  border-radius: var(--radius); padding: 32px; margin: 24px 0;
+}
+.prompt-builder h3 { margin-bottom: 24px; color: var(--accent2); }
+.builder-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px; }
+.builder-field label { display: block; font-size: 0.85rem; color: var(--text2); margin-bottom: 6px; font-weight: 600; }
+.builder-field select, .builder-field input {
+  width: 100%; padding: 10px 14px; border-radius: 8px;
+  background: var(--surface2); border: 1px solid rgba(108,92,231,0.2);
+  color: var(--text); font-size: 0.95rem;
+}
+
+.generated-prompt {
+  background: #0d0d14; border: 1px solid var(--success);
+  border-radius: 8px; padding: 20px; font-family: 'Courier New', monospace;
+  font-size: 1rem; color: #00b894; margin-top: 16px;
+  word-break: break-all;
+}
+
+.cheatsheet {
+  background: var(--surface); border: 1px solid rgba(108,92,231,0.15);
+  border-radius: var(--radius); padding: 32px; margin: 24px 0;
+}
+.cheatsheet h3 { margin-bottom: 20px; text-align: center; }
+.tag-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }
+.tag-item {
+  background: var(--surface2); padding: 8px 12px; border-radius: 6px;
+  font-size: 0.8rem; text-align: center; color: var(--accent2);
+  transition: all 0.2s; cursor: pointer;
+}
+.tag-item:hover { background: var(--accent); color: white; }
+
+.modal-overlay {
+  display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7);
+  z-index: 2000; align-items: center; justify-content: center; padding: 24px;
+}
+.modal-overlay.active { display: flex; }
+.modal {
+  background: var(--surface); border-radius: var(--radius); padding: 40px;
+  max-width: 500px; width: 100%; text-align: center;
+}
+.modal h3 { font-size: 1.5rem; margin-bottom: 16px; }
+.modal input {
+  width: 100%; padding: 12px; border-radius: 8px; background: var(--surface2);
+  border: 1px solid rgba(108,92,231,0.2); color: var(--text);
+  font-size: 1rem; margin-bottom: 20px;
+}
+.modal input:focus { outline: none; border-color: var(--accent); }
+
+footer {
+  background: var(--surface); border-top: 1px solid rgba(108,92,231,0.1);
+  padding: 40px 24px; text-align: center; color: var(--text2);
+}
+footer a { color: var(--accent2); text-decoration: none; }
+
+@media (max-width: 768px) {
+  .nav-links { display: none; }
+  .hero { padding: 100px 16px 60px; }
+  .level-grid { grid-template-columns: 1fr; }
+  .builder-grid { grid-template-columns: 1fr; }
+}
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-in { animation: fadeInUp 0.5s ease forwards; }
+</style>
+</head>
+<body data-theme="dark">
+
+<nav>
+  <div class="nav-brand">Prompt <span>Architect</span></div>
+  <div class="nav-links">
+    <a onclick="scrollToSection('levels')">Levels</a>
+    <a onclick="scrollToSection('builder')">Prompt Builder</a>
+    <a onclick="scrollToSection('cheatsheet')">Cheat Sheet</a>
+    <span class="progress-badge" id="progressBadge">Level 0/5</span>
+    <button class="theme-toggle" onclick="toggleTheme()">🌓</button>
+  </div>
+</nav>
+
+<section class="hero" id="hero">
+  <div>
+    <h1>Stop <span class="highlight">Chatting.</span><br>Start <span class="highlight">Directing.</span></h1>
+    <p>The ChatGPT workshop for people who aren't nerds. No code. No jargon. Just the 5 tricks that make AI actually useful for your real life.</p>
+    <div class="cta-group">
+      <button class="btn btn-primary" onclick="scrollToSection('levels')">🚀 Start Workshop — Free</button>
+      <button class="btn btn-outline" onclick="scrollToSection('builder')">🎛️ Try Prompt Builder</button>
+    </div>
+  </div>
+</section>
+
+<section class="levels-section" id="levels">
+  <h2 class="section-title">Your 5-Step Upgrade</h2>
+  <p class="section-subtitle">From "ChatGPT, write me something" → "ChatGPT, do this exact thing."</p>
+
+  <div class="level-grid" id="levelGrid">
+
+    <div class="level-card" onclick="openLevel(1)" data-level="1">
+      <div class="level-number">Level 1 — The Brief</div>
+      <h3>Stop Chatting, Start Directing</h3>
+      <p>The #1 mistake: talking to AI like a person. Fix: talk to it like a boss giving orders.</p>
+      <div class="level-tags">
+        <span>The "You Are" Trick</span>
+        <span>Emails & Captions</span>
+        <span>Real Examples</span>
+      </div>
+      <button class="btn btn-primary" style="width:100%">Begin →</button>
+    </div>
+
+    <div class="level-card locked" data-level="2" id="level2">
+      <div class="level-number">Level 2 — The Formula</div>
+      <h3>The 5-Part Prompt That Always Works</h3>
+      <p>Role + Task + Context + Tone + Format. Memorize it. Use it forever.</p>
+      <div class="level-tags">
+        <span>The Formula</span>
+        <span>Song Lyrics</span>
+        <span>Social Posts</span>
+      </div>
+      <button class="btn btn-outline" style="width:100%" disabled>🔒 Complete Level 1</button>
+    </div>
+
+    <div class="level-card locked" data-level="3" id="level3">
+      <div class="level-number">Level 3 — The Rewrite</div>
+      <h3>Never Accept the First Answer</h3>
+      <p>The "Make it more..." technique. Push AI until it gives you gold.</p>
+      <div class="level-tags">
+        <span>Iteration</span>
+        <span>Polishing</span>
+        <span>The Rewrite Button</span>
+      </div>
+      <button class="btn btn-outline" style="width:100%" disabled>🔒 Complete Level 2</button>
+    </div>
+
+    <div class="level-card locked" data-level="4" id="level4">
+      <div class="level-number">Level 4 — The Recipe Book</div>
+      <h3>Save Your Best Prompts</h3>
+      <p>Build a personal library of prompts that work for YOU. Copy, paste, win.</p>
+      <div class="level-tags">
+        <span>Prompt Library</span>
+        <span>Templates</span>
+        <span>Speed Hacks</span>
+      </div>
+      <button class="btn btn-outline" style="width:100%" disabled>🔒 Complete Level 3</button>
+    </div>
+
+    <div class="level-card locked" data-level="5" id="level5">
+      <div class="level-number">Level 5 — The Workflow</div>
+      <h3>Break Big Tasks Into Small Steps</h3>
+      <p>Don't ask for a whole album. Ask for one verse. Then the chorus. Then stitch them.</p>
+      <div class="level-tags">
+        <span>Chaining</span>
+        <span>Content Calendars</span>
+        <span>Business Plans</span>
+      </div>
+      <button class="btn btn-outline" style="width:100%" disabled>🔒 Complete Level 4</button>
+    </div>
+
+  </div>
+</section>
+
+<div class="workshop-view" id="workshopView">
+  <button class="back-btn" onclick="closeLevel()">← Back to Levels</button>
+  <div id="workshopContent"></div>
+</div>
+
+<section class="levels-section" id="builder" style="padding-top: 100px;">
+  <h2 class="section-title">🎛️ The "Fill-In-The-Blank" Prompt Builder</h2>
+  <p class="section-subtitle">Pick your ingredients. Get a perfect prompt in 10 seconds. No thinking required.</p>
+
+  <div class="prompt-builder">
+    <h3>Build Your Perfect Prompt</h3>
+    <div class="builder-grid">
+      <div class="builder-field">
+        <label>🎭 You are a...</label>
+        <select id="bgRole" onchange="generatePrompt()">
+          <option value="">Pick your AI's job...</option>
+          <option>Music publicist who writes press releases</option>
+          <option>Country songwriter from Nashville</option>
+          <option>Instagram caption writer for coffee shops</option>
+          <option>Polite but firm customer service rep</option>
+          <option>Wedding speech writer who's also funny</option>
+          <option>Real estate agent who makes listings sound luxurious</option>
+          <option>Kids book author who rhymes everything</option>
+          <option>YouTube script writer who hooks viewers in 5 seconds</option>
+          <option>Life coach who gives tough love</option>
+        </select>
+      </div>
+      <div class="builder-field">
+        <label>📝 I need you to...</label>
+        <select id="bgTask" onchange="generatePrompt()">
+          <option value="">What do you need?</option>
+          <option>Write 3 versions of an email</option>
+          <option>Write a chorus for a breakup song</option>
+          <option>Write 5 Instagram captions</option>
+          <option>Rewrite this so I sound more professional</option>
+          <option>Give me 10 tagline ideas</option>
+          <option>Write a speech for my best friend's wedding</option>
+          <option>Summarize this long article in 3 bullets</option>
+          <option>Help me practice a difficult conversation</option>
+          <option>Write a product description that sells</option>
+        </select>
+      </div>
+      <div class="builder-field">
+        <label>🎯 The context is...</label>
+        <select id="bgContext" onchange="generatePrompt()">
+          <option value="">Who/what is this about?</option>
+          <option>A truck driver who just found out his ex is dating his brother</option>
+          <option>A coffee shop that also sells vinyl records</option>
+          <option>I'm asking for a refund but they keep ignoring me</option>
+          <option>It's for my mom's 60th birthday</option>
+          <option>The product is a $200 wireless speaker</option>
+          <option>I need to tell my boss I'm quitting</option>
+          <option>It's a love song but make it funny</option>
+          <option>The audience is teenagers on TikTok</option>
+        </select>
+      </div>
+      <div class="builder-field">
+        <label>🎨 The vibe should be...</label>
+        <select id="bgTone" onchange="generatePrompt()">
+          <option value="">Pick a mood...</option>
+          <option>Funny but also heartfelt</option>
+          <option>Professional but warm</option>
+          <option>Sassy and confident</option>
+          <option>Sad but hopeful</option>
+          <option>Hype and energetic</option>
+          <option>Calm and reassuring</option>
+          <option>Dramatic like a movie trailer</option>
+          <option>Simple and clear, no fluff</option>
+        </select>
+      </div>
+      <div class="builder-field">
+        <label>📦 Give me the answer as...</label>
+        <select id="bgFormat" onchange="generatePrompt()">
+          <option value="">How should it look?</option>
+          <option>A numbered list</option>
+          <option>3 options to choose from</option>
+          <option>A short paragraph</option>
+          <option>A table comparing pros and cons</option>
+          <option>A step-by-step guide</option>
+          <option>A tweet (under 280 characters)</option>
+          <option>A script with stage directions</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="generated-prompt" id="generatedPrompt">
+      <span style="color: var(--text2)">← Pick options above and watch the magic happen...</span>
+    </div>
+
+    <div style="margin-top: 16px; display: flex; gap: 12px; flex-wrap: wrap;">
+      <button class="btn btn-success" onclick="copyGenerated()">📋 Copy to Clipboard</button>
+      <button class="btn btn-outline" onclick="window.open('https://chatgpt.com','_blank')">🎵 Open ChatGPT to Paste</button>
+    </div>
+  </div>
+</section>
+
+<section class="levels-section" id="cheatsheet">
+  <h2 class="section-title">📋 The "Saaaay Less" Cheat Sheet</h2>
+  <p class="section-subtitle">Print this. Tattoo it on your forearm. Use it every day.</p>
+
+  <div class="cheatsheet">
+    <h3>🧠 The #1 Rule</h3>
+    <div class="code-block" style="text-align:center; font-size:1.1rem; padding:24px;">
+❌ "Write me a song about love"<br><br>
+✅ "You are a Nashville songwriter. Write 3 chorus hooks for a country breakup song about a truck driver who just found out his ex is dating his brother. Make it funny AND sad. Give me 3 options in a numbered list."
+    </div>
+
+    <h3 style="margin-top: 32px;">📝 The 5-Part Formula (Memorize This)</h3>
+    <div class="code-block">
+[ROLE] + [TASK] + [CONTEXT] + [TONE] + [FORMAT]
+
+"You are a [JOB].
+Write me [WHAT].
+It's about [WHO/WHAT].
+Make it [MOOD].
+Give me [HOW IT LOOKS]."
+    </div>
+
+    <h3 style="margin-top: 32px;">🔄 The "Make It More..." Rewrite Tricks</h3>
+    <div class="tag-grid">
+      <div class="tag-item" onclick="copyTag(this)">"Make it shorter"</div>
+      <div class="tag-item" onclick="copyTag(this)">"Make it funnier"</div>
+      <div class="tag-item" onclick="copyTag(this)">"Make it sound like Beyoncé"</div>
+      <div class="tag-item" onclick="copyTag(this)">"Make it more dramatic"</div>
+      <div class="tag-item" onclick="copyTag(this)">"Rewrite but keep the same idea"</div>
+      <div class="tag-item" onclick="copyTag(this)">"Give me 3 more options but different"</div>
+      <div class="tag-item" onclick="copyTag(this)">"Now make it for a different audience"</div>
+      <div class="tag-item" onclick="copyTag(this)">"Simplify this like I'm 5 years old"</div>
+    </div>
+
+    <h3 style="margin-top: 32px;">🚫 The 5 Things That Make AI Give You Garbage</h3>
+    <ul style="color: var(--text2); padding-left: 20px; margin-top: 12px;">
+      <li>❌ Being vague: "Write something good"</li>
+      <li>❌ Asking for everything at once: "Write my whole album"</li>
+      <li>❌ Not telling it WHO to be: "Write a song" (be WHO?)</li>
+      <li>❌ Accepting the first answer: It can do BETTER. Push it.</li>
+      <li>❌ Not saving your good prompts: You'll forget what worked.</li>
+    </ul>
+
+    <div style="margin-top: 32px; text-align: center;">
+      <button class="btn btn-primary" onclick="window.print()">🖨️ Print Cheat Sheet</button>
+      <button class="btn btn-outline" onclick="downloadCheatSheet()">📥 Save as PDF</button>
+    </div>
+  </div>
+</section>
+
+<div class="modal-overlay" id="certModal">
+  <div class="modal">
+    <h3>🎉 Level Complete!</h3>
+    <p style="color: var(--text2); margin-bottom: 16px;">Enter your name for your certificate:</p>
+    <input type="text" id="certName" placeholder="Your Name" maxlength="30">
+    <button class="btn btn-success" style="width:100%; margin-bottom: 12px;" onclick="generateCertificate()">Generate Certificate</button>
+    <button class="btn btn-outline" style="width:100%;" onclick="closeModal()">Close</button>
+    <div id="certOutput" style="margin-top: 20px;"></div>
+  </div>
+</div>
+
+<footer>
+  <p><strong>The Prompt Architect</strong> — ChatGPT for Real Humans</p>
+  <p style="margin-top: 8px; font-size: 0.85rem;">Built for humans, by humans. <a href="#">Privacy</a> · <a href="#">Terms</a> · <a href="#">Contact</a></p>
+</footer>
+
+<script>
+let currentLevel = 0;
+let completedLevels = JSON.parse(localStorage.getItem('chatgpt_completed') || '[]');
+
+function toggleTheme() {
+  const body = document.body;
+  const current = body.getAttribute('data-theme');
+  body.setAttribute('data-theme', current === 'dark' ? 'light' : 'dark');
+  localStorage.setItem('chatgpt_theme', body.getAttribute('data-theme'));
+}
+if (localStorage.getItem('chatgpt_theme')) {
+  document.body.setAttribute('data-theme', localStorage.getItem('chatgpt_theme'));
+}
+
+function scrollToSection(id) {
+  document.getElementById(id).scrollIntoView({ behavior: 'smooth' });
+}
+
+function closeLevel() {
+  document.getElementById('workshopView').classList.remove('active');
+  document.getElementById('hero').style.display = 'flex';
+  document.getElementById('levels').style.display = 'block';
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+const levelData = {
+  1: {
+  title: "Level 1: The Brief",
+  subtitle: "Stop Chatting. Start Directing.",
+  content: `
+    <div class="phase-header animate-in">
+      <h2>🧠 Level 1: The Brief</h2>
+      <p class="phase-meta">Duration: ~10 min · You already know this. You just don't do it yet.</p>
+    </div>
+
+    <div class="content-block animate-in" style="animation-delay: 0.1s">
+      <h3>❌ The Mistake Everyone Makes</h3>
+      <p>You type: <strong>"Write me a song about love."</strong></p>
+      <p>AI thinks: <em>"Okay... what kind of love? Who's singing? What genre? How long? Funny or sad? I'll just guess and you'll hate it."</em></p>
+      <p>Result: Generic garbage. You sigh. You close the tab. You think AI is dumb.</p>
+      <p><strong>AI isn't dumb. You just gave it a dumb instruction.</strong></p>
+    </div>
+
+    <div class="content-block animate-in" style="animation-delay: 0.2s">
+      <h3>✅ The Fix: "You Are a..."</h3>
+      <p>This is the ONE trick that changes everything. Tell AI who it is BEFORE you tell it what to do.</p>
+      <div class="code-block">
+❌ "Write me a song about love"<br><br>
+✅ "You are a Nashville songwriter who specializes in funny country breakup songs. Write 3 chorus hooks for a song about a truck driver who just found out his ex is dating his brother. Make it funny AND sad. Give me 3 options."
+      </div>
+      <p style="margin-top: 12px;">See the difference? The SECOND one tells AI:</p>
+      <ul>
+        <li><strong>WHO to be:</strong> Nashville songwriter</li>
+        <li><strong>WHAT to write:</strong> 3 chorus hooks</li>
+        <li><strong>WHO it's about:</strong> Truck driver, ex, brother</li>
+        <li><strong>THE VIBE:</strong> Funny AND sad</li>
+        <li><strong>THE FORMAT:</strong> 3 options in a list</li>
+      </ul>
+    </div>
+
+    <div class="content-block animate-in" style="animation-delay: 0.3s">
+      <h3>🎭 Real-World Examples (Copy These Right Now)</h3>
+      <div class="code-block">
+📧 EMAIL:<br>
+"You are a polite but firm customer service rep. Rewrite this angry email so I sound professional but still get my money back."<br><br>
+📸 INSTAGRAM:<br>
+"You are an Instagram caption writer for coffee shops. Write 5 captions for a photo of a latte with latte art. Make them under 20 words. Use emojis."<br><br>
+🎤 SONG LYRICS:<br>
+"You are a 90s R&B songwriter. Write a verse about missing someone at 2am. Make it smooth and sexy. No cheesy rhymes."<br><br>
+🎂 SPEECH:<br>
+"You are a wedding speech writer who's also funny. Write a 2-minute toast for my best friend. We met in college. Include one embarrassing story."
+      </div>
+    </div>
+
+    <div class="exercise-box animate-in" style="animation-delay: 0.4s">
+      <h4>🏋️ Your First Exercise</h4>
+      <p>Open ChatGPT right now. Copy this prompt and paste it:</p>
+      <div class="code-block" style="text-align:left; margin: 12px auto;">
+"You are a [YOUR JOB TITLE].<br>Write me [WHAT YOU NEED].<br>It's about [YOUR SITUATION].<br>Make it [YOUR VIBE].<br>Give me [HOW YOU WANT IT]."
+      </div>
+      <p>Fill in the blanks. Hit send. Watch what happens.</p>
+      <button class="btn btn-primary" onclick="completeLevel(1)">✅ I Did It — Unlock Level 2</button>
+    </div>
+  `
+},
+
+2: {
+  title: "Level 2: The Formula",
+  subtitle: "The 5-Part Prompt That Always Works",
+  content: `
+    <div class="phase-header animate-in">
+      <h2>📝 Level 2: The Formula</h2>
+      <p class="phase-meta">Duration: ~15 min · This is your new cheat code. Use it forever.</p>
+    </div>
+
+    <div class="content-block animate-in" style="animation-delay: 0.1s">
+      <h3>🧪 The 5-Part Formula</h3>
+      <p>Every great prompt follows this pattern. Memorize it. Tattoo it. Use it for EVERYTHING.</p>
+      <div class="code-block" style="font-size:1.1rem; text-align:center; padding:24px;">
+[ROLE] + [TASK] + [CONTEXT] + [TONE] + [FORMAT]<br><br>
+"You are a _____.<br>Write me _____.<br>It's about _____.<br>Make it _____.<br>Give me _____."
+      </div>
+    </div>
+
+    <div class="content-block animate-in" style="animation-delay: 0.2s">
+      <h3>🔑 Let's Break It Down</h3>
+      <table style="width:100%; border-collapse:collapse; margin-top:12px;">
+        <tr style="background:var(--surface2);">
+          <td style="padding:12px; border-radius:8px 0 0 8px; font-weight:700; color:var(--accent);">PART</td>
+          <td style="padding:12px; font-weight:700; color:var(--accent);">WHAT IT MEANS</td>
+          <td style="padding:12px; border-radius:0 8px 8px 0; font-weight:700; color:var(--accent);">EXAMPLE</td>
+        </tr>
+        <tr>
+          <td style="padding:12px; border-bottom:1px solid var(--surface2);">🎭 ROLE</td>
+          <td style="padding:12px; border-bottom:1px solid var(--surface2);">Who is AI pretending to be?</td>
+          <td style="padding:12px; border-bottom:1px solid var(--surface2);">"Nashville songwriter"</td>
+        </tr>
+        <tr>
+          <td style="padding:12px; border-bottom:1px solid var(--surface2);">📝 TASK</td>
+          <td style="padding:12px; border-bottom:1px solid var(--surface2);">What do you want it to DO?</td>
+          <td style="padding:12px; border-bottom:1px solid var(--surface2);">"Write 3 chorus hooks"</td>
+        </tr>
+        <tr>
+          <td style="padding:12px; border-bottom:1px solid var(--surface2);">🎯 CONTEXT</td>
+          <td style="padding:12px; border-bottom:1px solid var(--surface2);">Who/what is this about?</td>
+          <td style="padding:12px; border-bottom:1px solid var(--surface2);">"Truck driver, ex, brother"</td>
+        </tr>
+        <tr>
+          <td style="padding:12px; border-bottom:1px solid var(--surface2);">🎨 TONE</td>
+          <td style="padding:12px; border-bottom:1px solid var(--surface2);">What should it FEEL like?</td>
+          <td style="padding:12px; border-bottom:1px solid var(--surface2);">"Funny AND sad"</td>
+        </tr>
+        <tr>
+          <td style="padding:12px;">📦 FORMAT</td>
+          <td style="padding:12px;">How should the answer LOOK?</td>
+          <td style="padding:12px;">"3 options in a numbered list"</td>
+        </tr>
+      </table>
+    </div>
+
+    <div class="content-block animate-in" style="animation-delay: 0.3s">
+      <h3>🎵 Real Example: Your Suno Track</h3>
+      <p>Remember your slam poem? Here's how you'd prompt ChatGPT to write something LIKE that:</p>
+      <div class="code-block">
+"You are a slam poet who raps about AI taking over creative jobs.<br>Write a 1-minute monologue where the poet argues with ChatGPT about who's the real artist.<br>The poet should be funny, self-deprecating, and a little angry.<br>Make it sound like a spoken word performance, not a poem.<br>Give me 2 versions — one angry, one sad."
+      </div>
+    </div>
+
+    <div class="exercise-box animate-in" style="animation-delay: 0.4s">
+      <h4>🏋️ Your Exercise: Build 3 Prompts</h4>
+      <p>Use the 5-part formula to write prompts for:</p>
+      <ol style="text-align:left; max-width:400px; margin:0 auto 16px;">
+        <li>An email you've been avoiding</li>
+        <li>A song lyric idea you've had but can't finish</li>
+        <li>An Instagram caption for your last post</li>
+      </ol>
+      <button class="btn btn-primary" onclick="completeLevel(2)">✅ Done — Unlock Level 3</button>
+    </div>
+  `
+},
+
+3: {
+  title: "Level 3: The Rewrite",
+  subtitle: "Never Accept the First Answer",
+  content: `
+    <div class="phase-header animate-in">
+      <h2>🔄 Level 3: The Rewrite</h2>
+      <p class="phase-meta">Duration: ~10 min · This is where amateurs stop and pros begin.</p>
+    </div>
+
+    <div class="content-block animate-in" style="animation-delay: 0.1s">
+      <h3>🤢 The Truth About AI Answers</h3>
+      <p>The first answer AI gives you is like the first draft of anything — it's <strong>60% there.</strong> The other 40% is in the REWRITE.</p>
+      <p><strong>Amateurs:</strong> Get answer → "Meh" → close tab</p>
+      <p><strong>Pros:</strong> Get answer → "Make it better" → get gold</p>
+    </div>
+
+    <div class="content-block animate-in" style="animation-delay: 0.2s">
+      <h3>✨ The "Make It More..." Cheat Codes</h3>
+      <p>Just add one of these to the end of ANY prompt. Watch AI level up:</p>
+      <div class="tag-grid" style="margin-top:12px;">
+        <div class="tag-item" onclick="copyTag(this)">"Make it shorter"</div>
+        <div class="tag-item" onclick="copyTag(this)">"Make it funnier"</div>
+        <div class="tag-item" onclick="copyTag(this)">"Make it sound like Beyoncé"</div>
+        <div class="tag-item" onclick="copyTag(this)">"Make it more dramatic"</div>
+        <div class="tag-item" onclick="copyTag(this)">"Simplify this like I'm 5"</div>
+        <div class="tag-item" onclick="copyTag(this)">"Give me 3 more options, totally different"</div>
+        <div class="tag-item" onclick="copyTag(this)">"Now rewrite it for [different person]"</div>
+        <div class="tag-item" onclick="copyTag(this)">"Keep the same idea but change the tone"</div>
+      </div>
+    </div>
+
+    <div class="content-block animate-in" style="animation-delay: 0.3s">
+      <h3>🔁 The Rewrite Loop (Do This 3 Times)</h3>
+      <div class="code-block">
+Step 1: "You are a songwriter. Write a chorus about heartbreak."<br>
+Step 2: "Make it funnier."<br>
+Step 3: "Now make it sadder."<br>
+Step 4: "Combine the funny parts with the sad parts."<br><br>
+🎉 BOOM. You just wrote a song in 4 messages.
+      </div>
+    </div>
+
+    <div class="exercise-box animate-in" style="animation-delay: 0.4s">
+      <h4>🏋️ Your Exercise: The 3-Rewrite Challenge</h4>
+      <p>Take ANY prompt from Level 2. Run it. Then rewrite it 3 times using different "Make it more..." commands. Screenshot your favorite result.</p>
+      <button class="btn btn-primary" onclick="completeLevel(3)">✅ I Rewrote It — Unlock Level 4</button>
+    </div>
+  `
+},
+
+4: {
+  title: "Level 4: The Recipe Book",
+  subtitle: "Save Your Best Prompts",
+  content: `
+    <div class="phase-header animate-in">
+      <h2>📚 Level 4: The Recipe Book</h2>
+      <p class="phase-meta">Duration: ~10 min · Stop starting from zero every time.</p>
+    </div>
+
+    <div class="content-block animate-in" style="animation-delay: 0.1s">
+      <h3>🧠 The Problem</h3>
+      <p>You spent 20 minutes crafting the PERFECT prompt. You got an amazing result. Then you closed the tab. Now you can't remember what you wrote.</p>
+      <p><strong>This happens every single time. Fix it.</strong></p>
+    </div>
+
+    <div class="content-block animate-in" style="animation-delay: 0.2s">
+      <h3>📋 The "Recipe Book" Method</h3>
+      <p>Keep a note on your phone (or Notes app) called <strong>"My AI Recipes."</strong> Every time a prompt works, save it like this:</p>
+      <div class="code-block">
+📋 RECIPE: Funny Country Song<br>
+"You are a Nashville songwriter. Write a chorus about a truck driver who's heartbroken. Make it funny AND sad. 3 options."<br><br>
+📋 RECIPE: Professional Email<br>
+"You are a polite but firm customer service rep. Rewrite this so I sound professional but still get my money back."<br><br>
+📋 RECIPE: Instagram Captions<br>
+"You are an Instagram caption writer for coffee shops. 5 captions, under 20 words, with emojis."
+      </div>
+    </div>
+
+    <div class="content-block animate-in" style="animation-delay: 0.3s">
+      <h3>⚡ Speed Hack: The "Fill In The Blank" Template</h3>
+      <p>Create ONE master prompt and just swap out the brackets:</p>
+      <div class="code-block">
+"You are a [JOB]. Write me [THING]. It's about [TOPIC]. Make it [VIBE]. Give me [FORMAT]."
+      </div>
+      <p>Now you only change 5 words and you have a brand new prompt. Takes 10 seconds.</p>
+    </div>
+
+    <div class="exercise-box animate-in" style="animation-delay: 0.4s">
+      <h4>🏋️ Your Exercise: Build Your First 3 Recipes</h4>
+      <p>Open your Notes app. Write down 3 prompts that worked for you this week. Label them. You now have a Recipe Book.</p>
+      <button class="btn btn-primary" onclick="completeLevel(4)">✅ Saved — Unlock Level 5</button>
+    </div>
+  `
+},
+
+5: {
+  title: "Level 5: The Workflow",
+  subtitle: "Break Big Tasks Into Small Steps",
+  content: `
+    <div class="phase-header animate-in">
+      <h2>🔗 Level 5: The Workflow</h2>
+      <p class="phase-meta">Duration: ~15 min · This is how pros use AI for BIG projects.</p>
+    </div>
+
+    <div class="content-block animate-in" style="animation-delay: 0.1s">
+      <h3>🐘 The Elephant Problem</h3>
+      <p>You ask AI: <strong>"Write me a whole album."</strong></p>
+      <p>AI panics. It gives you generic nonsense. You're disappointed.</p>
+      <p><strong>The fix: Don't ask for the elephant. Ask for one toe at a time.</strong></p>
+    </div>
+
+    <div class="content-block animate-in" style="animation-delay: 0.2s">
+      <h3>🔀 The "Chain" Method (Step by Step)</h3>
+      <div class="code-block">
+Step 1: "Give me 10 song ideas for a country breakup album about a truck driver."<br>
+Step 2: "I like idea #3. Write me a full verse for that one."<br>
+Step 3: "Now write a chorus that matches this verse."<br>
+Step 4: "Make the chorus funnier."<br>
+Step 5: "Now write a bridge that connects verse to chorus."<br>
+Step 6: "Give me 3 options for the outro."<br><br>
+🎉 You just made a song. Piece by piece. No panic.
+      </div>
+    </div>
+
+    <div class="content-block animate-in" style="animation-delay: 0.3s">
+      <h3>🗓️ Real-World Workflow: Content Calendar</h3>
+      <div class="code-block">
+Step 1: "I run a coffee shop. Give me 30 Instagram post ideas for this month."<br>
+Step 2: "Take idea #7. Write me the caption."<br>
+Step 3: "Now write 5 more captions in the same style."<br>
+Step 4: "Write me a Reel script for idea #12."<br><br>
+🎉 You just planned a month of content in 10 minutes.
+      </div>
+    </div>
+
+    <div class="exercise-box animate-in" style="animation-delay: 0.4s">
+      <h4>🏋️ Final Capstone: Chain It Together</h4>
+      <p>Pick ONE big thing you've been putting off (email, speech, song, content plan). Break it into 4 small steps. Run each step as a separate ChatGPT message. Screenshot the final result.</p>
+      <button class="btn btn-success" onclick="completeLevel(5)" style="font-size:1.1rem; padding:16px 40px;">🏆 I'm a Prompt Architect — Get Certificate</button>
+    </div>
+  `
+}
+};
+
+function openLevel(level) {
+  if (level > 1 && !completedLevels.includes(level - 1)) {
+    alert('🔒 Complete the previous level first!');
+    return;
+  }
+  currentLevel = level;
+  document.getElementById('hero').style.display = 'none';
+  document.getElementById('levels').style.display = 'none';
+  document.getElementById('cheatsheet').style.display = 'none';
+  document.getElementById('workshopView').classList.add('active');
+  document.getElementById('workshopContent').innerHTML = levelData[level].content;
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function completeLevel(level) {
+  if (!completedLevels.includes(level)) {
+    completedLevels.push(level);
+    localStorage.setItem('chatgpt_completed', JSON.stringify(completedLevels));
+  }
+  const card = document.querySelector(`[data-level="${level}"]`);
+  if (card) {
+    card.classList.remove('locked');
+    card.classList.add('completed');
+    card.querySelector('button').textContent = '✅ Completed';
+    card.querySelector('button').disabled = false;
+    card.querySelector('button').className = 'btn btn-success';
+    card.querySelector('button').onclick = () => openLevel(level);
+  }
+  const nextLevel = level + 1;
+  const nextCard = document.querySelector(`[data-level="${nextLevel}"]`);
+  if (nextCard) {
+    nextCard.classList.remove('locked');
+    nextCard.querySelector('button').textContent = `Begin Level ${nextLevel} →`;
+    nextCard.querySelector('button').disabled = false;
+    nextCard.querySelector('button').className = 'btn btn-primary';
+    nextCard.querySelector('button').onclick = () => openLevel(nextLevel);
+  }
+  document.getElementById('progressBadge').textContent = `Level ${completedLevels.length}/5`;
+  if (level === 5) {
+    document.getElementById('certModal').classList.add('active');
+  } else {
+    alert(`🎉 Level ${level} Complete! Next level unlocked.`);
+  }
+}
+
+function generatePrompt() {
+  const role = document.getElementById('bgRole').value;
+  const task = document.getElementById('bgTask').value;
+  const context = document.getElementById('bgContext').value;
+  const tone = document.getElementById('bgTone').value;
+  const format = document.getElementById('bgFormat').value;
+  const parts = [role, task, context, tone, format].filter(Boolean);
+  if (parts.length === 0) {
+    document.getElementById('generatedPrompt').innerHTML = '<span style="color: var(--text2)">← Pick options above...</span>';
+    return;
+  }
+  const prompt = `You are a ${role}. ${task}. It's about ${context}. Make it ${tone}. Give me ${format}.`;
+  document.getElementById('generatedPrompt').textContent = prompt;
+}
+
+function copyGenerated() {
+  const text = document.getElementById('generatedPrompt').textContent;
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = event.target;
+    btn.textContent = '✅ Copied!';
+    btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = '📋 Copy to Clipboard'; btn.classList.remove('copied'); }, 2000);
+  });
+}
+
+function copyTag(el) {
+  navigator.clipboard.writeText(el.textContent).then(() => {
+    el.style.background = 'var(--success)';
+    el.style.color = 'white';
+    setTimeout(() => { el.style.background = ''; el.style.color = ''; }, 1000);
+  });
+}
+
+function downloadCheatSheet() {
+  window.print();
+}
+
+function generateCertificate() {
+  const name = document.getElementById('certName').value || 'Anonymous Architect';
+  document.getElementById('certOutput').innerHTML = `
+    <div class="certificate" id="printCert" style="background:white;color:#1a1a2e;border-radius:var(--radius);padding:48px;text-align:center;margin-top:20px;">
+      <h2 style="font-size:2rem;color:var(--accent);margin-bottom:8px;">🏆 Certificate of Completion</h2>
+      <p style="color:#666;margin-bottom:16px;">This certifies that</p>
+      <div style="font-size:1.8rem;font-weight:800;border-bottom:2px solid #333;display:inline-block;padding:0 20px 8px;margin:16px 0;">${name}</div>
+      <p style="color:#666;">has successfully completed<br><strong>The Prompt Architect</strong><br>ChatGPT Workshop for Real Humans</p>
+      <button class="btn btn-outline" style="margin-top:16px;width:100%;" onclick="window.print()">🖨️ Print Certificate</button>
+    </div>
+  `;
+}
+
+function closeModal() {
+  document.getElementById('certModal').classList.remove('active');
+}
+
+function init() {
+  completedLevels.forEach(level => {
+    const card = document.querySelector(`[data-level="${level}"]`);
+    if (card) {
+      card.classList.remove('locked');
+      card.classList.add('completed');
+      if (level < 5) {
+        const nextCard = document.querySelector(`[data-level="${level + 1}"]`);
+        if (nextCard) {
+          nextCard.classList.remove('locked');
+          nextCard.querySelector('button').textContent = `Begin Level ${level + 1} →`;
+          nextCard.querySelector('button').disabled = false;
+          nextCard.querySelector('button').className = 'btn btn-primary';
+          nextCard.querySelector('button').onclick = () => openLevel(level + 1);
+        }
+      }
+    }
+  });
+  document.getElementById('progressBadge').textContent = `Level ${completedLevels.length}/5`;
+}
+
+init();
+</script>
+</body>
+</html>

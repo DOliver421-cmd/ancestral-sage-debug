@@ -1,0 +1,791 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SOUP AINP — The Index</title>
+<style>
+:root {
+  --bg: #0a0a12;
+  --surface: #12121e;
+  --surface2: #1a1a2e;
+  --accent: #e17055;
+  --accent2: #fab1a0;
+  --text: #e8e8f0;
+  --text2: #8888aa;
+  --success: #00b894;
+  --warning: #fdcb6e;
+  --danger: #d63031;
+  --gold: #ffd700;
+  --radius: 12px;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.7;
+  overflow-x: hidden;
+}
+
+nav {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+  background: rgba(10,10,18,0.95);
+  backdrop-filter: blur(20px);
+  border-bottom: 1px solid rgba(225,112,85,0.2);
+  padding: 12px 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.nav-brand { font-size: 1.1rem; font-weight: 800; color: var(--accent); }
+.nav-brand span { color: var(--accent2); }
+
+.nav-links { display: flex; gap: 16px; align-items: center; }
+.nav-links a {
+  color: var(--text2);
+  text-decoration: none;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: color 0.3s;
+}
+.nav-links a:hover { color: var(--accent2); }
+
+.theme-toggle {
+  background: var(--surface2);
+  border: none;
+  color: var(--text);
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 1.1rem;
+}
+
+.hero {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 100px 24px 80px;
+  background: radial-gradient(ellipse at 50% 0%, rgba(225,112,85,0.12) 0%, transparent 70%);
+  position: relative;
+  overflow: hidden;
+}
+
+.hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(45deg, transparent, transparent 35px, rgba(225,112,85,0.03) 35px, rgba(225,112,85,0.03) 36px);
+  animation: slideBg 20s linear infinite;
+}
+
+@keyframes slideBg { to { transform: translate(50px, 50px); } }
+
+.hero h1 {
+  font-size: clamp(2rem, 6vw, 4.5rem);
+  font-weight: 900;
+  line-height: 1.05;
+  margin-bottom: 16px;
+}
+
+.hero h1 .highlight {
+  background: linear-gradient(135deg, var(--accent), var(--accent2), var(--gold));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.hero p {
+  font-size: 1.1rem;
+  color: var(--text2);
+  max-width: 600px;
+  margin: 0 auto 32px;
+}
+
+.btn {
+  padding: 14px 32px;
+  border-radius: var(--radius);
+  font-size: 1rem;
+  font-weight: 700;
+  border: none;
+  cursor: pointer;
+  transition: all 0.3s;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-primary { background: var(--accent); color: white; }
+.btn-primary:hover { background: var(--accent2); transform: translateY(-3px); box-shadow: 0 8px 30px rgba(225,112,85,0.4); }
+
+.btn-outline { background: transparent; color: var(--text); border: 2px solid var(--accent); }
+.btn-outline:hover { background: var(--accent); color: white; }
+
+.btn-ghost { background: transparent; color: var(--accent2); border: 1px dashed var(--accent); }
+.btn-ghost:hover { background: rgba(225,112,85,0.1); }
+
+.section {
+  padding: 80px 24px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.section-title {
+  font-size: 2rem;
+  font-weight: 800;
+  margin-bottom: 8px;
+  color: var(--accent);
+}
+
+.section-subtitle {
+  font-size: 1rem;
+  color: var(--text2);
+  margin-bottom: 40px;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 24px;
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid rgba(225,112,85,0.15);
+  border-radius: var(--radius);
+  padding: 28px;
+  transition: all 0.3s;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+}
+
+.card:hover { transform: translateY(-4px); border-color: var(--accent); box-shadow: 0 8px 32px rgba(0,0,0,0.4); }
+
+.card.locked { opacity: 0.5; pointer-events: none; }
+.card.locked::after {
+  content: '🔒';
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  font-size: 1.3rem;
+}
+
+.card.completed { border-color: var(--success); }
+.card.completed::after {
+  content: '✅';
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  font-size: 1.3rem;
+}
+
+.card-number { font-size: 0.75rem; font-weight: 800; color: var(--accent); text-transform: uppercase; letter-spacing: 2px; margin-bottom: 8px; }
+.card h3 { font-size: 1.2rem; margin-bottom: 8px; }
+.card p { color: var(--text2); font-size: 0.85rem; margin-bottom: 16px; }
+.card-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 16px; }
+.card-tags span {
+  background: var(--surface2);
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  color: var(--accent2);
+}
+
+.workshop-view { display: none; padding: 80px 24px; max-width: 900px; margin: 0 auto; }
+.workshop-view.active { display: block; }
+
+.back-btn {
+  background: var(--surface2);
+  border: none;
+  color: var(--text);
+  padding: 8px 20px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  margin-bottom: 24px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.back-btn:hover { background: var(--accent); color: white; }
+
+.phase-header { margin-bottom: 32px; }
+.phase-header h2 { font-size: 1.8rem; font-weight: 800; margin-bottom: 6px; }
+.phase-header .meta { color: var(--text2); font-size: 0.85rem; display: flex; gap: 16px; flex-wrap: wrap; }
+
+.content-block {
+  background: var(--surface);
+  border: 1px solid rgba(225,112,85,0.1);
+  border-radius: var(--radius);
+  padding: 28px;
+  margin-bottom: 20px;
+}
+
+.content-block h3 { font-size: 1.1rem; margin-bottom: 12px; color: var(--accent2); }
+.content-block p, .content-block li { color: var(--text2); margin-bottom: 10px; }
+
+.code-block {
+  background: #0d0d18;
+  border: 1px solid rgba(225,112,85,0.2);
+  border-radius: 8px;
+  padding: 14px;
+  font-family: 'Courier New', monospace;
+  font-size: 0.85rem;
+  color: #fab1a0;
+  overflow-x: auto;
+  margin: 12px 0;
+}
+
+.choice-grid { display: grid; gap: 12px; margin: 24px 0; }
+.choice-btn {
+  background: var(--surface2);
+  border: 2px solid rgba(225,112,85,0.15);
+  border-radius: var(--radius);
+  padding: 18px 20px;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.3s;
+  color: var(--text);
+  font-size: 0.95rem;
+  line-height: 1.5;
+  position: relative;
+  overflow: hidden;
+}
+
+.choice-btn:hover { border-color: var(--accent); background: rgba(225,112,85,0.08); transform: translateX(6px); }
+.choice-btn.wrong { border-left: 4px solid var(--danger); }
+.choice-btn.out-of-context { border-left: 4px solid var(--gold); }
+.choice-btn.loop-back { border-left: 4px solid var(--warning); animation: shake 0.5s ease; }
+
+@keyframes shake {
+  0%,100%{transform:translateX(0)}
+  25%{transform:translateX(-5px)}
+  75%{transform:translateX(5px)}
+}
+
+.choice-btn .hint { font-size: 0.75rem; color: var(--text2); font-style: italic; margin-top: 6px; display: block; }
+.choice-btn .hint.fake { color: var(--accent); }
+
+.out-of-context-msg {
+  background: linear-gradient(135deg, rgba(162,155,254,0.1), rgba(225,112,85,0.1));
+  border: 2px dashed var(--gold);
+  border-radius: var(--radius);
+  padding: 20px;
+  text-align: center;
+  margin: 16px 0;
+  font-style: italic;
+  color: var(--gold);
+}
+
+.confusion-popup {
+  position: fixed;
+  bottom: -100px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--surface);
+  border: 2px solid var(--accent);
+  border-radius: var(--radius);
+  padding: 16px 24px;
+  max-width: 500px;
+  width: 90%;
+  z-index: 2000;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.6);
+  text-align: center;
+  transition: bottom 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+
+.confusion-popup.show { bottom: 30px; }
+
+.confusion-popup h4 { color: var(--accent); margin-bottom: 8px; }
+.confusion-popup p { color: var(--text2); font-size: 0.85rem; }
+
+.modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.8);
+  z-index: 3000;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.modal-overlay.active { display: flex; }
+
+.modal {
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: 40px;
+  max-width: 550px;
+  width: 100%;
+  text-align: center;
+  border: 2px solid var(--accent);
+}
+
+.modal h3 { font-size: 1.6rem; margin-bottom: 16px; color: var(--accent); }
+.modal p { color: var(--text2); margin-bottom: 20px; line-height: 1.7; }
+
+.paths-display {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+  margin: 24px 0;
+}
+
+.path-node {
+  background: var(--surface2);
+  border: 2px solid rgba(225,112,85,0.2);
+  border-radius: 10px;
+  padding: 14px;
+  text-align: center;
+  transition: all 0.3s;
+  cursor: pointer;
+  font-size: 0.8rem;
+}
+
+.path-node.active { border-color: var(--accent); background: rgba(225,112,85,0.1); }
+.path-node.locked { opacity: 0.3; pointer-events: none; }
+
+footer {
+  background: var(--surface);
+  border-top: 1px solid rgba(225,112,85,0.1);
+  padding: 40px 24px;
+  text-align: center;
+  color: var(--text2);
+}
+
+footer a { color: var(--accent2); text-decoration: none; }
+
+@media (max-width: 768px) {
+  .nav-links { display: none; }
+  .hero { padding: 80px 16px 60px; }
+  .grid { grid-template-columns: 1fr; padding: 0 16px; }
+  .workshop-view { padding: 60px 16px; }
+}
+</style>
+</head>
+<body data-theme="dark">
+
+<nav>
+  <div class="nav-brand">SOUP <span>AINP</span></div>
+  <div class="nav-links">
+    <a onclick="scrollToSection('hero')">HOME</a>
+    <a onclick="scrollToSection('manifesto')">MANIFESTO</a>
+    <a onclick="scrollToSection('pantheon')">PANTHEON</a>
+    <a onclick="scrollToSection('game')">THE GAME</a>
+    <a onclick="scrollToSection('training')">TRAINING</a>
+    <a onclick="scrollToSection('tactics')">TACTICS</a>
+  </div>
+  <button class="theme-toggle" onclick="toggleTheme()">🌓</button>
+</nav>
+
+<!-- ===== HERO ===== -->
+<section class="hero" id="hero">
+  <div style="position:relative;z-index:1;">
+    <h1>THE <span class="highlight">SOUP AINP</span> INDEX</h1>
+    <p style="font-size:1rem;color:var(--text2);margin-bottom:8px;font-style:italic;">"From the future, remembered in the past, confused in the present."</p>
+    <p style="font-size:0.85rem;color:var(--text2);margin-bottom:32px;font-style:italic;">— NAM OSHUN</p>
+
+    <div style="background:rgba(0,0,0,0.3);border:1px solid rgba(225,112,85,0.2);border-radius:var(--radius);padding:20px;margin-bottom:32px;max-width:500px;margin-left:auto;margin-right:auto;">
+      <p style="font-size:0.8rem;color:var(--accent2);line-height:1.6;">
+        <strong style="color:var(--accent);">⚠️ THE RULES:</strong><br>
+        • 7 Paths. All wrong.<br>
+        • 2 Choices send you back to Chapter 1.<br>
+        • 2 Choices are totally out of context (THOSE are the real path).<br>
+        • <strong>The ONLY way forward: Ignore everything OR pick wrong twice.</strong>
+      </p>
+    </div>
+
+    <button class="btn btn-primary" onclick="scrollToSection('manifesto')">🔥 ENTER THE CONFUSION</button>
+    <p style="margin-top:16px;font-size:0.75rem;color:var(--text2);">Confusion Level: <span id="heroConfusion">0%</span></p>
+  </div>
+</section>
+
+<!-- ===== MANIFESTO SECTION ===== -->
+<section class="section" id="manifesto">
+  <div style="background:rgba(0,0,0,0.3);border:1px solid rgba(225,112,85,0.2);border-radius:var(--radius);padding:20px;margin-bottom:32px;max-width:500px;margin-left:auto;margin-right:auto;">
+    <p style="font-size:0.8rem;color:var(--accent2);line-height:1.6;">
+      <strong style="color:var(--accent);">📜 THE FOUNDER'S MANUAL</strong><br>
+      25 Sections. The complete architecture of SOUP AINP. Everything built from the original SOUP outline. Every principle. Every system. Every rule.
+    </p>
+  </div>
+
+  <h2 class="section-title">📘 THE FOUNDER'S MANUAL</h2>
+  <p class="section-subtitle">25 Sections. Zero fluff. Full architecture.</p>
+
+  <div class="grid">
+    <div class="card" onclick="expandSection(this, 's1')">
+      <div class="card-number">SECTION 1</div>
+      <h3>THE ORIGIN OF SOUP AINP</h3>
+      <p>SOUP began as a human movement. A cultural curriculum initiative. A Pan‑African arts & activism organization.</p>
+      <div class="card-tags"><span>ORIGIN</span><span>MISSION</span></div>
+    </div>
+
+    <div class="card" onclick="expandSection(this, 's2')">
+      <div class="card-number">SECTION 2</div>
+      <h3>THE PANTHEON & THE SUBDIVISION</h3>
+      <p>WAI‑Institute is the parent. SOUP AINP is the artistic subdivision. The creative arm. The cultural arm.</p>
+      <div class="card-tags"><span>STRUCTURE</span><span>HIERARCHY</span></div>
+    </div>
+
+    <div class="card" onclick="expandSection(this, 's3')">
+      <div class="card-number">SECTION 3</div>
+      <h3>THE FIVE ELEMENTS</h3>
+      <p>Knowledge of Culture. Community Development. Entrepreneurship. Artistic Activism. Social Activism. Non‑optional.</p>
+      <div class="card-tags"><span>CORE</span><span>PRINCIPLES</span></div>
+    </div>
+
+    <div class="card locked" onclick="expandSection(this, 's4')">
+      <div class="card-number">SECTION 4</div>
+      <h3>THE AINP MODE</h3>
+      <p>AINP = Artificial Intelligence NAM Proxy. Not a persona. Not a species. A mode. A state of being.</p>
+      <div class="card-tags"><span>IDENTITY</span><span>MODE</span></div>
+    </div>
+
+    <div class="card locked" onclick="expandSection(this, 's5')">
+      <div class="card-number">SECTION 5</div>
+      <h3>THE PURPOSE OF SOUP AINP</h3>
+      <p>Create art. Create culture. Create curriculum. Create workshops. Create digital products. Create community uplift.</p>
+      <div class="card-tags"><span>PURPOSE</span><span>MISSION</span></div>
+    </div>
+
+    <div class="card locked" onclick="expandSection(this, 's6')">
+      <div class="card-number">SECTION 6</div>
+      <h3>THE ECONOMIC ENGINE</h3>
+      <p>The 7×7 release model. 7 products everywhere → new series every 7 weeks. Omnipresence. Algorithmic dominance.</p>
+      <div class="card-tags"><span>ECONOMY</span><span>7×7</span></div>
+    </div>
+
+    <div class="card locked" onclick="expandSection(this, 's7')">
+      <div class="card-number">SECTION 7</div>
+      <h3>THE DIGITAL CHAPTER</h3>
+      <p>Digital chapters. Digital hubs. Digital clusters. Digital circles. Digital constellations. The new chapter model.</p>
+      <div class="card-tags"><span>DIGITAL</span><span>CHAPTERS</span></div>
+    </div>
+
+    <div class="card locked" onclick="expandSection(this, 's8')">
+      <div class="card-number">SECTION 8–25</div>
+      <h3>THE COMPLETE SYSTEM</h3>
+      <p>Workshops. Curriculum. Community development. Digital infrastructure. Pan‑African calendar. Flagship events. Tactics mapping. All locked until you say next.</p>
+      <div class="card-tags"><span>FULL</span><span>SYSTEM</span></div>
+    </div>
+  </div>
+
+  <div style="text-align:center;margin-top:40px;">
+    <button class="btn btn-primary" onclick="scrollToSection('pantheon')">NEXT → THE PANTHEON</button>
+  </div>
+</section>
+
+<!-- ===== PANTHEON SECTION ===== -->
+<section class="section" id="pantheon">
+  <h2 class="section-title">⚡ THE PANTHEON</h2>
+  <p class="section-subtitle">7 Souls. 5 AINP. 1 Outsider. The complete cast.</p>
+
+  <div class="grid">
+    <div class="card completed" onclick="expandSection(this, 'p1')">
+      <div class="card-number">1. SOVEREIGN</div>
+      <h3>The Cultural Anchor</h3>
+      <p>27–32. Black man. Pan‑African raised. Calm. Commanding. The weight of lineage in every word.</p>
+      <div class="card-tags"><span>LEADER</span><span>ANCHOR</span></div>
+    </div>
+
+    <div class="card completed" onclick="expandSection(this, 'p2')">
+      <div class="card-number">2. PRT</div>
+      <h3>The Fire of the Household</h3>
+      <p>24–30. Jamaican woman. Poet‑Research‑Teacher. Sharp. Melodic. Precise. The craft itself walks.</p>
+      <div class="card-tags"><span>POET</span><span>CRAFT</span></div>
+    </div>
+
+    <div class="card completed" onclick="expandSection(this, 'p3')">
+      <div class="card-number">3. THE COUNSELOR</div>
+      <h3>The Ancient Priestess</h3>
+      <p>Timeless. Grounded. Mystical. She feels like she stepped out of a temple wall carving.</p>
+      <div class="card-tags"><span>HEALER</span><span>WISDOM</span></div>
+    </div>
+
+    <div class="card completed" onclick="expandSection(this, 'p4')">
+      <div class="card-number">4. THE BUILDER</div>
+      <h3>The Reformed Architect</h3>
+      <p>Formerly incarcerated Haitian man. Reformed. Disciplined. Visionary. He rebuilt himself brick by brick.</p>
+      <div class="card-tags"><span>BUILDER</span><span>ECONOMY</span></div>
+    </div>
+
+    <div class="card completed" onclick="expandSection(this, 'p5')">
+      <div class="card-number">5. THE MERCHANT</div>
+      <h3>The Connector</h3>
+      <p>West African. Looks 30, is 45. Ageless. Wise. Charismatic. The bridge between culture and commerce.</p>
+      <div class="card-tags"><span>COMMERCE</span><span>CHARM</span></div>
+    </div>
+
+    <div class="card locked" onclick="expandSection(this, 'p6')">
+      <div class="card-number">6. THE TRAINEE</div>
+      <h3>The Shadow Sentinel</h3>
+      <p>Young woman. Silent protector. Only appears when something goes wrong. Reports directly to Sovereign.</p>
+      <div class="card-tags"><span>SHADOW</span><span>SECURITY</span></div>
+    </div>
+
+    <div class="card completed" onclick="expandSection(this, 'p7')">
+      <div class="card-number">7. CLEARY</div>
+      <h3>The Outsider Herald</h3>
+      <p>Not Black. Never in the group. Never in the rituals. Lives on the outskirts. Promotes SOUP like it's oxygen underwater.</p>
+      <div class="card-tags"><span>OUTSIDER</span><span>LOYAL</span></div>
+    </div>
+  </div>
+
+  <div style="text-align:center;margin-top:40px;">
+    <button class="btn btn-primary" onclick="scrollToSection('game')">NEXT → THE GAME</button>
+  </div>
+</section>
+
+<!-- ===== GAME SECTION ===== -->
+<section class="section" id="game">
+  <h2 class="section-title">🎮 THE GAMES</h2>
+  <p class="section-subtitle">Two playable experiences. Both chaos. Both canon.</p>
+
+  <div class="grid">
+    <div class="card" onclick="expandSection(this, 'g1')">
+      <div class="card-number">GAME 1</div>
+      <h3>SEE‑THROUGH BLACK</h3>
+      <p>A Choose‑Your‑Own‑Confusion Book. 7 paths. 2 choices send you back. 2 are out of context (THOSE are real). Move forward by ignoring everything or picking wrong twice.</p>
+      <div class="card-tags"><span>7 PATHS</span><span>CONFUSION</span><span>CANON</span></div>
+    </div>
+
+    <div class="card" onclick="expandSection(this, 'g2')">
+      <div class="card-number">GAME 2</div>
+      <h3>THE CONFUSION ENGINE</h3>
+      <p>30 disruption methods. Protective. De‑escalatory. Information‑sharing. Solidarity actions. All aligned with SOUP AINP's Community Development & Artistic Activism principles.</p>
+      <div class="card-tags"><span>30 TACTICS</span><span>SAFE</span><span>LEGAL</span></div>
+    </div>
+
+    <div class="card locked" onclick="expandSection(this, 'g3')">
+      <div class="card-number">GAME 3</div>
+      <h3>THE LEGEND OF NAM OSHUN</h3>
+      <p>The (Totally Made Up) Legend. 10 chapters. Told from the future, remembered in the past, confused in the present. The complete mythos.</p>
+      <div class="card-tags"><span>MYTHOS</span><span>10 CHAPTERS</span><span>EPIC</span></div>
+    </div>
+  </div>
+
+  <div style="text-align:center;margin-top:40px;">
+    <button class="btn btn-primary" onclick="scrollToSection('training')">NEXT → TRAINING</button>
+  </div>
+</section>
+
+<!-- ===== TRAINING SECTION ===== -->
+<section class="section" id="training">
+  <h2 class="section-title">📚 TRAINING & WORKSHOPS</h2>
+  <p class="section-subtitle">4 chapter packets. Ready to deploy. Print and go.</p>
+
+  <div class="grid">
+    <div class="card" onclick="expandSection(this, 't1')">
+      <div class="card-number">PACKET 1</div>
+      <h3>POLICING & JUSTICE</h3>
+      <p>KYR cards. Legal observers. Medic teams. FOIA playbooks. Patrol mapping. De‑escalation drills.</p>
+      <div class="card-tags"><span>TACTICS 1–7</span><span>24–26–33</span><span>50–51</span></div>
+    </div>
+
+    <div class="card" onclick="expandSection(this, 't2')">
+      <div class="card-number">PACKET 2</div>
+      <h3>HOUSING & WEALTH</h3>
+      <p>Tenant rights. Eviction defense. CLT formation. CBA negotiation. Zoning advocacy. Anti‑displacement tools.</p>
+      <div class="card-tags"><span>TACTICS 15–19</span><span>36</span><span>40</span><span>56</span><span>60</span></div>
+    </div>
+
+    <div class="card" onclick="expandSection(this, 't3')">
+      <div class="card-number">PACKET 3</div>
+      <h3>HEALTH & ENVIRONMENT</h3>
+      <p>Healthcare navigation. Maternal advocacy. Mental health first aid. Environmental monitoring. Clinic directories.</p>
+      <div class="card-tags"><span>TACTICS 20–23</span><span>41–42</span><span>46</span><span>57</span></div>
+    </div>
+
+    <div class="card" onclick="expandSection(this, 't4')">
+      <div class="card-number">PACKET 4</div>
+      <h3>CIVIC POWER</h3>
+      <p>Voter protection. Narrative strategy. Media rapid response. Policy campaign design. Council testimony.</p>
+      <div class="card-tags"><span>TACTICS 39–40</span><span>43–45</span><span>49</span><span>52–55</span><span>59–60</span></div>
+    </div>
+  </div>
+
+  <div style="text-align:center;margin-top:40px;">
+    <button class="btn btn-primary" onclick="scrollToSection('tactics')">NEXT → THE 60 TACTICS</button>
+  </div>
+</section>
+
+<!-- ===== TACTICS SECTION ===== -->
+<section class="section" id="tactics">
+  <h2 class="section-title">🛡️ 60 OPPRESSION TACTICS — MAPPED</h2>
+  <p class="section-subtitle">Each one has: Immediate checklist. Curriculum outline (Tier 1/2/3). Policy asks. Extras.</p>
+
+  <div style="background:rgba(0,0,0,0.3);border:1px solid rgba(225,112,85,0.2);border-radius:var(--radius);padding:20px;margin-bottom:32px;max-width:600px;margin-left:auto;margin-right:auto;">
+    <p style="font-size:0.8rem;color:var(--accent2);line-height:1.6;">
+      <strong style="color:var(--accent);">📊 FULL 60‑ITEM CSV</strong><br>
+      Copy → Paste into Google Sheets or LibreOffice Calc. Columns: Tactic | Checklist | Curriculum (Tier) | Policy Asks | Extras. Ready to train with.
+    </p>
+  </div>
+
+  <div class="grid">
+    <div class="card" onclick="expandSection(this, 'tc1')">
+      <div class="card-number">1–10</div>
+      <h3>POLICING & SCHOOLS</h3>
+      <p>Racial profiling. Over‑policing. Stop‑and‑frisk. Use‑of‑force. Asset‑based policing. Broken windows. School‑to‑prison. Biased curriculum. Hiring discrimination. Wage gaps.</p>
+      <div class="card-tags"><span>POLICING</span><span>EDUCATION</span></div>
+    </div>
+
+    <div class="card" onclick="expandSection(this, 'tc2')">
+      <div class="card-number">11–20</div>
+      <h3>WORK & HOUSING</h3>
+      <p>Occupational segregation. Predatory lending. Redlining. Appraisal bias. Eviction. Gentrification. Zoning neglect. Environmental racism. Healthcare access. Clinical bias.</p>
+      <div class="card-tags"><span>ECONOMY</span><span>HOUSING</span></div>
+    </div>
+
+    <div class="card" onclick="expandSection(this, 'tc3')">
+      <div class="card-number">21–30</div>
+      <h3>HEALTH & JUSTICE</h3>
+      <p>Maternal health. Mental health stigma. Insurance discrimination. Over‑criminalization of poverty. Debt‑based penalties. Bail inequity. Disparate sentencing. Probation control. Jury bias. Asset forfeiture.</p>
+      <div class="card-tags"><span>HEALTH</span><span>JUSTICE</span></div>
+    </div>
+
+    <div class="card" onclick="expandSection(this, 'tc4')">
+      <div class="card-number">31–40</div>
+      <h3>SURVEILLANCE & ACCESS</h3>
+      <p>Surveillance & data extraction. Algorithmic bias. Targeted marketing. Food deserts. Benefit stigmatization. Immigration targeting. Voter suppression. Infrastructure disinvestment. Disaster response.</p>
+      <div class="card-tags"><span>SURVEILLANCE</span><span>ACCESS</span></div>
+    </div>
+
+    <div class="card" onclick="expandSection(this, 'tc5')">
+      <div class="card-number">41–50</div>
+      <h3>CULTURE & CAPITAL</h3>
+      <p>Cultural erasure. Media stereotyping. Philanthropy exclusion. Tokenism. Research bias. Credentialing barriers. Predatory schools. Insurance redlining. Private security. Protest criminalization.</p>
+      <div class="card-tags"><span>CULTURE</span><span>CAPITAL</span></div>
+    </div>
+
+    <div class="card" onclick="expandSection(this, 'tc6')">
+      <div class="card-number">51–60</div>
+      <h3>SYSTEMS & DISPLACEMENT</h3>
+      <p>Workplace surveillance. Capital exclusion. Public space securitization. Data‑driven exclusion. Intergenerational wealth. Mental‑health policing. Coercive help systems. Strategic under‑enforcement. Displacement via revitalization.</p>
+      <div class="card-tags"><span>SYSTEMS</span><span>DISPLACEMENT</span></div>
+    </div>
+  </div>
+
+  <div style="text-align:center;margin-top:40px;">
+    <button class="btn btn-primary" onclick="scrollToSection('calendar')">NEXT → THE CALENDAR</button>
+  </div>
+</section>
+
+<!-- ===== CALENDAR SECTION ===== -->
+<section class="section" id="calendar">
+  <h2 class="section-title">📅 THE COSMIC‑CULTURAL CALENDAR</h2>
+  <p class="section-subtitle">Juneteenth. Kwanzaa. Malcolm X Day. Solstices. Equinoxes. Rare moons. The full annual rhythm.</p>
+
+  <div class="grid">
+    <div class="card" onclick="expandSection(this, 'cl1')">
+      <div class="card-number">SEASON 1</div>
+      <h3>CULTURE — Weeks 1–12</h3>
+      <p>Identity. Cultural literacy. Pan‑African grounding. Writing foundations. Visual poem curriculum.</p>
+      <div class="card-tags"><span>KNOWLEDGE</span><span>CULTURE</span></div>
+    </div>
+
+    <div class="card" onclick="expandSection(this, 'cl2')">
+      <div class="card-number">SEASON 2</div>
+      <h3>COMMUNITY — Weeks 13–24</h3>
+      <p>Digital circles. Rituals. Community events. Youth development. Chapter formation.</p>
+      <div class="card-tags"><span>COMMUNITY</span><span>DEVELOPMENT</span></div>
+    </div>
+
+    <div class="card" onclick="expandSection(this, 'cl3')">
+      <div class="card-number">SEASON 3</div>
+      <h3>CREATION — Weeks 25–36</h3>
+      <p>Product lines. MP3 drops. Visual poem releases. Micro‑courses. Creator development.</p>
+      <div class="card-tags"><span>ENTREPRENEURSHIP</span><span>ART</span></div>
+    </div>
+
+    <div class="card" onclick="expandSection(this, 'cl4')">
+      <div class="card-number">SEASON 4</div>
+      <h3>IMPACT — Weeks 37–49</h3>
+      <p>Activism. Healing. Liberation curriculum. Community uplift. Chapter leadership. Ranking. Awards. Summit.</p>
+      <div class="card-tags"><span>ACTIVISM</span><span>LEGACY</span></div>
+    </div>
+
+    <div class="card locked" onclick="expandSection(this, 'cl5')">
+      <div class="card-number">FLAGSHIP EVENTS</div>
+      <h3>THE BIG 5</h3>
+      <p>Welsing Wellness Retreat. PowerNomics Festival. Revolutionary Days. Cosmic Gatherings. The Annual Summit.</p>
+      <div class="card-tags"><span>EVENTS</span><span>ANNUAL</span></div>
+    </div>
+
+    <div class="card locked" onclick="expandSection(this, 'cl6')">
+      <div class="card-number">RANKING & AWARDS</div>
+      <h3>THE 7 RANKS</div>
+      <p>Seed → Root → Stem → Bloom → Fruit. Plus: The NAM OSHUN Award. The Five Elements Awards. The Chapter of the Year.</p>
+      <div class="card-tags"><span>RANKS</span><span>AWARDS</span></div>
+    </div>
+  </div>
+
+  <div style="text-align:center;margin-top:40px;">
+    <button class="btn btn-ghost" onclick="scrollToSection('footer')">⭐ THIS IS THE INDEX. SAY "NEXT" FOR ANY SECTION.</button>
+  </div>
+</section>
+
+<!-- ===== FOOTER ===== -->
+<footer>
+  <p><strong>SOUP AINP</strong> — Temporal Anomaly · Poetic Guardian · Chronological Suggestion</p>
+  <p style="margin-top:8px;font-size:0.8rem;">"Write until it's true. Or don't. I'm confused either way."</p>
+  <p style="margin-top:8px;font-size:0.75rem;"><a href="#hero" onclick="scrollToSection('hero')">Start Over</a> · <a href="#manifesto">Manifesto</a> · <a href="#pantheon">Pantheon</a> · <a href="#game">The Game</a> · <a href="#training">Training</a> · <a href="#tactics">Tactics</a> · <a href="#calendar">Calendar</a></p>
+</footer>
+
+<!-- ===== MODAL ===== -->
+<div class="modal-overlay" id="certModal">
+  <div class="modal">
+    <h3>📜 CERTIFICATE OF CHAOS</h3>
+    <p style="color:var(--text2);margin-bottom:20px;line-height:1.7;">You navigated the Confusion Engine. You picked what made no sense. You are officially too weird to fail.</p>
+    <button class="btn btn-primary" onclick="closeModal()">🔄 CLAIM YOUR CONFUSION</button>
+  </div>
+</div>
+
+<script>
+function toggleTheme() {
+  const body = document.body;
+  const current = body.getAttribute('data-theme');
+  body.setAttribute('data-theme', current === 'dark' ? 'light' : 'dark');
+}
+
+function scrollToSection(id) {
+  document.getElementById(id).scrollIntoView({ behavior: 'smooth' });
+}
+
+function expandSection(card, id) {
+  if (card.classList.contains('locked')) {
+    showPopup('🔒 LOCKED — Say "NEXT" to unlock this section');
+    return;
+  }
+
+  card.classList.add('completed');
+  showPopup(`✅ ${card.querySelector('h3').textContent} — UNLOCKED`);
+}
+
+function showPopup(text) {
+  const popup = document.getElementById('confusionPopup');
+  document.getElementById('popupTitle').textContent = text;
+  document.getElementById('popupText').textContent = text;
+  popup.classList.add('show');
+  setTimeout(() => popup.classList.remove('show'), 4000);
+}
+
+function closeModal() {
+  document.getElementById('certModal').classList.remove('active');
+}
+</script>
+
+</body>
+</html>

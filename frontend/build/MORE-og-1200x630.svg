@@ -1,0 +1,86 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0D1F16"/>
+      <stop offset="0.5" stop-color="#1B4332"/>
+      <stop offset="1" stop-color="#2D6A4F"/>
+    </linearGradient>
+    <linearGradient id="amber" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFD27A"/>
+      <stop offset="1" stop-color="#E8A51E"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1200" height="630" fill="url(#bg)"/>
+
+  <!-- subtle texture rings on the right -->
+  <circle cx="1080" cy="320" r="430" fill="none" stroke="#FFFFFF" stroke-opacity="0.05" stroke-width="2"/>
+  <circle cx="1080" cy="320" r="330" fill="none" stroke="#E8A51E" stroke-opacity="0.08" stroke-width="14"/>
+
+  <!-- Brand mark tile -->
+  <g transform="translate(80,70)">
+    <rect width="480" height="480" rx="80" fill="#0D2418"/>
+    <rect x="15" y="15" width="450" height="450" rx="66" fill="#1B4332"/>
+    <circle cx="240" cy="212" r="128" fill="none" stroke="#FFFFFF" stroke-opacity="0.14" stroke-width="3"/>
+    <circle cx="240" cy="212" r="148" fill="none" stroke="#E8A51E" stroke-opacity="0.42" stroke-width="9"/>
+    <path d="M 134 176 L 182 236 L 240 164 L 298 236 L 346 176"
+          fill="none" stroke="url(#amber)" stroke-width="42"
+          stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="240" cy="202" r="12" fill="#FFD27A"/>
+
+    <!-- M.O.R.E. (white) -->
+    <g transform="translate(122 322)" stroke="#FFFFFF" fill="none" stroke-width="7" stroke-linecap="round" stroke-linejoin="round">
+      <path transform="translate(0 0)" d="M0 46 L5 0 L17 28 L29 0 L34 46"/>
+      <circle transform="translate(41 0)" cx="12" cy="23" r="4.5" fill="#FFFFFF" stroke="none"/>
+      <circle transform="translate(65 0)" cx="17" cy="23" r="13" stroke="#FFFFFF"/>
+      <circle transform="translate(106 0)" cx="12" cy="23" r="4.5" fill="#FFFFFF" stroke="none"/>
+      <path transform="translate(130 0)" d="M5 0 L5 46 M5 12 A13 13 0 0 0 31 12 M18 24 L29 46"/>
+      <circle transform="translate(171 0)" cx="12" cy="23" r="4.5" fill="#FFFFFF" stroke="none"/>
+      <path transform="translate(195 0)" d="M2 0 L2 46 M2 4 L31 4 M2 23 L28 23 M2 42 L31 42"/>
+    </g>
+
+    <!-- HELP CENTER (light green) -->
+    <g transform="translate(150 392) scale(0.72)" stroke="#C8E6C9" fill="none" stroke-width="7" stroke-linecap="round" stroke-linejoin="round">
+      <path transform="translate(0 0)" d="M5 0 L5 46 M29 0 L29 46 M5 23 L29 23"/>
+      <path transform="translate(41 0)" d="M2 0 L2 46 M2 4 L31 4 M2 23 L28 23 M2 42 L31 42"/>
+      <path transform="translate(82 0)" d="M5 0 L5 46 L31 46"/>
+      <path transform="translate(123 0)" d="M5 46 L5 2"/>
+      <circle transform="translate(123 0)" cx="18" cy="12" r="13"/>
+      <path transform="translate(185 0)" d="M30 8 A13 13 0 0 0 4 23 A13 13 0 0 0 30 38"/>
+      <path transform="translate(226 0)" d="M2 0 L2 46 M2 4 L31 4 M2 23 L28 23 M2 42 L31 42"/>
+      <path transform="translate(267 0)" d="M5 46 L5 0 L29 46 L29 0"/>
+      <path transform="translate(308 0)" d="M3 2 L31 2 M17 2 L17 46"/>
+      <path transform="translate(349 0)" d="M2 0 L2 46 M2 4 L31 4 M2 23 L28 23 M2 42 L31 42"/>
+      <path transform="translate(390 0)" d="M5 0 L5 46 M5 12 A13 13 0 0 0 31 12 M18 24 L29 46"/>
+    </g>
+  </g>
+
+  <!-- Headline: M.O.R.E. (white) -->
+  <g transform="translate(700 224) scale(2.1)" stroke="#FFFFFF" fill="none" stroke-width="7" stroke-linecap="round" stroke-linejoin="round">
+    <path transform="translate(0 0)" d="M0 46 L5 0 L17 28 L29 0 L34 46"/>
+    <circle transform="translate(41 0)" cx="12" cy="23" r="4.5" fill="#FFFFFF" stroke="none"/>
+    <circle transform="translate(65 0)" cx="17" cy="23" r="13" stroke="#FFFFFF"/>
+    <circle transform="translate(106 0)" cx="12" cy="23" r="4.5" fill="#FFFFFF" stroke="none"/>
+    <path transform="translate(130 0)" d="M5 0 L5 46 M5 12 A13 13 0 0 0 31 12 M18 24 L29 46"/>
+    <circle transform="translate(171 0)" cx="12" cy="23" r="4.5" fill="#FFFFFF" stroke="none"/>
+    <path transform="translate(195 0)" d="M2 0 L2 46 M2 4 L31 4 M2 23 L28 23 M2 42 L31 42"/>
+  </g>
+
+  <!-- Subline: HELP CENTER (amber) -->
+  <g transform="translate(640 415) scale(1.1)" stroke="#FFD27A" fill="none" stroke-width="7" stroke-linecap="round" stroke-linejoin="round">
+    <path transform="translate(0 0)" d="M5 0 L5 46 M29 0 L29 46 M5 23 L29 23"/>
+    <path transform="translate(41 0)" d="M2 0 L2 46 M2 4 L31 4 M2 23 L28 23 M2 42 L31 42"/>
+    <path transform="translate(82 0)" d="M5 0 L5 46 L31 46"/>
+    <path transform="translate(123 0)" d="M5 46 L5 2"/>
+    <circle transform="translate(123 0)" cx="18" cy="12" r="13"/>
+    <path transform="translate(185 0)" d="M30 8 A13 13 0 0 0 4 23 A13 13 0 0 0 30 38"/>
+    <path transform="translate(226 0)" d="M2 0 L2 46 M2 4 L31 4 M2 23 L28 23 M2 42 L31 42"/>
+    <path transform="translate(267 0)" d="M5 46 L5 0 L29 46 L29 0"/>
+    <path transform="translate(308 0)" d="M3 2 L31 2 M17 2 L17 46"/>
+    <path transform="translate(349 0)" d="M2 0 L2 46 M2 4 L31 4 M2 23 L28 23 M2 42 L31 42"/>
+    <path transform="translate(390 0)" d="M5 0 L5 46 M5 12 A13 13 0 0 0 31 12 M18 24 L29 46"/>
+  </g>
+
+  <!-- Tagline tick -->
+  <rect x="700" y="560" width="360" height="4" fill="#E8A51E" opacity="0.6"/>
+</svg>

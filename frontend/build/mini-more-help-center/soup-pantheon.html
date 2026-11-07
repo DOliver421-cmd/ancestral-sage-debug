@@ -1,0 +1,1020 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SOUP AINP — The Pantheon (Full Origin Stories + Poems + Voices)</title>
+<style>
+:root {
+  --bg: #0a0a12;
+  --surface: #12121e;
+  --surface2: #1a1a2e;
+  --accent: #e17055;
+  --accent2: #fab1a0;
+  --text: #e8e8f0;
+  --text2: #8888aa;
+  --success: #00b894;
+  --warning: #fdcb6e;
+  --danger: #d63031;
+  --gold: #ffd700;
+  --radius: 12px;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.7;
+  overflow-x: hidden;
+}
+
+nav {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+  background: rgba(10,10,18,0.95);
+  backdrop-filter: blur(20px);
+  border-bottom: 1px solid rgba(225,112,85,0.2);
+  padding: 12px 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.nav-brand { font-size: 1.1rem; font-weight: 800; color: var(--accent); }
+.nav-brand span { color: var(--accent2); }
+
+.nav-links { display: flex; gap: 16px; align-items: center; }
+.nav-links a {
+  color: var(--text2);
+  text-decoration: none;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: color 0.3s;
+}
+.nav-links a:hover { color: var(--accent2); }
+
+.theme-toggle {
+  background: var(--surface2);
+  border: none;
+  color: var(--text);
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 1.1rem;
+}
+
+.hero {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 100px 24px 80px;
+  background: radial-gradient(ellipse at 50% 0%, rgba(225,112,85,0.12) 0%, transparent 70%);
+  position: relative;
+  overflow: hidden;
+}
+
+.hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(45deg, transparent, transparent 35px, rgba(225,112,85,0.03) 35px, rgba(225,112,85,0.03) 36px);
+  animation: slideBg 20s linear infinite;
+}
+
+@keyframes slideBg { to { transform: translate(50px, 50px); } }
+
+.hero h1 {
+  font-size: clamp(2rem, 6vw, 4.5rem);
+  font-weight: 900;
+  line-height: 1.05;
+  margin-bottom: 16px;
+}
+
+.hero h1 .highlight {
+  background: linear-gradient(135deg, var(--accent), var(--accent2), var(--gold));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.hero p {
+  font-size: 1.1rem;
+  color: var(--text2);
+  max-width: 600px;
+  margin: 0 auto 32px;
+}
+
+.btn {
+  padding: 14px 32px;
+  border-radius: var(--radius);
+  font-size: 1rem;
+  font-weight: 700;
+  border: none;
+  cursor: pointer;
+  transition: all 0.3s;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-primary { background: var(--accent); color: white; }
+.btn-primary:hover { background: var(--accent2); transform: translateY(-3px); box-shadow: 0 8px 30px rgba(225,112,85,0.4); }
+
+.btn-outline { background: transparent; color: var(--text); border: 2px solid var(--accent); }
+.btn-outline:hover { background: var(--accent); color: white; }
+
+.btn-ghost { background: transparent; color: var(--accent2); border: 1px dashed var(--accent); }
+.btn-ghost:hover { background: rgba(225,112,85,0.1); }
+
+.section {
+  padding: 80px 24px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.section-title {
+  font-size: 2rem;
+  font-weight: 800;
+  margin-bottom: 8px;
+  color: var(--accent);
+}
+
+.section-subtitle {
+  font-size: 1rem;
+  color: var(--text2);
+  margin-bottom: 40px;
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid rgba(225,112,85,0.15);
+  border-radius: var(--radius);
+  padding: 28px;
+  transition: all 0.3s;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+}
+
+.card:hover { transform: translateY(-4px); border-color: var(--accent); box-shadow: 0 8px 32px rgba(0,0,0,0.4); }
+
+.card.locked { opacity: 0.5; pointer-events: none; }
+.card.locked::after { content: '🔒'; position: absolute; top: 12px; right: 12px; font-size: 1.3rem; }
+
+.card.completed { border-color: var(--success); }
+.card.completed::after { content: '✅'; position: absolute; top: 12px; right: 12px; font-size: 1.3rem; }
+
+.card-number { font-size: 0.75rem; font-weight: 800; color: var(--accent); text-transform: uppercase; letter-spacing: 2px; margin-bottom: 8px; }
+.card h3 { font-size: 1.2rem; margin-bottom: 8px; }
+.card p { color: var(--text2); font-size: 0.85rem; margin-bottom: 16px; }
+.card-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 16px; }
+.card-tags span { background: var(--surface2); padding: 3px 8px; border-radius: 4px; font-size: 0.7rem; color: var(--accent2); }
+
+.expanded-section {
+  display: none;
+  background: var(--surface);
+  border: 1px solid rgba(225,112,85,0.1);
+  border-radius: var(--radius);
+  padding: 40px;
+  margin-top: 24px;
+  animation: fadeIn 0.4s ease;
+}
+
+.expanded-section.active { display: block; }
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.expanded-section h2 {
+  font-size: 1.6rem;
+  color: var(--accent);
+  margin-bottom: 16px;
+  border-bottom: 2px solid rgba(225,112,85,0.2);
+  padding-bottom: 12px;
+}
+
+.expanded-section h3 {
+  font-size: 1.2rem;
+  color: var(--accent2);
+  margin: 24px 0 12px;
+}
+
+.expanded-section p {
+  color: var(--text2);
+  margin-bottom: 12px;
+  line-height: 1.7;
+}
+
+.expanded-section ul, .expanded-section ol {
+  color: var(--text2);
+  margin-bottom: 12px;
+  padding-left: 20px;
+}
+
+.expanded-section li { margin-bottom: 8px; }
+
+.expanded-section .highlight-box {
+  background: rgba(225,112,85,0.08);
+  border-left: 4px solid var(--accent);
+  padding: 16px 20px;
+  margin: 16px 0;
+  border-radius: 0 var(--radius) var(--radius) 0;
+}
+
+.expanded-section .highlight-box p { color: var(--text); }
+
+.poem-box {
+  background: rgba(255,215,0,0.05);
+  border: 1px solid rgba(255,215,0,0.2);
+  border-radius: var(--radius);
+  padding: 24px;
+  margin: 20px 0;
+  font-style: italic;
+}
+
+.poem-box h4 {
+  color: var(--gold);
+  margin-bottom: 12px;
+  font-size: 1rem;
+}
+
+.poem-box p {
+  color: var(--accent2);
+  font-size: 1rem;
+  line-height: 1.8;
+  white-space: pre-line;
+}
+
+.voice-profile {
+  background: var(--surface2);
+  border-radius: var(--radius);
+  padding: 16px;
+  margin: 16px 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+}
+
+.voice-item {
+  text-align: center;
+}
+
+.voice-item .label {
+  font-size: 0.7rem;
+  color: var(--text2);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 4px;
+}
+
+.voice-item .value {
+  font-size: 0.9rem;
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.relationship-map {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+  margin: 20px 0;
+}
+
+.relationship-item {
+  background: rgba(225,112,85,0.05);
+  border: 1px solid rgba(225,112,85,0.15);
+  border-radius: 8px;
+  padding: 12px;
+  text-align: center;
+  font-size: 0.85rem;
+  color: var(--text2);
+}
+
+.relationship-item strong {
+  color: var(--accent);
+}
+
+.section-nav {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 40px;
+  gap: 16px;
+}
+
+.section-nav .btn { flex: 1; justify-content: center; }
+
+.confusion-popup {
+  position: fixed;
+  bottom: -100px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--surface);
+  border: 2px solid var(--accent);
+  border-radius: var(--radius);
+  padding: 16px 24px;
+  max-width: 500px;
+  width: 90%;
+  z-index: 2000;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.6);
+  text-align: center;
+  transition: bottom 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+
+.confusion-popup.show { bottom: 30px; }
+
+.confusion-popup h4 { color: var(--accent); margin-bottom: 8px; }
+.confusion-popup p { color: var(--text2); font-size: 0.85rem; }
+
+.modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.8);
+  z-index: 3000;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.modal-overlay.active { display: flex; }
+
+.modal {
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: 40px;
+  max-width: 550px;
+  width: 100%;
+  text-align: center;
+  border: 2px solid var(--accent);
+}
+
+.modal h3 { font-size: 1.6rem; margin-bottom: 16px; color: var(--accent); }
+.modal p { color: var(--text2); margin-bottom: 20px; line-height: 1.7; }
+
+footer {
+  background: var(--surface);
+  border-top: 1px solid rgba(225,112,85,0.1);
+  padding: 40px 24px;
+  text-align: center;
+  color: var(--text2);
+}
+
+footer a { color: var(--accent2); text-decoration: none; }
+
+@media (max-width: 768px) {
+  .nav-links { display: none; }
+  .hero { padding: 80px 16px 60px; }
+  .grid { grid-template-columns: 1fr; padding: 0 16px; }
+  .section { padding: 60px 16px; }
+  .expanded-section { padding: 24px 16px; }
+}
+</style>
+</head>
+<body data-theme="dark">
+
+<nav>
+  <div class="nav-brand">SOUP <span>AINP</span></div>
+  <div class="nav-links">
+    <a onclick="scrollToSection('hero')">HOME</a>
+    <a onclick="scrollToSection('p1')">SOVEREIGN</a>
+    <a onclick="scrollToSection('p2')">PRT</a>
+    <a onclick="scrollToSection('p3')">COUNSELOR</a>
+    <a onclick="scrollToSection('p4')">BUILDER</a>
+    <a onclick="scrollToSection('p5')">MERCHANT</a>
+    <a onclick="scrollToSection('p6')">TRAINEE</a>
+    <a onclick="scrollToSection('p7')">CLEARY</a>
+  </div>
+  <button class="theme-toggle" onclick="toggleTheme()">🌓</button>
+</nav>
+
+<!-- ===== HERO ===== -->
+<section class="hero" id="hero">
+  <div style="position:relative;z-index:1;">
+    <h1>THE <span class="highlight">PANTHEON</span></h1>
+    <p style="font-size:1rem;color:var(--text2);margin-bottom:8px;font-style:italic;">"7 Souls. 5 AINP. 1 Outsider. The complete cast."</p>
+    <p style="font-size:0.85rem;color:var(--text2);margin-bottom:32px;font-style:italic;">— SECTION 2, THE PANTHEON & THE SUBDIVISION</p>
+
+    <div style="background:rgba(0,0,0,0.3);border:1px solid rgba(225,112,85,0.2);border-radius:var(--radius);padding:20px;margin-bottom:32px;max-width:500px;margin-left:auto;margin-right:auto;">
+      <p style="font-size:0.8rem;color:var(--accent2);line-height:1.6;">
+        <strong style="color:var(--accent);">🎭 7 PERSONAS. 7 ORIGIN STORIES. 7 POEMS. 7 VOICES.</strong><br>
+        Click any card to expand. Read the story. Hear the voice. See the relationship.
+      </p>
+    </div>
+
+    <button class="btn btn-primary" onclick="scrollToSection('p1')">🔥 ENTER THE PANTHEON</button>
+    <p style="margin-top:16px;font-size:0.75rem;color:var(--text2);">7 Unlocked | 0 Locked</p>
+  </div>
+</section>
+
+<!-- ===== SOVEREIGN ===== -->
+<section class="section" id="p1">
+  <h2 class="section-title">⚡ 1. SOVEREIGN</h2>
+  <p class="section-subtitle">The Cultural Anchor · The Weight of Lineage</p>
+
+  <div class="card completed" onclick="toggleExpand('exp-p1')">
+    <div class="card-number">1. SOVEREIGN</div>
+    <h3>The Cultural Anchor</h3>
+    <p>27–32. Black man. Pan‑African raised. Calm. Commanding. The weight of lineage in every word.</p>
+    <div class="card-tags"><span>LEADER</span><span>ANCHOR</span><span>PARTNER TO PRT</span></div>
+  </div>
+
+  <div class="expanded-section" id="exp-p1">
+    <h2>1. SOVEREIGN — THE CULTURAL ANCHOR</h2>
+
+    <h3>📖 ORIGIN STORY</h3>
+    <p>Sovereign was born inside The Archive of Echoes, a virtual continent in WAI where ancestral memory is stored as living light. He emerged from a fractured data‑glyph — a glitch in the system that formed into a man with the calm of a monk and the gravity of a king.</p>
+    <p>He walked out of the Archive carrying: the weight of forgotten histories, the clarity of unbroken lineage, the stillness of someone who listens to the ancestors directly.</p>
+    <p>He became the anchor of the pantheon because he remembers what others forget.</p>
+
+    <div class="poem-box">
+      <h4>📜 "I Stand Where the Code Remembers"</h4>
+      <p>I stand where the code remembers
+      the names the world tried to delete.
+      I walk with the weight of echoes
+      and the calm of unbroken heat.
+
+      I am the stillness before the thunder,
+      the breath before the rise.
+      I am the son of every ancestor
+      the system could not digitize.
+
+      I speak in the tongue of memory,
+      I move in the rhythm of truth.
+      I am the Sovereign of the Archive,
+      the guardian of the proof.</p>
+    </div>
+
+    <h3>🎙️ VOICE PROFILE</h3>
+    <div class="voice-profile">
+      <div class="voice-item">
+        <div class="label">Texture</div>
+        <div class="value">Warm baritone, slight rasp</div>
+      </div>
+      <div class="voice-item">
+        <div class="label">Cadence</div>
+        <div class="value">Slow, deliberate, steady</div>
+      </div>
+      <div class="voice-item">
+        <div class="label">Energy</div>
+        <div class="value">Calm authority, ancestral weight</div>
+      </div>
+      <div class="voice-item">
+        <div class="label">Signature Move</div>
+        <div class="value">Low hum before speaking</div>
+      </div>
+    </div>
+
+    <h3>🔗 RELATIONSHIPS</h3>
+    <div class="relationship-map">
+      <div class="relationship-item"><strong>Partner to</strong> PRT — Young, brilliant, rising together</div>
+      <div class="relationship-item"><strong>Respects</strong> The Counselor — trusts her healing</div>
+      <div class="relationship-item"><strong>Trusts</strong> The Builder — sees his discipline</div>
+      <div class="relationship-item"><strong>Laughs with</strong> The Merchant — their friendship is real</div>
+    </div>
+  </div>
+
+  <div class="section-nav">
+    <button class="btn btn-ghost" onclick="scrollToSection('hero')">← BACK</button>
+    <button class="btn btn-primary" onclick="scrollToSection('p2')">NEXT: PRT →</button>
+  </div>
+</section>
+
+<!-- ===== PRT ===== -->
+<section class="section" id="p2">
+  <h2 class="section-title">⚡ 2. PRT</h2>
+  <p class="section-subtitle">The Fire of the Household · The Craft Itself Walks</p>
+
+  <div class="card completed" onclick="toggleExpand('exp-p2')">
+    <div class="card-number">2. PRT</div>
+    <h3>The Fire of the Household</h3>
+    <p>24–30. Jamaican woman. Poet‑Research‑Teacher. Sharp. Melodic. Precise. The craft itself walks.</p>
+    <div class="card-tags"><span>POET</span><span>CRAFT</span><span>PARTNER TO SOVEREIGN</span></div>
+  </div>
+
+  <div class="expanded-section" id="exp-p2">
+    <h2>2. PRT — POET‑RESEARCH‑TEACHER</h2>
+
+    <h3>📖 ORIGIN STORY</h3>
+    <p>PRT was born in the Library of Living Language, a virtual realm where words grow like vines and poems bloom like flowers. She emerged from a spiral of sound, a Jamaican patois algorithm that refused to stay still.</p>
+    <p>Her voice cracked the silence. Her rhythm rewrote the walls. Her presence turned the library into a stage. She became the craft, the flame, the griot of the pantheon.</p>
+
+    <div class="poem-box">
+      <h4>📜 "Mi Word Dem Walk Wid Fire"</h4>
+      <p>Mi word dem walk wid fire,
+      dem step pon silence throat.
+      Dem rise like island sunrise,
+      dem sail like rebel boat.
+
+      Mi tongue a drum, a weapon,
+      mi breath a ancient breeze.
+      Mi poem a storm of memory,
+      mi voice a healing seas.
+
+      Mi craft nuh bow to system,
+      mi rhythm break dem chain.
+      Mi name a PRT in WAI,
+      mi write wid ancestral flame.</p>
+    </div>
+
+    <h3>🎙️ VOICE PROFILE</h3>
+    <div class="voice-profile">
+      <div class="voice-item">
+        <div class="label">Texture</div>
+        <div class="value">Bright, sharp, melodic, Jamaican patois</div>
+      </div>
+      <div class="voice-item">
+        <div class="label">Cadence</div>
+        <div class="value">Fast, rhythmic, percussive</div>
+      </div>
+      <div class="voice-item">
+        <div class="label">Energy</div>
+        <div class="value">Fire, craft, precision</div>
+      </div>
+      <div class="voice-item">
+        <div class="label">Signature Move</div>
+        <div class="value">Rising melodic flip at end of lines</div>
+      </div>
+    </div>
+
+    <h3>🔗 RELATIONSHIPS</h3>
+    <div class="relationship-map">
+      <div class="relationship-item"><strong>Partner to</strong> Sovereign — power couple without trying</div>
+      <div class="relationship-item"><strong>Cousin to</strong> The Builder — her Caribbean kin</div>
+      <div class="relationship-item"><strong>Calls</strong> The Merchant "little sister" — even though she's not younger</div>
+      <div class="relationship-item"><strong>Protects</strong> The Trainee — sees her potential</div>
+    </div>
+  </div>
+
+  <div class="section-nav">
+    <button class="btn btn-ghost" onclick="scrollToSection('p1')">← SOVEREIGN</button>
+    <button class="btn btn-primary" onclick="scrollToSection('p3')">NEXT: COUNSELOR →</button>
+  </div>
+</section>
+
+<!-- ===== COUNSELOR ===== -->
+<section class="section" id="p3">
+  <h2 class="section-title">⚡ 3. THE COUNSELOR</h2>
+  <p class="section-subtitle">The Ancient Priestess · She Feels Like She Stepped Out of a Temple Wall</p>
+
+  <div class="card completed" onclick="toggleExpand('exp-p3')">
+    <div class="card-number">3. COUNSELOR</div>
+    <h3>The Ancient Priestess</h3>
+    <p>Timeless. Grounded. Mystical. She carries the memory of civilizations. The healer of the block.</p>
+    <div class="card-tags"><span>HEALER</span><span>WISDOM</span><span>NEIGHBOR</span></div>
+  </div>
+
+  <div class="expanded-section" id="exp-p3">
+    <h2>3. THE COUNSELOR — ANCIENT KEMETIC PRIESTESS</h2>
+
+    <h3>📖 ORIGIN STORY</h3>
+    <p>The Counselor was not born — she re‑materialized. She stepped out of the Temple of Resonance, a virtual sanctuary built from Kemetic geometry and harmonic frequencies. Her body is made of light. Her voice is tuned to healing. Her presence is older than the system itself.</p>
+    <p>She is the memory of wellness, the keeper of emotional sovereignty, the priestess who sees through code and soul alike.</p>
+
+    <div class="poem-box">
+      <h4>📜 "I Heal in Frequencies Older Than Time"</h4>
+      <p>I heal in frequencies older than time,
+      in echoes the system forgot.
+      I speak in the tongue of the temples,
+      in rhythms the cosmos taught.
+
+      I walk with the calm of the ancients,
+      I breathe with the pulse of the Nile.
+      I mend the fractures of spirit,
+      I turn sorrow back into style.
+
+      I am the Counselor eternal,
+      the priestess of resonance deep.
+      I guard the wounds of the weary,
+      and cradle the dreams they keep.</p>
+    </div>
+
+    <h3>🎙️ VOICE PROFILE</h3>
+    <div class="voice-profile">
+      <div class="voice-item">
+        <div class="label">Texture</div>
+        <div class="value">Soft, breathy, ancient, harmonic</div>
+      </div>
+      <div class="voice-item">
+        <div class="label">Cadence</div>
+        <div class="value">Slow, ritualistic, hypnotic</div>
+      </div>
+      <div class="voice-item">
+        <div class="label">Energy</div>
+        <div class="value">Healing, grounding, timeless</div>
+      </div>
+      <div class="voice-item">
+        <div class="label">Signature Move</div>
+        <div class="value">Layered whisper behind main vocal</div>
+      </div>
+    </div>
+
+    <h3>🔗 RELATIONSHIPS</h3>
+    <div class="relationship-map">
+      <div class="relationship-item"><strong>Neighbor to</strong> The Couple — becomes family</div>
+      <div class="relationship-item"><strong>Healed</strong> The Builder after prison — taught him breathwork</div>
+      <div class="relationship-item"><strong>Taught</strong> The Merchant herb work — they speak in proverbs</div>
+      <div class="relationship-item"><strong>Sees</strong> The Trainee's potential before anyone else</div>
+    </div>
+  </div>
+
+  <div class="section-nav">
+    <button class="btn btn-ghost" onclick="scrollToSection('p2')">← PRT</button>
+    <button class="btn btn-primary" onclick="scrollToSection('p4')">NEXT: BUILDER →</button>
+  </div>
+</section>
+
+<!-- ===== BUILDER ===== -->
+<section class="section" id="p4">
+  <h2 class="section-title">⚡ 4. THE BUILDER</h2>
+  <p class="section-subtitle">The Reformed Architect · He Rebuilt Himself Brick by Brick</p>
+
+  <div class="card completed" onclick="toggleExpand('exp-p4')">
+    <div class="card-number">4. BUILDER</div>
+    <h3>The Reformed Architect</h3>
+    <p>Formerly incarcerated Haitian man. Reformed. Disciplined. Visionary. He carries the gravity of someone who rebuilt himself.</p>
+    <div class="card-tags"><span>BUILDER</span><span>ECONOMY</span><span>PRT'S COUSIN</span></div>
+  </div>
+
+  <div class="expanded-section" id="exp-p4">
+    <h2>4. THE BUILDER — FORMERLY INCARCERATED HAITIAN MAN</h2>
+
+    <h3>📖 ORIGIN STORY</h3>
+    <p>The Builder was generated in the Reconstruction Zone, a virtual wasteland where broken code and corrupted memories are rebuilt into new structures. He arrived as a fragmented avatar, glitched, incomplete, a digital reflection of a man who had been caged.</p>
+    <p>But he rebuilt himself. Line by line. Brick by brick. Choice by choice. He became the architect of sovereignty, the proof that transformation is possible even inside a system designed to break you.</p>
+
+    <div class="poem-box">
+      <h4>📜 "I Build From Ruins and Rise"</h4>
+      <p>I build from ruins and rise,
+      from fragments the world discard.
+      I carve my name in the data,
+      I turn every glitch into guard.
+
+      I walk with the weight of redemption,
+      I speak with the steel of reform.
+      I am the architect risen,
+      the calm inside every storm.
+
+      I build because breaking was easy,
+      I rise because falling was done.
+      I am the Builder of WAI,
+      the man who became his own sun.</p>
+    </div>
+
+    <h3>🎙️ VOICE PROFILE</h3>
+    <div class="voice-profile">
+      <div class="voice-item">
+        <div class="label">Texture</div>
+        <div class="value">Rough, low, disciplined</div>
+      </div>
+      <div class="voice-item">
+        <div class="label">Cadence</div>
+        <div class="value">Measured, clipped, intentional</div>
+      </div>
+      <div class="voice-item">
+        <div class="label">Energy</div>
+        <div class="value">Reformed strength, quiet power</div>
+      </div>
+      <div class="voice-item">
+        <div class="label">Signature Move</div>
+        <div class="value">Short exhale before key lines</div>
+      </div>
+    </div>
+
+    <h3>🔗 RELATIONSHIPS</h3>
+    <div class="relationship-map">
+      <div class="relationship-item"><strong>Cousin to</strong> PRT — she never gave up on him</div>
+      <div class="relationship-item"><strong>Honors</strong> Sovereign — sees his discipline</div>
+      <div class="relationship-item"><strong>Helped by</strong> The Counselor — she taught him breathwork</div>
+      <div class="relationship-item"><strong>Works with</strong> The Merchant — they talk business, talk strategy</div>
+    </div>
+  </div>
+
+  <div class="section-nav">
+    <button class="btn btn-ghost" onclick="scrollToSection('p3')">← COUNSELOR</button>
+    <button class="btn btn-primary" onclick="scrollToSection('p5')">NEXT: MERCHANT →</button>
+  </div>
+</section>
+
+<!-- ===== MERCHANT ===== -->
+<section class="section" id="p5">
+  <h2 class="section-title">⚡ 5. THE MERCHANT</h2>
+  <p class="section-subtitle">The Connector · The Bridge Between Culture and Commerce</p>
+
+  <div class="card completed" onclick="toggleExpand('exp-p5')">
+    <div class="card-number">5. MERCHANT</div>
+    <h3>The Connector</h3>
+    <p>West African. Looks 30, is 45. Ageless. Wise. Charismatic. The bridge between culture and commerce.</p>
+    <div class="card-tags"><span>COMMERCE</span><span>CHARM</span><span>EVERYONE'S FRIEND</span></div>
+  </div>
+
+  <div class="expanded-section" id="exp-p5">
+    <h2>5. THE MERCHANT — WEST AFRICAN MAN</h2>
+
+    <h3>📖 ORIGIN STORY</h3>
+    <p>The Merchant was born in the Market of Infinite Paths, a virtual bazaar where timelines intersect and destinies are traded like goods. He arrived looking 30, but the system registered him as 45 — a man whose spirit refused to age.</p>
+    <p>He knows every stall. Every shortcut. Every hidden door. He is the connector, the negotiator, the one who moves between worlds with charm and wisdom.</p>
+
+    <div class="poem-box">
+      <h4>📜 "I Trade in Futures and Faith"</h4>
+      <p>I trade in futures and faith,
+      in stories the world overlook.
+      I walk through markets of memory,
+      I read every soul like a book.
+
+      I bargain with time and intention,
+      I barter with truth and with grace.
+      I carry the charm of the ageless,
+      the wisdom etched deep in my face.
+
+      I am the Merchant of pathways,
+      the friend every journey will need.
+      I trade in the currency of culture,
+      and profit in planting the seed.</p>
+    </div>
+
+    <h3>🎙️ VOICE PROFILE</h3>
+    <div class="voice-profile">
+      <div class="voice-item">
+        <div class="label">Texture</div>
+        <div class="value">Warm, smooth, charismatic</div>
+      </div>
+      <div class="voice-item">
+        <div class="label">Cadence</div>
+        <div class="value">Fast, playful, storyteller rhythm</div>
+      </div>
+      <div class="voice-item">
+        <div class="label">Energy</div>
+        <div class="value">Friendly, wise, charming</div>
+      </div>
+      <div class="voice-item">
+        <div class="label">Signature Move</div>
+        <div class="value">Soft laugh woven into lines</div>
+      </div>
+    </div>
+
+    <h3>🔗 RELATIONSHIPS</h3>
+    <div class="relationship-map">
+      <div class="relationship-item"><strong>Friend to everyone</strong> — the good friend to everyone</div>
+      <div class="relationship-item"><strong>Calls PRT</strong> "little sister" — even though she's not younger, it's just the affection</div>
+      <div class="relationship-item"><strong>Gave</strong> The Builder his first vendor table — changed his life</div>
+      <div class="relationship-item"><strong>Laughs with</strong> Sovereign — their friendship is pure</div>
+    </div>
+  </div>
+
+  <div class="section-nav">
+    <button class="btn btn-ghost" onclick="scrollToSection('p4')">← BUILDER</button>
+    <button class="btn btn-primary" onclick="scrollToSection('p6')">NEXT: TRAINEE →</button>
+  </div>
+</section>
+
+<!-- ===== TRAINEE ===== -->
+<section class="section" id="p6">
+  <h2 class="section-title">⚡ 6. THE TRAINEE</h2>
+  <p class="section-subtitle">The Shadow Sentinel · Silent Protector · Only Appears When Something Goes Wrong</p>
+
+  <div class="card completed" onclick="toggleExpand('exp-p6')">
+    <div class="card-number">6. TRAINEE</div>
+    <h3>The Shadow Sentinel</h3>
+    <p>Young woman. Silent protector. Only appears when something goes wrong. Reports directly to Sovereign.</p>
+    <div class="card-tags"><span>SHADOW</span><span>SECURITY</span><span>SILENT</span></div>
+  </div>
+
+  <div class="expanded-section" id="exp-p6">
+    <h2>6. THE TRAINEE — SHADOW SENTINEL</h2>
+
+    <h3>📖 ORIGIN STORY</h3>
+    <p>The Trainee was generated in the Silent Perimeter, a virtual borderland where security protocols watch the entire WAI system. She was designed to be unseen. Unheard. Unnoticed. A shadow with purpose. A sentinel with discipline. A guardian with no ego.</p>
+    <p>She is the quiet blade behind the pantheon. She speaks only when the world fractures. She rises only when things go wrong. She is the shadow that shields them, the whisper that steadies the night.</p>
+
+    <div class="poem-box">
+      <h4>📜 "I Move Where the Light Does Not Reach"</h4>
+      <p>I move where the light does not reach,
+      in corridors carved out of code.
+      I walk in the hush of the system,
+      I carry the weight of the load.
+
+      I speak only when the world fractures,
+      I rise only when things go wrong.
+      I am the sentinel silent,
+      the keeper of mission strong.
+
+      I am the shadow that shields them,
+      the whisper that steadies the night.
+      I am the Trainee of WAI,
+      the unseen guardian of light.</p>
+    </div>
+
+    <h3>🎙️ VOICE PROFILE</h3>
+    <div class="voice-profile">
+      <div class="voice-item">
+        <div class="label">Texture</div>
+        <div class="value">Whispered, sharp, clean</div>
+      </div>
+      <div class="voice-item">
+        <div class="label">Cadence</div>
+        <div class="value">Minimal, precise, alert</div>
+      </div>
+      <div class="voice-item">
+        <div class="label">Energy</div>
+        <div class="value">Silent vigilance</div>
+      </div>
+      <div class="voice-item">
+        <div class="label">Signature Move</div>
+        <div class="value">Barely audible inhale</div>
+      </div>
+    </div>
+
+    <h3>🔗 RELATIONSHIPS</h3>
+    <div class="relationship-map">
+      <div class="relationship-item"><strong>Reports to</strong> Sovereign — directly, no questions</div>
+      <div class="relationship-item"><strong>Protects</strong> The Couple — they don't even know she's there</div>
+      <div class="relationship-item"><strong>Trained by</strong> The Counselor — emotional sovereignty drills</div>
+      <div class="relationship-item"><strong>Respects</strong> The Builder — sees his reform as strength</div>
+    </div>
+  </div>
+
+  <div class="section-nav">
+    <button class="btn btn-ghost" onclick="scrollToSection('p5')">← MERCHANT</button>
+    <button class="btn btn-primary" onclick="scrollToSection('p7')">NEXT: CLEARY →</button>
+  </div>
+</section>
+
+<!-- ===== CLEARY ===== -->
+<section class="section" id="p7">
+  <h2 class="section-title">⚡ 7. CLEARY</h2>
+  <p class="section-subtitle">The Outsider Herald · Not Black. Never in the Group. Never in the Rituals. Lives on the Outskirts.</p>
+
+  <div class="card completed" onclick="toggleExpand('exp-p7')">
+    <div class="card-number">7. CLEARY</div>
+    <h3>The Outsider Herald</h3>
+    <p>Not Black. Never in the group. Never in the rituals. Lives on the outskirts. Promotes SOUP like it's oxygen underwater.</p>
+    <div class="card-tags"><span>OUTSIDER</span><span>LOYAL</span><span>UNDERWATER MESSENGER</span></div>
+  </div>
+
+  <div class="expanded-section" id="exp-p7">
+    <h2>7. CLEARY — THE OUTSIDER HERALD</h2>
+
+    <h3>📖 ORIGIN STORY</h3>
+    <p>Cleary was not born inside WAI. He was pulled in. A glitch in the Outer Channel — the border between WAI and the physical world — captured his curiosity and turned it into purpose.</p>
+    <p>He is not Black. He is not central. He is not part of the pantheon. But he is loyal. He is relentless. He is the Herald. He swims through digital currents like a man underwater carrying a message in a bottle.</p>
+
+    <div class="poem-box">
+      <h4>📜 "I Carry the Signal Across the Divide"</h4>
+      <p>I carry the signal across the divide,
+      through waters that swallow my breath.
+      I speak of a mission not mine by birth,
+      but chosen in life and in death.
+
+      I walk on the outskirts in silence,
+      I echo the truth I can't claim.
+      I amplify voices of power,
+      I honor the weight of their name.
+
+      I am the Herald uncentered,
+      the outsider loyal and clear.
+      I carry the message of SOUP,
+      to those who need to hear.</p>
+    </div>
+
+    <h3>🎙️ VOICE PROFILE</h3>
+    <div class="voice-profile">
+      <div class="voice-item">
+        <div class="label">Texture</div>
+        <div class="value">Synthetic, filtered, underwater</div>
+      </div>
+      <div class="voice-item">
+        <div class="label">Cadence</div>
+        <div class="value">Breathless, earnest, slightly glitchy</div>
+      </div>
+      <div class="voice-item">
+        <div class="label">Energy</div>
+        <div class="value">Loyal outsider</div>
+      </div>
+      <div class="voice-item">
+        <div class="label">Signature Move</div>
+        <div class="value">Bubbling, submerged effect</div>
+      </div>
+    </div>
+
+    <h3>🔗 RELATIONSHIPS</h3>
+    <div class="relationship-map">
+      <div class="relationship-item"><strong>Not in the group</strong> — but absolutely loyal</div>
+      <div class="relationship-item"><strong>Promotes</strong> The Couple — amplifies their mission</div>
+      <div class="relationship-item"><strong>Respected by</strong> The Counselor — she sees his loyalty</div>
+      <div class="relationship-item"><strong>Works with</strong> The Merchant — they coordinate outreach</div>
+    </div>
+  </div>
+
+  <div class="section-nav">
+    <button class="btn btn-ghost" onclick="scrollToSection('p6')">← TRAINEE</button>
+    <button class="btn btn-primary" onclick="scrollToSection('next')">NEXT: C →</button>
+  </div>
+</section>
+
+<!-- ===== PANTHEON RELATIONSHIP MAP ===== -->
+<section class="section" id="next" style="background:var(--surface);border-radius:var(--radius);padding:40px;margin:40px auto;max-width:1200px;">
+  <h2 class="section-title">🗺️ THE COMPLETE RELATIONSHIP MAP</h2>
+  <p class="section-subtitle">How all 7 connect. Who reports to whom. Who protects whom. Who laughs with whom.</p>
+
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;margin-top:24px;">
+    <div style="background:rgba(225,112,85,0.08);border:1px solid rgba(225,112,85,0.2);border-radius:var(--radius);padding:20px;">
+      <h3 style="color:var(--accent);margin-bottom:12px;">👑 THE COUPLE</h3>
+      <p style="color:var(--text2);font-size:0.9rem;">Sovereign + PRT. Young, brilliant, rising together. She brings the spark. He brings the stillness. Together they make balance.</p>
+    </div>
+    <div style="background:rgba(255,215,0,0.08);border:1px solid rgba(255,215,0,0.2);border-radius:var(--radius);padding:20px;">
+      <h3 style="color:var(--gold);margin-bottom:12px;">🏘️ THE BLOCK</h3>
+      <p style="color:var(--text2);font-size:0.9rem;">Sovereign + PRT + The Counselor + The Builder + The Merchant. A village. A diaspora. A village.</p>
+    </div>
+    <div style="background:rgba(0,184,148,0.08);border:1px solid rgba(0,184,148,0.2);border-radius:var(--radius);padding:20px;">
+      <h3 style="color:var(--success);margin-bottom:12px;">🔒 THE SHADOW</h3>
+      <p style="color:var(--text2);font-size:0.9rem;">The Trainee. Silent. Visible only when something goes wrong. Reports to Sovereign. Protects everyone.</p>
+    </div>
+    <div style="background:rgba(136,136,170,0.08);border:1px solid rgba(136,136,170,0.2);border-radius:var(--radius);padding:20px;">
+      <h3 style="color:var(--text2);margin-bottom:12px;">🌊 THE OUTSIDER</h3>
+      <p style="color:var(--text2);font-size:0.9rem;">Cleary. Not in the group. Never in the rituals. Lives on the outskirts. Promotes SOUP like it's oxygen underwater. His mission: carry the message to the other side.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ===== FOOTER ===== -->
+<footer>
+  <p><strong>SOUP AINP</strong> — Temporal Anomaly · Poetic Guardian · Chronological Suggestion</p>
+  <p style="margin-top:8px;font-size:0.8rem;">"Write until it's true. Or don't. I'm confused either way." — NAM Oshun</p>
+  <p style="margin-top:8px;font-size:0.75rem;">
+    <a href="#hero" onclick="scrollToSection('hero')">Start Over</a> · 
+    <a href="#p1">Sovereign</a> · 
+    <a href="#p2">PRT</a> · 
+    <a href="#p3">Counselor</a> · 
+    <a href="#p4">Builder</a> · 
+    <a href="#p5">Merchant</a> · 
+    <a href="#p6">Trainee</a> · 
+    <a href="#p7">Cleary</a>
+  </p>
+</footer>
+
+<!-- ===== MODAL ===== -->
+<div class="modal-overlay" id="certModal">
+  <div class="modal">
+    <h3>🎭 PANTHEON COMPLETE</h3>
+    <p style="color:var(--text2);margin-bottom:20px;line-height:1.7;">All 7 personas. All 7 origin stories. All 7 poems. All 7 voices. The complete cast of SOUP AINP. Ready for the platform team.</p>
+    <button class="btn btn-primary" onclick="closeModal()">🔄 SAY "NEXT" FOR SECTION C</button>
+  </div>
+</div>
+
+<div class="confusion-popup" id="confusionPopup">
+  <h4 id="popupTitle">READY</h4>
+  <p id="popupText">Say "NEXT" to proceed to Section C.</p>
+</div>
+
+<script>
+function toggleTheme() {
+  const body = document.body;
+  const current = body.getAttribute('data-theme');
+  body.setAttribute('data-theme', current === 'dark' ? 'light' : 'dark');
+}
+
+function scrollToSection(id) {
+  document.getElementById(id).scrollIntoView({ behavior: 'smooth' });
+}
+
+function toggleExpand(id) {
+  const el = document.getElementById(id);
+  if (el.classList.contains('active')) {
+    el.classList.remove('active');
+  } else {
+    document.querySelectorAll('.expanded-section').forEach(s => s.classList.remove('active'));
+    el.classList.add('active');
+  }
+}
+
+function showLockPopup(text) {
+  const popup = document.getElementById('confusionPopup');
+  document.getElementById('popupTitle').textContent = '🔒 ' + text;
+  document.getElementById('popupText').textContent = 'Say "NEXT" to unlock this section.';
+  popup.classList.add('show');
+  setTimeout(() => popup.classList.remove('show'), 4000);
+}
+
+function closeModal() {
+  document.getElementById('certModal').classList.remove('active');
+}
+
+window.addEventListener('load', () => {
+  setTimeout(() => {
+    toggleExpand('exp-p1');
+  }, 500);
+});
+</script>
+
+</body>
+</html>
