@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" fill="none">
+  <!-- Background circle -->
+  <circle cx="100" cy="100" r="96" fill="#1B4332" stroke="#E8A51E" stroke-width="4"/>
+  <!-- Inner ring -->
+  <circle cx="100" cy="100" r="78" fill="none" stroke="#E8A51E" stroke-width="1.5" opacity="0.4"/>
+  <!-- MORE text -->
+  <text x="100" y="92" text-anchor="middle" font-family="Georgia, serif" font-weight="900" font-size="44" fill="#E8A51E" letter-spacing="3">MORE</text>
+  <!-- Decorative line -->
+  <line x1="40" y1="106" x2="160" y2="106" stroke="#E8A51E" stroke-width="2" opacity="0.6"/>
+  <!-- Subtitle -->
+  <text x="100" y="128" text-anchor="middle" font-family="Georgia, serif" font-weight="400" font-size="13" fill="#ffffff" letter-spacing="4" opacity="0.85">HELP CENTER</text>
+  <!-- Small decorative dots -->
+  <circle cx="70" cy="106" r="2" fill="#E8A51E" opacity="0.5"/>
+  <circle cx="130" cy="106" r="2" fill="#E8A51E" opacity="0.5"/>
+</svg>

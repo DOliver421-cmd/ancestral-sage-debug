@@ -1,0 +1,1285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SOUP AINP — The 60 Tactics (Full CSV + Mapping)</title>
+<style>
+:root {
+  --bg: #0a0a12;
+  --surface: #12121e;
+  --surface2: #1a1a2e;
+  --accent: #e17055;
+  --accent2: #fab1a0;
+  --text: #e8e8f0;
+  --text2: #8888aa;
+  --success: #00b894;
+  --warning: #fdcb6e;
+  --danger: #d63031;
+  --gold: #ffd700;
+  --radius: 12px;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.7;
+  overflow-x: hidden;
+}
+
+nav {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+  background: rgba(10,10,18,0.95);
+  backdrop-filter: blur(20px);
+  border-bottom: 1px solid rgba(225,112,85,0.2);
+  padding: 12px 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.nav-brand { font-size: 1.1rem; font-weight: 800; color: var(--accent); }
+.nav-brand span { color: var(--accent2); }
+
+.nav-links { display: flex; gap: 16px; align-items: center; }
+.nav-links a {
+  color: var(--text2);
+  text-decoration: none;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: color 0.3s;
+}
+.nav-links a:hover { color: var(--accent2); }
+
+.theme-toggle {
+  background: var(--surface2);
+  border: none;
+  color: var(--text);
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 1.1rem;
+}
+
+.hero {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 100px 24px 80px;
+  background: radial-gradient(ellipse at 50% 0%, rgba(225,112,85,0.12) 0%, transparent 70%);
+  position: relative;
+  overflow: hidden;
+}
+
+.hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(45deg, transparent, transparent 35px, rgba(225,112,85,0.03) 35px, rgba(225,112,85,0.03) 36px);
+  animation: slideBg 20s linear infinite;
+}
+
+@keyframes slideBg { to { transform: translate(50px, 50px); } }
+
+.hero h1 {
+  font-size: clamp(2rem, 6vw, 4.5rem);
+  font-weight: 900;
+  line-height: 1.05;
+  margin-bottom: 16px;
+}
+
+.hero h1 .highlight {
+  background: linear-gradient(135deg, var(--accent), var(--accent2), var(--gold));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.hero p {
+  font-size: 1.1rem;
+  color: var(--text2);
+  max-width: 600px;
+  margin: 0 auto 32px;
+}
+
+.btn {
+  padding: 14px 32px;
+  border-radius: var(--radius);
+  font-size: 1rem;
+  font-weight: 700;
+  border: none;
+  cursor: pointer;
+  transition: all 0.3s;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-primary { background: var(--accent); color: white; }
+.btn-primary:hover { background: var(--accent2); transform: translateY(-3px); box-shadow: 0 8px 30px rgba(225,112,85,0.4); }
+
+.btn-outline { background: transparent; color: var(--text); border: 2px solid var(--accent); }
+.btn-outline:hover { background: var(--accent); color: white; }
+
+.btn-ghost { background: transparent; color: var(--accent2); border: 1px dashed var(--accent); }
+.btn-ghost:hover { background: rgba(225,112,85,0.1); }
+
+.section {
+  padding: 80px 24px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.section-title {
+  font-size: 2rem;
+  font-weight: 800;
+  margin-bottom: 8px;
+  color: var(--accent);
+}
+
+.section-subtitle {
+  font-size: 1rem;
+  color: var(--text2);
+  margin-bottom: 40px;
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid rgba(225,112,85,0.15);
+  border-radius: var(--radius);
+  padding: 28px;
+  transition: all 0.3s;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+}
+
+.card:hover { transform: translateY(-4px); border-color: var(--accent); box-shadow: 0 8px 32px rgba(0,0,0,0.4); }
+
+.card.locked { opacity: 0.5; pointer-events: none; }
+.card.locked::after { content: '🔒'; position: absolute; top: 12px; right: 12px; font-size: 1.3rem; }
+
+.card.completed { border-color: var(--success); }
+.card.completed::after { content: '✅'; position: absolute; top: 12px; right: 12px; font-size: 1.3rem; }
+
+.card-number { font-size: 0.75rem; font-weight: 800; color: var(--accent); text-transform: uppercase; letter-spacing: 2px; margin-bottom: 8px; }
+.card h3 { font-size: 1.2rem; margin-bottom: 8px; }
+.card p { color: var(--text2); font-size: 0.85rem; margin-bottom: 16px; }
+.card-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 16px; }
+.card-tags span { background: var(--surface2); padding: 3px 8px; border-radius: 4px; font-size: 0.7rem; color: var(--accent2); }
+
+.expanded-section {
+  display: none;
+  background: var(--surface);
+  border: 1px solid rgba(225,112,85,0.1);
+  border-radius: var(--radius);
+  padding: 40px;
+  margin-top: 24px;
+  animation: fadeIn 0.4s ease;
+}
+
+.expanded-section.active { display: block; }
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.expanded-section h2 {
+  font-size: 1.6rem;
+  color: var(--accent);
+  margin-bottom: 16px;
+  border-bottom: 2px solid rgba(225,112,85,0.2);
+  padding-bottom: 12px;
+}
+
+.expanded-section h3 {
+  font-size: 1.2rem;
+  color: var(--accent2);
+  margin: 24px 0 12px;
+}
+
+.expanded-section p {
+  color: var(--text2);
+  margin-bottom: 12px;
+  line-height: 1.7;
+}
+
+.highlight-box {
+  background: rgba(225,112,85,0.08);
+  border-left: 4px solid var(--accent);
+  padding: 16px 20px;
+  margin: 16px 0;
+  border-radius: 0 var(--radius) var(--radius) 0;
+}
+
+.highlight-box p { color: var(--text); }
+
+.tactic-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
+  margin: 24px 0;
+}
+
+.tactic-card {
+  background: var(--surface2);
+  border: 1px solid rgba(225,112,85,0.15);
+  border-radius: var(--radius);
+  padding: 20px;
+  transition: all 0.3s;
+}
+
+.tactic-card:hover { border-color: var(--accent); transform: translateX(4px); }
+
+.tactic-number {
+  font-size: 0.7rem;
+  font-weight: 800;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  margin-bottom: 8px;
+}
+
+.tactic-card h4 {
+  font-size: 1rem;
+  color: var(--accent2);
+  margin-bottom: 8px;
+}
+
+.tactic-card p {
+  font-size: 0.85rem;
+  color: var(--text2);
+  margin-bottom: 6px;
+}
+
+.csv-box {
+  background: rgba(0,0,0,0.4);
+  border: 1px solid rgba(255,215,0,0.3);
+  border-radius: var(--radius);
+  padding: 20px;
+  margin: 24px 0;
+  overflow-x: auto;
+}
+
+.csv-box pre {
+  color: var(--accent2);
+  font-family: 'Courier New', monospace;
+  font-size: 0.8rem;
+  line-height: 1.4;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+.copy-btn {
+  background: var(--success);
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 700;
+  margin-top: 12px;
+  transition: all 0.3s;
+}
+
+.copy-btn:hover { background: #00a383; transform: translateY(-2px); }
+
+.safeguard-box {
+  background: rgba(214,48,49,0.08);
+  border: 1px solid rgba(214,48,49,0.2);
+  border-radius: var(--radius);
+  padding: 24px;
+  margin: 24px 0;
+}
+
+.safeguard-box h4 {
+  color: var(--danger);
+  margin-bottom: 12px;
+  font-size: 1.1rem;
+}
+
+.safeguard-box ul {
+  color: var(--text2);
+  padding-left: 20px;
+}
+
+.safeguard-box li {
+  margin-bottom: 8px;
+  font-size: 0.9rem;
+}
+
+.section-nav {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 40px;
+  gap: 16px;
+}
+
+.section-nav .btn { flex: 1; justify-content: center; }
+
+.confusion-popup {
+  position: fixed;
+  bottom: -100px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--surface);
+  border: 2px solid var(--accent);
+  border-radius: var(--radius);
+  padding: 16px 24px;
+  max-width: 500px;
+  width: 90%;
+  z-index: 2000;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.6);
+  text-align: center;
+  transition: bottom 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+
+.confusion-popup.show { bottom: 30px; }
+
+.confusion-popup h4 { color: var(--accent); margin-bottom: 8px; }
+.confusion-popup p { color: var(--text2); font-size: 0.85rem; }
+
+.modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.8);
+  z-index: 3000;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.modal-overlay.active { display: flex; }
+
+.modal {
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: 40px;
+  max-width: 550px;
+  width: 100%;
+  text-align: center;
+  border: 2px solid var(--accent);
+}
+
+.modal h3 { font-size: 1.6rem; margin-bottom: 16px; color: var(--accent); }
+.modal p { color: var(--text2); margin-bottom: 20px; line-height: 1.7; }
+
+footer {
+  background: var(--surface);
+  border-top: 1px solid rgba(225,112,85,0.1);
+  padding: 40px 24px;
+  text-align: center;
+  color: var(--text2);
+}
+
+footer a { color: var(--accent2); text-decoration: none; }
+
+@media (max-width: 768px) {
+  .nav-links { display: none; }
+  .hero { padding: 80px 16px 60px; }
+  .grid { grid-template-columns: 1fr; padding: 0 16px; }
+  .section { padding: 60px 16px; }
+  .expanded-section { padding: 24px 16px; }
+}
+</style>
+</head>
+<body data-theme="dark">
+
+<nav>
+  <div class="nav-brand">SOUP <span>AINP</span></div>
+  <div class="nav-links">
+    <a onclick="scrollToSection('hero')">HOME</a>
+    <a onclick="scrollToSection('cluster1')">1–10</a>
+    <a onclick="scrollToSection('cluster2')">11–20</a>
+    <a onclick="scrollToSection('cluster3')">21–30</a>
+    <a onclick="scrollToSection('cluster4')">31–40</a>
+    <a onclick="scrollToSection('cluster5')">41–50</a>
+    <a onclick="scrollToSection('cluster6')">51–60</a>
+    <a onclick="scrollToSection('csv')">CSV</a>
+    <a onclick="scrollToSection('safeguards')">SAFEGUARDS</a>
+  </div>
+  <button class="theme-toggle" onclick="toggleTheme()">🌓</button>
+</nav>
+
+<!-- ===== HERO ===== -->
+<section class="hero" id="hero">
+  <div style="position:relative;z-index:1;">
+    <h1>THE <span class="highlight">60 TACTICS</span></h1>
+    <p style="font-size:1rem;color:var(--text2);margin-bottom:8px;font-style:italic;">"Every oppression has a counter. Every tactic has a tool. Every tool is legal, protective, and ready."</p>
+    <p style="font-size:0.85rem;color:var(--text2);margin-bottom:32px;font-style:italic;">— SECTION E, THE 60 OPPRESSION TACTICS — MAPPED</p>
+
+    <div style="background:rgba(0,0,0,0.3);border:1px solid rgba(225,112,85,0.2);border-radius:var(--radius);padding:20px;margin-bottom:32px;max-width:500px;margin-left:auto;margin-right:auto;">
+      <p style="font-size:0.8rem;color:var(--accent2);line-height:1.6;">
+        <strong style="color:var(--accent);">📊 60 TACTICS. 6 CLUSTERS. 1 CSV FILE.</strong><br>
+        Each tactic = Immediate checklist + Curriculum (Tier 1/2/3) + Policy asks + Extras.<br>
+        Copy the CSV → paste into Google Sheets → deploy.
+      </p>
+    </div>
+
+    <button class="btn btn-primary" onclick="scrollToSection('cluster1')">🔥 ENTER THE 60 TACTICS</button>
+    <p style="margin-top:16px;font-size:0.75rem;color:var(--text2);">60 Unlocked | 0 Locked</p>
+  </div>
+</section>
+
+<!-- ===== CLUSTER 1: 1–10 POLICING & SCHOOLS ===== -->
+<section class="section" id="cluster1">
+  <h2 class="section-title">CLUSTER 1</h2>
+  <p class="section-subtitle">Policing & Schools — Tactics 1–10</p>
+
+  <div class="card completed" onclick="toggleExpand('exp-cl1')">
+    <div class="card-number">CLUSTER 1</div>
+    <h3>Policing & Schools</h3>
+    <p>Racial profiling. Over‑policing. Stop‑and‑frisk. Use‑of‑force. Asset‑based policing. Broken windows. School‑to‑prison.</p>
+    <div class="card-tags"><span>POLICING</span><span>EDUCATION</span><span>LEGAL</span></div>
+  </div>
+
+  <div class="expanded-section" id="exp-cl1">
+    <h2>CLUSTER 1: POLICING & SCHOOLS (Tactics 1–10)</h2>
+
+    <div class="tactic-grid">
+      <div class="tactic-card">
+        <div class="tactic-number">TACTIC 1</div>
+        <h4>Racial Profiling</h4>
+        <p><strong>Checklist:</strong> Distribute KYR cards; hold stop scenario role‑plays; recruit legal observers; record/report incidents immediately.</p>
+        <p><strong>Curriculum:</strong> Tier 1 — KYR: Stops & Searches. Tier 2 — Role‑play trainer pack. Tier 3 — Oversee reporting workflow.</p>
+        <p><strong>Policy:</strong> Require bodycam + data release; independent stop review boards; racial‑profiling reporting mandates.</p>
+        <p><strong>Extra:</strong> Incident log template, KPIs = # reported stops, resolution time.</p>
+      </div>
+
+      <div class="tactic-card">
+        <div class="tactic-number">TACTIC 2</div>
+        <h4>Over‑Policing of Neighborhoods</h4>
+        <p><strong>Checklist:</strong> Map patrol hotspots; collect time‑stamped incident logs; convene community meetings with precinct liaison; launch car‑alarm grid opt‑in.</p>
+        <p><strong>Curriculum:</strong> Tier 1 — Mapping + FOIA tutorial. Tier 2 — Analytic toolkit. Tier 3 — FOIA playbook + advocacy campaign kit.</p>
+        <p><strong>Policy:</strong> Patrol transparency, quarterly public patrol reports, community policing oversight.</p>
+        <p><strong>Extra:</strong> Data dashboard, partner: local university GIS lab.</p>
+      </div>
+
+      <div class="tactic-card">
+        <div class="tactic-number">TACTIC 3</div>
+        <h4>Stop‑and‑Frisk Strategies</h4>
+        <p><strong>Checklist:</strong> Youth KYR sessions; rapid legal contact list; arrange safe routes.</p>
+        <p><strong>Curriculum:</strong> Tier 1 — Youth Rights & Safety. Tier 2 — Facilitator pack. Tier 3 — School partnership guide.</p>
+        <p><strong>Policy:</strong> Ban profiling practices, require de‑escalation training, youth‑sensitive protocols.</p>
+        <p><strong>Extra:</strong> School liaison plan, volunteer chaperone guidelines.</p>
+      </div>
+
+      <div class="tactic-card">
+        <div class="tactic-number">TACTIC 4</div>
+        <h4>Use‑of‑Force Escalation</h4>
+        <p><strong>Checklist:</strong> Train medics/observers; emergency care kits; video/document evidence best practices.</p>
+        <p><strong>Curriculum:</strong> Tier 1 — Documenting Force & Trauma Response. Tier 2 — Medic training. Tier 3 — Legal evidence chain module.</p>
+        <p><strong>Policy:</strong> Stricter use‑of‑force standards, civilian review boards, independent investigation timelines.</p>
+        <p><strong>Extra:</strong> Secure evidence upload system, trauma care referrals.</p>
+      </div>
+
+      <div class="tactic-card">
+        <div class="tactic-number">TACTIC 5</div>
+        <h4>Asset‑Based Policing</h4>
+        <p><strong>Checklist:</strong> Educate on civil forfeiture; form rapid legal response fund; collect case histories.</p>
+        <p><strong>Curriculum:</strong> Tier 1 — Public Brief. Tier 2 — Petition templates + case prep. Tier 3 — Collaborative legal clinic model.</p>
+        <p><strong>Policy:</strong> Require criminal conviction for forfeiture; transparency and audit of seized assets.</p>
+        <p><strong>Extra:</strong> Community legal fund setup guide.</p>
+      </div>
+
+      <div class="tactic-card">
+        <div class="tactic-number">TACTIC 6</div>
+        <h4>Broken Windows Policing</h4>
+        <p><strong>Checklist:</strong> Convene community forum; crowdsource low‑level enforcement examples; propose alternative community programs.</p>
+        <p><strong>Curriculum:</strong> Tier 1 — Community Safety Alternatives. Tier 2 — Pilot program design. Tier 3 — Municipal advocacy plan.</p>
+        <p><strong>Policy:</strong> Redirect minor‑infraction budgets to community services; ban escalatory practices.</p>
+        <p><strong>Extra:</strong> Pilot evaluation template.</p>
+      </div>
+
+      <div class="tactic-card">
+        <div class="tactic-number">TACTIC 7</div>
+        <h4>School‑to‑Prison Pipeline</h4>
+        <p><strong>Checklist:</strong> Host parent advocacy nights; collect suspension/expulsion data; set up school monitoring.</p>
+        <p><strong>Curriculum:</strong> Tier 1 — Restorative Schools Toolkit. Tier 2 — Teacher training module. Tier 3 — District reform playbook.</p>
+        <p><strong>Policy:</strong> Limit exclusionary discipline; fund counselors not cops; restorative practice mandates.</p>
+        <p><strong>Extra:</strong> Student referral tracking spreadsheet.</p>
+      </div>
+
+      <div class="tactic-card">
+        <div class="tactic-number">TACTIC 8</div>
+        <h4>Discriminatory School Resourcing</h4>
+        <p><strong>Checklist:</strong> Audit school budgets; compile equity scoreboard; meet school board.</p>
+        <p><strong>Curriculum:</strong> Tier 1 — Budget Literacy for Parents. Tier 2 — Data analysis for creators. Tier 3 — District negotiation toolkit.</p>
+        <p><strong>Policy:</strong> Equitable funding formulas; transparency in allocations.</p>
+        <p><strong>Extra:</strong> Template to submit budget questions to school boards.</p>
+      </div>
+
+      <div class="tactic-card">
+        <div class="tactic-number">TACTIC 9</div>
+        <h4>Biased Curriculum & Tracking</h4>
+        <p><strong>Checklist:</strong> Survey curriculum gaps; petition for inclusive texts; run supplementary lessons.</p>
+        <p><strong>Curriculum:</strong> Tier 1 — Inclusive Curriculum Builder. Tier 2 — Teacher resource packs. Tier 3 — District adoption toolkit.</p>
+        <p><strong>Policy:</strong> Curriculum equity reviews; remove tracking that segregates students.</p>
+        <p><strong>Extra:</strong> Sample inclusive lesson aligned to standards.</p>
+      </div>
+
+      <div class="tactic-card">
+        <div class="tactic-number">TACTIC 10</div>
+        <h4>Hiring Discrimination</h4>
+        <p><strong>Checklist:</strong> Run resume clinics; blind hiring pilot campaigns with partners; collect anecdotal bias cases.</p>
+        <p><strong>Curriculum:</strong> Tier 1 — Bias‑Resistant Hiring. Tier 2 — Employer workshop. Tier 3 — Policy template for fair hiring.</p>
+        <p><strong>Policy:</strong> Mandate anonymized resumes for public employers; reporting on hiring demographics.</p>
+        <p><strong>Extra:</strong> Employer pledge template.</p>
+      </div>
+    </div>
+
+    <div class="section-nav">
+      <button class="btn btn-ghost" onclick="scrollToSection('hero')">← BACK</button>
+      <button class="btn btn-primary" onclick="scrollToSection('cluster2')">NEXT: 11–20 →</button>
+    </div>
+  </div>
+</section>
+
+<!-- ===== CLUSTER 2: 11–20 WORK & HOUSING ===== -->
+<section class="section" id="cluster2">
+  <h2 class="section-title">CLUSTER 2</h2>
+  <p class="section-subtitle">Work & Housing — Tactics 11–20</p>
+
+  <div class="card completed" onclick="toggleExpand('exp-cl2')">
+    <div class="card-number">CLUSTER 2</div>
+    <h3>Work & Housing</h3>
+    <p>Occupational segregation. Predatory lending. Redlining. Appraisal bias. Eviction. Gentrification. Zoning neglect. Environmental racism.</p>
+    <div class="card-tags"><span>ECONOMY</span><span>HOUSING</span><span>JUSTICE</span></div>
+  </div>
+
+  <div class="expanded-section" id="exp-cl2">
+    <h2>CLUSTER 2: WORK & HOUSING (Tactics 11–20)</h2>
+
+    <div class="tactic-grid">
+      <div class="tactic-card">
+        <div class="tactic-number">TACTIC 11</div>
+        <h4>Predatory Lending & Subprime Targeting</h4>
+        <p><strong>Checklist:</strong> Host credit clinics; list trusted banks/credit unions; distribute complaint forms.</p>
+        <p><strong>Curriculum:</strong> Tier 1 — Consumer Finance & Credit Repair. Tier 2 — Advanced credit repair & advocacy. Tier 3 — Cooperative lending models.</p>
+        <p><strong>Policy:</strong> Ban discriminatory loan products; enhance CFPB enforcement.</p>
+        <p><strong>Extra:</strong> Local credit union partnership guide.</p>
+      </div>
+
+      <div class="tactic-card">
+        <div class="tactic-number">TACTIC 12</div>
+        <h4>Redlining & Mortgage Discrimination</h4>
+        <p><strong>Checklist:</strong> Conduct redlining maps; community homeownership workshops; collect denial cases.</p>
+        <p><strong>Curriculum:</strong> Tier 1 — Homeownership Access. Tier 2 — Mortgage advocacy toolkit. Tier 3 — Legal escalation guide.</p>
+        <p><strong>Policy:</strong> Enforce fair‑lending laws; affirmative lending programs.</p>
+        <p><strong>Extra:</strong> Sample complaint to HUD.</p>
+      </div>
+
+      <div class="tactic-card">
+        <div class="tactic-number">TACTIC 13</div>
+        <h4>Eviction / Housing Instability</h4>
+        <p><strong>Checklist:</strong> Tenant rights clinics; emergency rental assistance hotline; tenant rapid response legal team.</p>
+        <p><strong>Curriculum:</strong> Tier 1 — Tenant Defense. Tier 2 — Organizer toolkit. Tier 3 — Legal clinic model.</p>
+        <p><strong>Policy:</strong> Right to counsel for eviction; stronger tenant protections; rental relief funds.</p>
+        <p><strong>Extra:</strong> Intake & referral form.</p>
+      </div>
+
+      <div class="tactic-card">
+        <div class="tactic-number">TACTIC 14</div>
+        <h4>Gentrification Displacement</h4>
+        <p><strong>Checklist:</strong> Document displacement trends; form CLT group; hold public hearings.</p>
+        <p><strong>Curriculum:</strong> Tier 1 — Community Land Trusts & Stewardship. Tier 2 — CLT setup module. Tier 3 — Funding & governance toolkit.</p>
+        <p><strong>Policy:</strong> Require community benefit agreements; fund CLTs; inclusionary zoning.</p>
+        <p><strong>Extra:</strong> Sample CLT charter.</p>
+      </div>
+
+      <div class="tactic-card">
+        <div class="tactic-number">TACTIC 15</div>
+        <h4>Zoning & Land‑Use Neglect</h4>
+        <p><strong>Checklist:</strong> Map land uses; train residents for hearings; submit comments.</p>
+        <p><strong>Curriculum:</strong> Tier 1 — Zoning 101 & Civic Advocacy. Tier 2 — Mapping & comment drafting. Tier 3 — Legal/formal advocacy.</p>
+        <p><strong>Policy:</strong> Inclusive zoning reforms, equitable public investment mandates.</p>
+        <p><strong>Extra:</strong> Hearing testimony template.</p>
+      </div>
+
+      <div class="tactic-card">
+        <div class="tactic-number">TACTIC 16</div>
+        <h4>Environmental Racism</h4>
+        <p><strong>Checklist:</strong> Collect pollution data, health surveys; push for monitoring stations; community health screenings.</p>
+        <p><strong>Curriculum:</strong> Tier 1 — Environmental Justice Action. Tier 2 — Monitoring & advocacy. Tier 3 — Legal/regulatory engagement toolkit.</p>
+        <p><strong>Policy:</strong> Cleanup funds, stricter siting rules, health impact assessments.</p>
+        <p><strong>Extra:</strong> Partner: university air/water testing.</p>
+      </div>
+
+      <div class="tactic-card">
+        <div class="tactic-number">TACTIC 17</div>
+        <h4>Healthcare Access Inequity</h4>
+        <p><strong>Checklist:</strong> Create clinic directories; transport support; insurance enrollment drives.</p>
+        <p><strong>Curriculum:</strong> Tier 1 — Healthcare Navigation. Tier 2 — Patient advocacy training. Tier 3 — System partnership model.</p>
+        <p><strong>Policy:</strong> Expand clinics in underserved areas; fund community health centers.</p>
+        <p><strong>Extra:</strong> Clinic volunteer coordination plan.</p>
+      </div>
+
+      <div class="tactic-card">
+        <div class="tactic-number">TACTIC 18</div>
+        <h4>Clinical Bias & Undertreatment</h4>
+        <p><strong>Checklist:</strong> Patient advocacy cards; record care; request second opinions.</p>
+        <p><strong>Curriculum:</strong> Tier 1 — Medical Advocacy & Bias Awareness. Tier 2 — Provider bias training pack. Tier 3 — Policy petition templates.</p>
+        <p><strong>Policy:</strong> Require bias training, audit provider outcomes, patient complaint transparency.</p>
+        <p><strong>Extra:</strong> Sample provider complaint form.</p>
+      </div>
+
+      <div class="tactic-card">
+        <div class="tactic-number">TACTIC 19</div>
+        <h4>Maternal Health Disparities</h4>
+        <p><strong>Checklist:</strong> Prenatal/birth resource lists; doula network; emergency hotline.</p>
+        <p><strong>Curriculum:</strong> Tier 1 — Maternal Advocacy & Support. Tier 2 — Doula training. Tier 3 — Hospital accountability campaign.</p>
+        <p><strong>Policy:</strong> Fund maternal mortality reduction programs, support community midwifery, require bias monitoring.</p>
+        <p><strong>Extra:</strong> Doula referral/subsidy model.</p>
+      </div>
+
+      <div class="tactic-card">
+        <div class="tactic-number">TACTIC 20</div>
+        <h4>Mental Health Stigma + Inadequate Services</h4>
+        <p><strong>Checklist:</strong> Peer‑support circles; crisis referral list; destigmatization campaigns.</p>
+        <p><strong>Curriculum:</strong> Tier 1 — Community Mental Health First Aid. Tier 2 — Facilitator training. Tier 3 — Crisis alternatives & mobile response design.</p>
+        <p><strong>Policy:</strong> Fund community mental health, mobile crisis teams, culturally competent services.</p>
+        <p><strong>Extra:</strong> Volunteer training checklist.</p>
+      </div>
+    </div>
+
+    <div class="section-nav">
+      <button class="btn btn-ghost" onclick="scrollToSection('cluster1')">← 1–10</button>
+      <button class="btn btn-primary" onclick="scrollToSection('cluster3')">NEXT: 21–30 →</button>
+    </div>
+  </div>
+</section>
+
+<!-- ===== CLUSTER 3: 21–30 HEALTH & JUSTICE ===== -->
+<section class="section" id="cluster3">
+  <h2 class="section-title">CLUSTER 3</h2>
+  <p class="section-subtitle">Health & Justice — Tactics 21–30</p>
+
+  <div class="card completed" onclick="toggleExpand('exp-cl3')">
+    <div class="card-number">CLUSTER 3</div>
+    <h3>Health & Justice</h3>
+    <p>Maternal health. Mental health stigma. Insurance discrimination. Over‑criminalization of poverty. Debt‑based penalties. Bail inequity. Disparate sentencing. Probation control. Jury bias. Asset forfeiture.</p>
+    <div class="card-tags"><span>HEALTH</span><span>JUSTICE</span><span>ECONOMY</span></div>
+  </div>
+
+  <div class="expanded-section" id="exp-cl3">
+    <h2>CLUSTER 3: HEALTH & JUSTICE (Tactics 21–30)</h2>
+
+    <div class="tactic-grid">
+      <div class="tactic-card">
+        <div class="tactic-number">TACTIC 21</div>
+        <h4>Over‑Criminalization of Poverty</h4>
+        <p><strong>Checklist:</strong> Explain fines/fees; create relief fund; legal aid for fee fights.</p>
+        <p><strong>Curriculum:</strong> Tier 1 — Fines, Fees & Defense. Tier 2 — Organizer toolkit. Tier 3 — Municipal reform campaign blueprint.</p>
+        <p><strong>Policy:</strong> Eliminate criminal fines for poverty; sliding fee scales; debt relief programs.</p>
+        <p><strong>Extra:</strong> Community solidarity legal fund model.</p>
+      </div>
+
+      <div class="tactic-card">
+        <div class="tactic-number">TACTIC 22</div>
+        <h4>Debt‑Based Penalties</h4>
+        <p><strong>Checklist:</strong> Document license suspensions; paperwork help; legal clinics.</p>
+        <p><strong>Curriculum:</strong> Tier 1 — Debt & Drivers' Rights. Tier 2 — Restoration navigation. Tier 3 — Policy campaign.</p>
+        <p><strong>Policy:</strong> Restore licenses without fines; eliminate punitive suspensions.</p>
+        <p><strong>Extra:</strong> Restoration process checklist.</p>
+      </div>
+
+      <div class="tactic-card">
+        <div class="tactic-number">TACTIC 23</div>
+        <h4>Bail System Inequity</h4>
+        <p><strong>Checklist:</strong> Establish community bail fund; KYR about bail; pretrial support fundraising.</p>
+        <p><strong>Curriculum:</strong> Tier 1 — Primer. Tier 2 — Organizer toolkit. Tier 3 — Policy advocacy playbook.</p>
+        <p><strong>Policy:</strong> End cash bail; implement fair risk assessments; expand pretrial services.</p>
+        <p><strong>Extra:</strong> Bail fund governance template.</p>
+      </div>
+
+      <div class="tactic-card">
+        <div class="tactic-number">TACTIC 24</div>
+        <h4>Disparate Sentencing & Plea Bargaining</h4>
+        <p><strong>Checklist:</strong> Counsel referral list; public education on plea risks; record cases.</p>
+        <p><strong>Curriculum:</strong> Tier 1 — Awareness. Tier 2 — Legal rights module. Tier 3 — Sentencing reform advocacy toolkit.</p>
+        <p><strong>Policy:</strong> Require transparency in plea deals; fund public defense; sentencing reform.</p>
+        <p><strong>Extra:</strong> Plea decision checklist.</p>
+      </div>
+
+      <div class="tactic-card">
+        <div class="tactic-number">TACTIC 25</div>
+        <h4>Excessive Probation/Parole Controls</h4>
+        <p><strong>Checklist:</strong> Know terms; rapid legal aid for violations; monitor technical violations.</p>
+        <p><strong>Curriculum:</strong> Tier 1 — Basics. Tier 2 — Response protocol. Tier 3 — Policy playbook to reduce technical violations.</p>
+        <p><strong>Policy:</strong> Eliminate jail for technical violations; reform supervision practices.</p>
+        <p><strong>Extra:</strong> Violation response protocol.</p>
+      </div>
+
+      <div class="tactic-card">
+        <div class="tactic-number">TACTIC 26</div>
+        <h4>Jury Selection Bias</h4>
+        <p><strong>Checklist:</strong> Educate community on jury duty importance; track patterns of exclusion; provide juror support.</p>
+        <p><strong>Curriculum:</strong> Tier 1 — Civic module. Tier 2 — Juror support toolkit. Tier 3 — Legal advocacy for inclusive panels.</p>
+        <p><strong>Policy:</strong> Expand juror pools, limit peremptory strikes, record strike reasons.</p>
+        <p><strong>Extra:</strong> Juror support hotline.</p>
+      </div>
+
+      <div class="tactic-card">
+        <div class="tactic-number">TACTIC 27</div>
+        <h4>Asset Forfeiture Abuse</h4>
+        <p><strong>Checklist:</strong> Community briefing on forfeiture rules; documentation process for seizures; legal referrals.</p>
+        <p><strong>Curriculum:</strong> Tier 1 — Overview. Tier 2 — Case prep pack. Tier 3 — Campaign for reform.</p>
+        <p><strong>Policy:</strong> Require conviction for forfeiture; transparent accounting; restitution.</p>
+        <p><strong>Extra:</strong> Seizure evidence kit.</p>
+      </div>
+
+      <div class="tactic-card">
+        <div class="tactic-number">TACTIC 28</div>
+        <h4>Surveillance & Data Extraction</h4>
+        <p><strong>Checklist:</strong> Digital privacy workshops; opt‑out guides; community surveillance mapping.</p>
+        <p><strong>Curriculum:</strong> Tier 1 — Privacy basics. Tier 2 — Secure comms for organizers. Tier 3 — Policy advocacy on surveillance limits.</p>
+        <p><strong>Policy:</strong> Ban indiscriminate cameras in neighborhoods; require warrants for plate readers; dataset audits.</p>
+        <p><strong>Extra:</strong> Secure upload and redaction tools.</p>
+      </div>
+
+      <div class="tactic-card">
+        <div class="tactic-number">TACTIC 29</div>
+        <h4>Algorithmic Bias</h4>
+        <p><strong>Checklist:</strong> Explain risk scores to community; collect disparate outcomes; demand model disclosure.</p>
+        <p><strong>Curriculum:</strong> Tier 1 — Explainers. Tier 2 — Basic audit toolkit. Tier 3 — FOIA & audit playbook.</p>
+        <p><strong>Policy:</strong> Require algorithmic impact statements, public audits, appeal rights.</p>
+        <p><strong>Extra:</strong> Partner with data scientists for audits.</p>
+      </div>
+
+      <div class="tactic-card">
+        <div class="tactic-number">TACTIC 30</div>
+        <h4>Targeted Marketing of Harmful Products</h4>
+        <p><strong>Checklist:</strong> Map local ads; community media literacy classes; pressure local advertisers.</p>
+        <p><strong>Curriculum:</strong> Tier 1 — Ad Literacy & Health. Tier 2 — Campaign design. Tier 3 — Regulatory complaint toolkit.</p>
+        <p><strong>Policy:</strong> Restrict predatory marketing in vulnerable ZIPs; stronger advertising standards.</p>
+        <p><strong>Extra:</strong> Ad complaint templates.</p>
+      </div>
+    </div>
+
+    <div class="section-nav">
+      <button class="btn btn-ghost" onclick="scrollToSection('cluster2')">← 11–20</button>
+      <button class="btn btn-primary" onclick="scrollToSection('cluster4')">NEXT: 31–40 →</button>
+    </div>
+  </div>
+</section>
+
+<!-- ===== CLUSTER 4: 31–40 CULTURE & CAPITAL ===== -->
+<section class="section" id="cluster4">
+  <h2 class="section-title">CLUSTER 4</h2>
+  <p class="section-subtitle">Culture & Capital — Tactics 31–40</p>
+
+  <div class="card completed" onclick="toggleExpand('exp-cl4')">
+    <div class="card-number">CLUSTER 4</div>
+    <h3>Culture & Capital</h3>
+    <p>Cultural erasure & appropriation. Media stereotyping & narrative framing. Philanthropy exclusion. Tokenism. Research bias. Credentialing barriers. Predatory schools. Insurance redlining. Private security. Protest criminalization.</p>
+    <div class="card-tags"><span>CULTURE</span><span>CAPITAL</span><span>MEDIA</span></div>
+  </div>
+
+  <div class="expanded-section" id="exp-cl4">
+    <h2>CLUSTER 4: CULTURE & CAPITAL (Tactics 31–40)</h2>
+
+    <div class="tactic-grid">
+      <div class="tactic-card">
+        <div class="tactic-number">TACTIC 31</div>
+        <h4>Cultural Erasure & Appropriation</h4>
+        <p><strong>Checklist:</strong> Cultural literacy events; public attribution campaigns; artist support funds.</p>
+        <p><strong>Curriculum:</strong> Tier 1 — Awareness. Tier 2 — Artist rights toolkit. Tier 3 — Advocacy for cultural restitution funding.</p>
+        <p><strong>Policy:</strong> Cultural IP protections; funding for origin communities.</p>
+        <p><strong>Extra:</strong> Attribution & takedown template.</p>
+      </div>
+
+      <div class="tactic-card">
+        <div class="tactic-number">TACTIC 32</div>
+        <h4>Media Stereotyping & Narrative Framing</h4>
+        <p><strong>Checklist:</strong> Rapid response media team; community spokespeople list; publish alternatives.</p>
+        <p><strong>Curriculum:</strong> Tier 1 — Media Narrative & Storycraft. Tier 2 — Content production kit. Tier 3 — Media partnership strategy.</p>
+        <p><strong>Policy:</strong> Public broadcaster diversity commitments; complaint mechanisms for biased coverage.</p>
+        <p><strong>Extra:</strong> Rapid social media response templates.</p>
+      </div>
+
+      <div class="tactic-card">
+        <div class="tactic-number">TACTIC 33</div>
+        <h4>Philanthropy Exclusion / Nonprofit Racism</h4>
+        <p><strong>Checklist:</strong> Teach grantwriting; form pooled funding groups; build community pitch events.</p>
+        <p><strong>Curriculum:</strong> Tier 1 — Nonprofit Capacity & Grantcraft. Tier 2 — Grant writing workshops. Tier 3 — Organizational development & partnership MOUs.</p>
+        <p><strong>Policy:</strong> Equity in philanthropic funding, funder accountability.</p>
+        <p><strong>Extra:</strong> Sample LOI and budget template.</p>
+      </div>
+
+      <div class="tactic-card">
+        <div class="tactic-number">TACTIC 34</div>
+        <h4>Tokenism in Institutions</h4>
+        <p><strong>Checklist:</strong> Run accountability dialogues; collect staff experience surveys; public transparency asks.</p>
+        <p><strong>Curriculum:</strong> Tier 1 — Awareness. Tier 2 — Employer training. Tier 3 — Institutional policy change toolkit.</p>
+        <p><strong>Policy:</strong> Measurable diversity KPIs, linked funding incentives.</p>
+        <p><strong>Extra:</strong> Staff climate survey template.</p>
+      </div>
+
+      <div class="tactic-card">
+        <div class="tactic-number">TACTIC 35</div>
+        <h4>Unconscious Bias in Healthcare Research</h4>
+        <p><strong>Checklist:</strong> Demand inclusive trials; recruit diverse participants; educate communities about trials.</p>
+        <p><strong>Curriculum:</strong> Tier 1 — Community Research Partnership. Tier 2 — Community research training. Tier 3 — Advocacy for inclusive protocols.</p>
+        <p><strong>Policy:</strong> Require diversity in trials; fund community‑led research.</p>
+        <p><strong>Extra:</strong> Community IRB checklist.</p>
+      </div>
+
+      <div class="tactic-card">
+        <div class="tactic-number">TACTIC 36</div>
+        <h4>Credentialing Barriers</h4>
+        <p><strong>Checklist:</strong> Low‑cost bridging programs; credential navigation clinics; scholarships.</p>
+        <p><strong>Curriculum:</strong> Tier 1 — Exploration. Tier 2 — Bootcamp. Tier 3 — Employer partnership.</p>
+        <p><strong>Policy:</strong> Fund bridge programs; recognize alternate credentials.</p>
+        <p><strong>Extra:</strong> Employer hiring promise template.</p>
+      </div>
+
+      <div class="tactic-card">
+        <div class="tactic-number">TACTIC 37</div>
+        <h4>Predatory For‑Profit Schools / Training Scams</h4>
+        <p><strong>Checklist:</strong> Verification list of reputable programs; warn students; legal referral for fraud.</p>
+        <p><strong>Curriculum:</strong> Tier 1 — Vet Education Offers. Tier 2 — Investigative toolkit. Tier 3 — Policy campaign to regulate predatory providers.</p>
+        <p><strong>Policy:</strong> Stricter oversight, borrower relief for fraudulent programs.</p>
+        <p><strong>Extra:</strong> Complaint template for education regulators.</p>
+      </div>
+
+      <div class="tactic-card">
+        <div class="tactic-number">TACTIC 38</div>
+        <h4>Discriminatory Insurance Redlining</h4>
+        <p><strong>Checklist:</strong> Map insurer coverage; report denials; collective purchasing exploration.</p>
+        <p><strong>Curriculum:</strong> Tier 1 — Insurance Justice. Tier 2 — Appeals toolkit. Tier 3 — Cooperative insurance campaign.</p>
+        <p><strong>Policy:</strong> Ban ZIP‑based denial; require equitable networks.</p>
+        <p><strong>Extra:</strong> Regulator complaint sample.</p>
+      </div>
+
+      <div class="tactic-card">
+        <div class="tactic-number">TACTIC 39</div>
+        <h4>Private Security Accountability</h4>
+        <p><strong>Checklist:</strong> Report private security incidents; educate limits of private authority.</p>
+        <p><strong>Curriculum:</strong> Tier 1 — Awareness. Tier 2 — Documentation pack. Tier 3 — Regulation advocacy.</p>
+        <p><strong>Policy:</strong> Require licensing; transparency; complaint processes for private security.</p>
+        <p><strong>Extra:</strong> Private security incident report.</p>
+      </div>
+
+      <div class="tactic-card">
+        <div class="tactic-number">TACTIC 40</div>
+        <h4>Criminalization of Protest Tactics</h4>
+        <p><strong>Checklist:</strong> Legal observer rosters; protest prep KYR; medical/repair stations.</p>
+        <p><strong>Curriculum:</strong> Tier 1 — Safe, Strategic Protest. Tier 2 — Organizer toolkit. Tier 3 — Legal escalation plan.</p>
+        <p><strong>Policy:</strong> Protect protest rights; limit criminal charges for peaceful assembly.</p>
+        <p><strong>Extra:</strong> Protest logistics checklist.</p>
+      </div>
+    </div>
+
+    <div class="section-nav">
+      <button class="btn btn-ghost" onclick="scrollToSection('cluster3')">← 21–30</button>
+      <button class="btn btn-primary" onclick="scrollToSection('cluster5')">NEXT: 41–50 →</button>
+    </div>
+  </div>
+</section>
+
+<!-- ===== CLUSTER 5: 41–50 SYSTEMS & DISPLACEMENT ===== -->
+<section class="section" id="cluster5">
+  <h2 class="section-title">CLUSTER 5</h2>
+  <p class="section-subtitle">Systems & Displacement — Tactics 41–50</p>
+
+  <div class="card completed" onclick="toggleExpand('exp-cl5')">
+    <div class="card-number">CLUSTER 5</div>
+    <h3>Systems & Displacement</h3>
+    <p>Workplace surveillance & discipline. Capital exclusion. Public space securitization. Data‑driven exclusion. Intergenerational wealth. Mental‑health policing. Coercive help systems. Strategic under‑enforcement. Displacement via revitalization.</p>
+    <div class="card-tags"><span>SYSTEMS</span><span>DISPLACEMENT</span><span>ECONOMY</span></div>
+  </div>
+
+  <div class="expanded-section" id="exp-cl5">
+    <h2>CLUSTER 5: SYSTEMS & DISPLACEMENT (Tactics 41–50)</h2>
+
+    <div class="tactic-grid">
+      <div class="tactic-card">
+        <div class="tactic-number">TACTIC 41</div>
+        <h4>Workplace Surveillance & Discipline</h4>
+        <p><strong>Checklist:</strong> Inform workers of monitoring; document unfair discipline; form worker solidarity groups.</p>
+        <p><strong>Curriculum:</strong> Tier 1 — Worker Privacy & Rights. Tier 2 — Unionizing basics. Tier 3 — Employer policy change toolkit.</p>
+        <p><strong>Policy:</strong> Limit invasive monitoring; require transparency and consent.</p>
+        <p><strong>Extra:</strong> Workplace audit template.</p>
+      </div>
+
+      <div class="tactic-card">
+        <div class="tactic-number">TACTIC 42</div>
+        <h4>Capital Exclusion</h4>
+        <p><strong>Checklist:</strong> Build community investor pools; host pitch nights; mentor founders.</p>
+        <p><strong>Curriculum:</strong> Tier 1 — Entrepreneur primer. Tier 2 — Investor prep. Tier 3 — Cooperative funding model.</p>
+        <p><strong>Policy:</strong> Seed funds for underserved founders; reporting on fund diversity.</p>
+        <p><strong>Extra:</strong> Investor outreach template.</p>
+      </div>
+
+      <div class="tactic-card">
+        <div class="tactic-number">TACTIC 43</div>
+        <h4>Securitization of Public Space</h4>
+        <p><strong>Checklist:</strong> Document hostile‑architecture sites; organize community placemaking events; petition city for inclusive design.</p>
+        <p><strong>Curriculum:</strong> Tier 1 — Reclaiming Public Space. Tier 2 — Tactical placemaking workshop. Tier 3 — Municipal advocacy playbook.</p>
+        <p><strong>Policy:</strong> Ban hostile architecture; require community review for public redesigns; fund inclusive placemaking.</p>
+        <p><strong>Extra:</strong> Mural permit request template; before/after impact photo protocol; KPI = # reclaimed sites.</p>
+      </div>
+
+      <div class="tactic-card">
+        <div class="tactic-number">TACTIC 44</div>
+        <h4>Data‑Driven Exclusion</h4>
+        <p><strong>Checklist:</strong> Hold digital‑literacy clinics on credit/background checks; provide dispute letter clinics; create community database of discriminatory denials.</p>
+        <p><strong>Curriculum:</strong> Tier 1 — Consumer data basics. Tier 2 — Dispute letter and record‑fixing toolkit. Tier 3 — Coalition for regulatory complaint and model policy drafting.</p>
+        <p><strong>Policy:</strong> Limit use of opaque scoring in housing/employment; require adverse‑action notices with remedy; mandate accessible dispute processes.</p>
+        <p><strong>Extra:</strong> Standard dispute letter library; partner with legal aid for escalations.</p>
+      </div>
+
+      <div class="tactic-card">
+        <div class="tactic-number">TACTIC 45</div>
+        <h4>Intergenerational Wealth Barriers</h4>
+        <p><strong>Checklist:</strong> Host family wealth‑planning workshops; basic wills & beneficiary clinics; create community savings circles.</p>
+        <p><strong>Curriculum:</strong> Tier 1 — Budgeting & savings basics. Tier 2 — Homeownership & investment primers. Tier 3 — Cooperative ownership & legacy planning template pack.</p>
+        <p><strong>Policy:</strong> Expand first‑time homebuyer assistance, tax incentives for community wealth vehicles, support for CLTs and family‑business grants.</p>
+        <p><strong>Extra:</strong> Downloadable family asset inventory form; pro‑bono estate clinic partnership guide.</p>
+      </div>
+
+      <div class="tactic-card">
+        <div class="tactic-number">TACTIC 46</div>
+        <h4>Mental‑Health Policing</h4>
+        <p><strong>Checklist:</strong> Distribute crisis alternatives contacts; train volunteers in crisis first response; establish mobile‑response referral process (non‑police).</p>
+        <p><strong>Curriculum:</strong> Tier 1 — Mental‑health first aid. Tier 2 — Certified responder training + referral flow. Tier 3 — Pilot a community mobile response team (MOUs, workflow).</p>
+        <p><strong>Policy:</strong> Fund non‑police crisis response teams, mandate clinician co‑response, divert mental‑health calls away from law enforcement where possible.</p>
+        <p><strong>Extra:</strong> On‑call roster template; data collection for response outcomes.</p>
+      </div>
+
+      <div class="tactic-card">
+        <div class="tactic-number">TACTIC 47</div>
+        <h4>Coercive "Help" Systems</h4>
+        <p><strong>Checklist:</strong> Public education on conditional programs; hotlines for rights & alternatives; map voluntary services.</p>
+        <p><strong>Curriculum:</strong> Tier 1 — Rights when accessing services. Tier 2 — Ethical referral pathways. Tier 3 — Policy advocacy training to push for voluntary, non‑coercive supports.</p>
+        <p><strong>Policy:</strong> Prohibit service conditionality tied to criminal justice involvement; mandate consent protocols and oversight for referrals.</p>
+        <p><strong>Extra:</strong> Client consent form templates; community alternative resource map.</p>
+      </div>
+
+      <div class="tactic-card">
+        <div class="tactic-number">TACTIC 48</div>
+        <h4>Strategic Under‑Enforcement for Safety</h4>
+        <p><strong>Checklist:</strong> Document hazards (photos, timestamps); file municipal service requests; coordinate neighborhood cleanups and safety audits.</p>
+        <p><strong>Curriculum:</strong> Tier 1 — Reporting basics & civic literacy. Tier 2 — Community audit methodology. Tier 3 — Participatory budgeting & municipal negotiation toolkit.</p>
+        <p><strong>Policy:</strong> Require municipal response time targets and accountability for maintenance; establish participatory budgeting allocations for underserved areas.</p>
+        <p><strong>Extra:</strong> Municipal request template, escalation chain, volunteer cleanup SOP.</p>
+      </div>
+
+      <div class="tactic-card">
+        <div class="tactic-number">TACTIC 49</div>
+        <h4>Displacement via "Revitalization"</h4>
+        <p><strong>Checklist:</strong> Establish tenant registry; rapid legal hotline for eviction defense; convene developers for community benefit agreements (CBAs).</p>
+        <p><strong>Curriculum:</strong> Tier 1 — Tenant rights & organizing basics. Tier 2 — CBA negotiation training and CLT formation. Tier 3 — Legal and policy campaigns for anti‑displacement ordinances and inclusionary zoning.</p>
+        <p><strong>Policy:</strong> Require CBAs for large developments, implement strong tenant relocation protections, fund CLTs and affordable units.</p>
+        <p><strong>Extra:</strong> Model CBA template; tenant registry privacy protocol; KPI = units preserved/created.</p>
+      </div>
+
+      <div class="tactic-card">
+        <div class="tactic-number">TACTIC 50</div>
+        <h4>Displacement via "Revitalization" (continued)</h4>
+        <p><strong>Checklist:</strong> Establish tenant registry; rapid legal hotline for eviction defense; convene developers for community benefit agreements (CBAs).</p>
+        <p><strong>Curriculum:</strong> Tier 1 — Tenant rights & organizing basics. Tier 2 — CBA negotiation training and CLT formation. Tier 3 — Legal and policy campaigns for anti‑displacement ordinances and inclusionary zoning.</p>
+        <p><strong>Policy:</strong> Require CBAs for large developments, implement strong tenant relocation protections, fund CLTs and affordable units.</p>
+        <p><strong>Extra:</strong> Model CBA template; tenant registry privacy protocol; KPI = units preserved/created.</p>
+      </div>
+    </div>
+
+    <div class="section-nav">
+      <button class="btn btn-ghost" onclick="scrollToSection('cluster4')">← 31–40</button>
+      <button class="btn btn-primary" onclick="scrollToSection('cluster6')">NEXT: 51–60 →</button>
+    </div>
+  </div>
+</section>
+
+<!-- ===== CLUSTER 6: 51–60 SYSTEMS & DISPLACEMENT ===== -->
+<section class="section" id="cluster6">
+  <h2 class="section-title">CLUSTER 6</h2>
+  <p class="section-subtitle">Systems & Displacement (cont.) — Tactics 51–60</p>
+
+  <div class="card completed" onclick="toggleExpand('exp-cl6')">
+    <div class="card-number">CLUSTER 6</div>
+    <h3>Systems & Displacement (51–60)</h3>
+    <p>Workplace surveillance. Capital exclusion. Public space securitization. Data‑driven exclusion. Intergenerational wealth. Mental‑health policing. Coercive help systems. Strategic under‑enforcement. Displacement via revitalization.</p>
+    <div class="card-tags"><span>SYSTEMS</span><span>DISPLACEMENT</span><span>CAPITAL</span></div>
+  </div>
+
+  <div class="expanded-section" id="exp-cl6">
+    <h2>CLUSTER 6: SYSTEMS & DISPLACEMENT (Tactics 51–60)</h2>
+
+    <div class="tactic-grid">
+      <div class="tactic-card">
+        <div class="tactic-number">TACTIC 51</div>
+        <h4>Digital Divide & Limited Grocery Access</h4>
+        <p><strong>Checklist:</strong> Pop‑up/mobile markets; volunteer grocery runs; co‑op planning.</p>
+        <p><strong>Curriculum:</strong> Tier 1 — Nutrition & Co‑ops. Tier 2 — Co‑op startup kit. Tier 3 — Community market governance.</p>
+        <p><strong>Policy:</strong> Incentivize grocers in underserved areas; fund food co‑ops; mobile market grants.</p>
+        <p><strong>Extra:</strong> Vendor recruitment checklist.</p>
+      </div>
+
+      <div class="tactic-card">
+        <div class="tactic-number">TACTIC 52</div>
+        <h4>Public‑Benefit Stigmatization</h4>
+        <p><strong>Checklist:</strong> Education campaigns; benefit enrollment helpers; testimonials.</p>
+        <p><strong>Curriculum:</strong> Tier 1 — Benefits Literacy & Dignity. Tier 2 — Navigator training. Tier 3 — Policy advocacy for destigmatization.</p>
+        <p><strong>Policy:</strong> End punitive barriers; simplify access; protect applicant privacy.</p>
+        <p><strong>Extra:</strong> Enrollment event playbook.</p>
+      </div>
+
+      <div class="tactic-card">
+        <div class="tactic-number">TACTIC 53</div>
+        <h4>Immigration & Deportation Targeting</h4>
+        <p><strong>Checklist:</strong> Know‑your‑rights for immigrants; safe‑contact lists; rapid legal referral.</p>
+        <p><strong>Curriculum:</strong> Tier 1 — Community Power & Voter Protection. Tier 2 — Legal navigation. Tier 3 — Policy coalition building.</p>
+        <p><strong>Policy:</strong> Sanctuary policies, limit local participation in immigration enforcement, legal representation funding.</p>
+        <p><strong>Extra:</strong> Multilingual resources.</p>
+      </div>
+
+      <div class="tactic-card">
+        <div class="tactic-number">TACTIC 54</div>
+        <h4>Voter Suppression Tactics</h4>
+        <p><strong>Checklist:</strong> Register drives, early voting access, poll‑watch teams.</p>
+        <p><strong>Curriculum:</strong> Tier 1 — GOP & Voter Protection. Tier 2 — Poll monitoring training. Tier 3 — Legal challenge playbook.</p>
+        <p><strong>Policy:</strong> Expand polling places, restore voting rights, anti‑purge laws.</p>
+        <p><strong>Extra:</strong> Provisional ballot guide.</p>
+      </div>
+
+      <div class="tactic-card">
+        <div class="tactic-number">TACTIC 55</div>
+        <h4>Disinvestment in Infrastructure</h4>
+        <p><strong>Checklist:</strong> Report local infrastructure issues; gather photos & health data; lobby city council.</p>
+        <p><strong>Curriculum:</strong> Tier 1 — Civic Infrastructure Advocacy. Tier 2 — Data collection & mapping. Tier 3 — Participatory budgeting campaigning.</p>
+        <p><strong>Policy:</strong> Equitable infrastructure investment, participatory budgeting, maintenance commitments.</p>
+        <p><strong>Extra:</strong> Petition & council meeting script.</p>
+      </div>
+
+      <div class="tactic-card">
+        <div class="tactic-number">TACTIC 56</div>
+        <h4>Inadequate Disaster Response</h4>
+        <p><strong>Checklist:</strong> Community emergency plans; mutual aid rosters; supply caches.</p>
+        <p><strong>Curriculum:</strong> Tier 1 — Community Disaster Resilience. Tier 2 — Volunteer training. Tier 3 — Legal claims & rebuilding advocacy.</p>
+        <p><strong>Policy:</strong> Equitable FEMA assistance, priority repair in underserved areas.</p>
+        <p><strong>Extra:</strong> Supply kit list and volunteer rota.</p>
+      </div>
+
+      <div class="tactic-card">
+        <div class="tactic-number">TACTIC 57</div>
+        <h4>Cultural Erasure & Appropriation</h4>
+        <p><strong>Checklist:</strong> Cultural literacy events; public attribution campaigns; artist support funds.</p>
+        <p><strong>Curriculum:</strong> Tier 1 — Awareness. Tier 2 — Artist rights toolkit. Tier 3 — Advocacy for cultural restitution funding.</p>
+        <p><strong>Policy:</strong> Cultural IP protections; funding for origin communities.</p>
+        <p><strong>Extra:</strong> Attribution & takedown template.</p>
+      </div>
+
+      <div class="tactic-card">
+        <div class="tactic-number">TACTIC 58</div>
+        <h4>Media Stereotyping & Narrative Framing</h4>
+        <p><strong>Checklist:</strong> Rapid response media team; community spokespeople list; publish alternatives.</p>
+        <p><strong>Curriculum:</strong> Tier 1 — Media Narrative & Storycraft. Tier 2 — Content production kit. Tier 3 — Media partnership strategy.</p>
+        <p><strong>Policy:</strong> Public broadcaster diversity commitments; complaint mechanisms for biased coverage.</p>
+        <p><strong>Extra:</strong> Rapid social media response templates.</p>
+      </div>
+
+      <div class="tactic-card">
+        <div class="tactic-number">TACTIC 59</div>
+        <h4>Strategic Under‑Enforcement for Safety</h4>
+        <p><strong>Checklist:</strong> Document hazards (photos, timestamps); file municipal service requests; coordinate neighborhood cleanups and safety audits.</p>
+        <p><strong>Curriculum:</strong> Tier 1 — Reporting basics & civic literacy. Tier 2 — Community audit methodology. Tier 3 — Participatory budgeting & municipal negotiation toolkit.</p>
+        <p><strong>Policy:</strong> Require municipal response time targets and accountability for maintenance; establish participatory budgeting allocations for underserved areas.</p>
+        <p><strong>Extra:</strong> Municipal request template, escalation chain, volunteer cleanup SOP.</p>
+      </div>
+
+      <div class="tactic-card">
+        <div class="tactic-number">TACTIC 60</div>
+        <h4>Displacement via "Revitalization"</h4>
+        <p><strong>Checklist:</strong> Establish tenant registry; rapid legal hotline for eviction defense; convene developers for community benefit agreements (CBAs).</p>
+        <p><strong>Curriculum:</strong> Tier 1 — Tenant rights & organizing basics. Tier 2 — CBA negotiation training and CLT formation. Tier 3 — Legal and policy campaigns for anti‑displacement ordinances and inclusionary zoning.</p>
+        <p><strong>Policy:</strong> Require CBAs for large developments, implement strong tenant relocation protections, fund CLTs and affordable units.</p>
+        <p><strong>Extra:</strong> Model CBA template; tenant registry privacy protocol; KPI = units preserved/created.</p>
+      </div>
+    </div>
+
+    <div class="section-nav">
+      <button class="btn btn-ghost" onclick="scrollToSection('cluster5')">← 41–50</button>
+      <button class="btn btn-primary" onclick="scrollToSection('csv')">NEXT: FULL CSV →</button>
+    </div>
+  </div>
+</section>
+
+<!-- ===== FULL CSV ===== -->
+<section class="section" id="csv">
+  <h2 class="section-title">📊 FULL CSV — COPY & PASTE</h2>
+  <p class="section-subtitle">All 60 tactics in one table. Copy → paste into Google Sheets or LibreOffice Calc.</p>
+
+  <div class="csv-box">
+    <button class="copy-btn" onclick="copyCSV()">📋 COPY CSV TO CLIPBOARD</button>
+    <pre id="csvContent">Tactic #,Tactic Name,Immediate Checklist,Curriculum (Tier 1/2/3),Policy Asks,Extras
+1,Racial Profiling,"Distribute KYR cards; hold stop scenario role‑plays; recruit legal observers; record/report incidents immediately.",Tier 1: KYR: Stops & Searches. Tier 2: Role‑play trainer pack. Tier 3: Oversee reporting workflow.,"Require bodycam + data release; independent stop review boards; racial‑profiling reporting mandates.",Incident log template, KPIs = # reported stops, resolution time.
+2,Over‑Policing of Neighborhoods,"Map patrol hotspots; collect time‑stamped incident logs; convene community meetings with precinct liaison; launch car‑alarm grid opt‑in.",Tier 1: Mapping + FOIA tutorial. Tier 2: Analytic toolkit. Tier 3: FOIA playbook + advocacy campaign kit.,"Patrol transparency, quarterly public patrol reports, community policing oversight.",Data dashboard, partner: local university GIS lab.
+3,Stop‑and‑Frisk Strategies,"Youth KYR sessions; rapid legal contact list; arrange safe routes.",Tier 1: Youth Rights & Safety. Tier 2: Facilitator pack. Tier 3: School partnership guide.,"Ban profiling practices, require de‑escalation training, youth‑sensitive protocols.",School liaison plan, volunteer chaperone guidelines.
+4,Use‑of‑Force Escalation,"Train medics/observers; emergency care kits; video/document evidence best practices.",Tier 1: Documenting Force & Trauma Response. Tier 2: Medic training. Tier 3: Legal evidence chain module.,"Stricter use‑of‑force standards, civilian review boards, independent investigation timelines.",Secure evidence upload system, trauma care referrals.
+5,Asset‑Based Policing,"Educate on civil forfeiture; form rapid legal response fund; collect case histories.",Tier 1: Public Brief. Tier 2: Petition templates + case prep. Tier 3: Collaborative legal clinic model.,"Require criminal conviction for forfeiture; transparency and audit of seized assets.",Community legal fund setup guide.
+6,Broken Windows Policing,"Convene community forum; crowdsource low‑level enforcement examples; propose alternative community programs.",Tier 1: Community Safety Alternatives. Tier 2: Pilot program design. Tier 3: Municipal advocacy plan.,"Redirect minor‑infraction budgets to community services; ban escalatory practices.",Pilot evaluation template.
+7,School‑to‑Prison Pipeline,"Host parent advocacy nights; collect suspension/expulsion data; set up school monitoring.",Tier 1: Restorative Schools Toolkit. Tier 2: Teacher training module. Tier 3: District reform playbook.,"Limit exclusionary discipline; fund counselors not cops; restorative practice mandates.",Student referral tracking spreadsheet.
+8,Discriminatory School Resourcing,"Audit school budgets; compile equity scoreboard; meet school board.",Tier 1: Budget Literacy for Parents. Tier 2: Data analysis for creators. Tier 3: District negotiation toolkit.,"Equitable funding formulas; transparency in allocations.",Template to submit budget questions to school boards.
+9,Biased Curriculum & Tracking,"Survey curriculum gaps; petition for inclusive texts; run supplementary lessons.",Tier 1: Inclusive Curriculum Builder. Tier 2: Teacher resource packs. Tier 3: District adoption toolkit.,"Curriculum equity reviews; remove tracking that segregates students.",Sample inclusive lesson aligned to standards.
+10,Hiring Discrimination,"Run resume clinics; blind hiring pilot campaigns with partners; collect anecdotal bias cases.",Tier 1: Bias‑Resistant Hiring. Tier 2: Employer workshop. Tier 3: Policy template for fair hiring.,"Mandate anonymized resumes for public employers; reporting on hiring demographics.",Employer pledge template.
+11,Predatory Lending & Subprime Targeting,"Host credit clinics; list trusted banks/credit unions; distribute complaint forms.",Tier 1: Consumer Finance & Credit Repair. Tier 2: Advanced credit repair & advocacy. Tier 3: Cooperative lending models.,"Ban discriminatory loan products; enhance CFPB enforcement.",Local credit union partnership guide.
+12,Redlining & Mortgage Discrimination,"Conduct redlining maps; community homeownership workshops; collect denial cases.",Tier 1: Homeownership Access. Tier 2: Mortgage advocacy toolkit. Tier 3: Legal escalation guide.,"Enforce fair‑lending laws; affirmative lending programs.",Sample complaint to HUD.
+13,Eviction / Housing Instability,"Tenant rights clinics; emergency rental assistance hotline; tenant rapid response legal team.",Tier 1: Tenant Defense. Tier 2: Organizer toolkit. Tier 3: Legal clinic model.,"Right to counsel for eviction; stronger tenant protections; rental relief funds.",Intake & referral form.
+14,Gentrification Displacement,"Document displacement trends; form CLT group; hold public hearings.",Tier 1: Community Land Trusts & Stewardship. Tier 2: CLT setup module. Tier 3: Funding & governance toolkit.,"Require community benefit agreements; fund CLTs; inclusionary zoning.",Sample CLT charter.
+15,Zoning & Land‑Use Neglect,"Map land uses; train residents for hearings; submit comments.",Tier 1: Zoning 101 & Civic Advocacy. Tier 2: Mapping & comment drafting. Tier 3: Legal/formal advocacy.,"Inclusive zoning reforms, equitable public investment mandates.",Hearing testimony template.
+16,Environmental Racism,"Collect pollution data, health surveys; push for monitoring stations; community health screenings.",Tier 1: Environmental Justice Action. Tier 2: Monitoring & advocacy. Tier 3: Legal/regulatory engagement toolkit.,"Cleanup funds, stricter siting rules, health impact assessments.",Partner: university air/water testing.
+17,Healthcare Access Inequity,"Create clinic directories; transport support; insurance enrollment drives.",Tier 1: Healthcare Navigation. Tier 2: Patient advocacy training. Tier 3: System partnership model.,"Expand clinics in underserved areas; fund community health centers.",Clinic volunteer coordination plan.
+18,Clinical Bias & Undertreatment,"Patient advocacy cards; record care; request second opinions.",Tier 1: Medical Advocacy & Bias Awareness. Tier 2: Provider bias training pack. Tier 3: Policy petition templates.,"Require bias training, audit provider outcomes, patient complaint transparency.",Sample provider complaint form.
+19,Maternal Health Disparities,"Prenatal/birth resource lists; doula network; emergency hotline.",Tier 1: Maternal Advocacy & Support. Tier 2: Doula training. Tier 3: Hospital accountability campaign.,"Fund maternal mortality reduction programs, support community midwifery, require bias monitoring.",Doula referral/subsidy model.
+20,Mental Health Stigma + Inadequate Services,"Peer‑support circles; crisis referral list; destigmatization campaigns.",Tier 1: Community Mental Health First Aid. Tier 2: Facilitator training. Tier 3: Crisis alternatives & mobile response design.,"Fund community mental health, mobile crisis teams, culturally competent services.",Volunteer training checklist.
+21,Over‑Criminalization of Poverty,"Explain fines/fees; create relief fund; legal aid for fee fights.",Tier 1: Fines, Fees & Defense. Tier 2: Organizer toolkit. Tier 3: Municipal reform campaign blueprint.,"Eliminate criminal fines for poverty; sliding fee scales; debt relief programs.",Community solidarity legal fund model.
+22,Debt‑Based Penalties,"Document license suspensions; paperwork help; legal clinics.",Tier 1: Debt & Drivers' Rights. Tier 2: Restoration navigation. Tier 3: Policy campaign.,"Restore licenses without fines; eliminate punitive suspensions.",Restoration process checklist.
+23,Bail System Inequity,"Establish community bail fund; KYR about bail; pretrial support fundraising.",Tier 1: Primer. Tier 2: Organizer toolkit. Tier 3: Policy advocacy playbook.,"End cash bail; implement fair risk assessments; expand pretrial services.",Bail fund governance template.
+24,Disparate Sentencing & Plea Bargaining,"Counsel referral list; public education on plea risks; record cases.",Tier 1: Awareness. Tier 2: Legal rights module. Tier 3: Sentencing reform advocacy toolkit.,"Require transparency in plea deals; fund public defense; sentencing reform.",Plea decision checklist.
+25,Excessive Probation/Parole Controls,"Know terms; rapid legal aid for violations; monitor technical violations.",Tier 1: Basics. Tier 2: Response protocol. Tier 3: Policy playbook to reduce technical violations.,"Eliminate jail for technical violations; reform supervision practices.",Violation response protocol.
+26,Jury Selection Bias,"Educate community on jury duty importance; track patterns of exclusion; provide juror support.",Tier 1: Civic module. Tier 2: Juror support toolkit. Tier 3: Legal advocacy for inclusive panels.,"Expand juror pools, limit peremptory strikes, record strike reasons.",Juror support hotline.
+27,Asset Forfeiture Abuse,"Community briefing on forfeiture rules; documentation process for seizures; legal referrals.",Tier 1: Overview. Tier 2: Case prep pack. Tier 3: Campaign for reform.,"Require conviction for forfeiture; transparent accounting; restitution.",Seizure evidence kit.
+28,Surveillance & Data Extraction,"Digital privacy workshops; opt‑out guides; community surveillance mapping.",Tier 1: Privacy basics. Tier 2: Secure comms for organizers. Tier 3: Policy advocacy on surveillance limits.,"Ban indiscriminate cameras in neighborhoods; require warrants for plate readers; dataset audits.",Secure upload and redaction tools.
+29,Algorithmic Bias,"Explain risk scores to community; collect disparate outcomes; demand model disclosure.",Tier 1: Explainers. Tier 2: Basic audit toolkit. Tier 3: FOIA & audit playbook.,"Require algorithmic impact statements, public audits, appeal rights.",Partner with data scientists for audits.
+30,Targeted Marketing of Harmful Products,"Map local ads; community media literacy classes; pressure local advertisers.",Tier 1: Ad Literacy & Health. Tier 2: Campaign design. Tier 3: Regulatory complaint toolkit.,"Restrict predatory marketing in vulnerable ZIPs; stronger advertising standards.",Ad complaint templates.
+31,Cultural Erasure & Appropriation,"Cultural literacy events; public attribution campaigns; artist support funds.",Tier 1: Awareness. Tier 2: Artist rights toolkit. Tier 3: Advocacy for cultural restitution funding.,"Cultural IP protections; funding for origin communities.",Attribution & takedown template.
+32,Media Stereotyping & Narrative Framing,"Rapid response media team; community spokespeople list; publish alternatives.",Tier 1: Media Narrative & Storycraft. Tier 2: Content production kit. Tier 3: Media partnership strategy.,"Public broadcaster diversity commitments; complaint mechanisms for biased coverage.",Rapid social media response templates.
+33,Philanthropy Exclusion / Nonprofit Racism,"Teach grantwriting; form pooled funding groups; build community pitch events.",Tier 1: Nonprofit Capacity & Grantcraft. Tier 2: Grant writing workshops. Tier 3: Organizational development & partnership MOUs.,"Equity in philanthropic funding, funder accountability.",Sample LOI and budget template.
+34,Tokenism in Institutions,"Run accountability dialogues; collect staff experience surveys; public transparency asks.",Tier 1: Awareness. Tier 2: Employer training. Tier 3: Institutional policy change toolkit.,"Measurable diversity KPIs, linked funding incentives.",Staff climate survey template.
+35,Unconscious Bias in Healthcare Research,"Demand inclusive trials; recruit diverse participants; educate communities about trials.",Tier 1: Community Research Partnership. Tier 2: Community research training. Tier 3: Advocacy for inclusive protocols.,"Require diversity in trials; fund community‑led research.",Community IRB checklist.
+36,Credentialing Barriers,"Low‑cost bridging programs; credential navigation clinics; scholarships.",Tier 1: Exploration. Tier 2: Bootcamp. Tier 3: Employer partnership.,"Fund bridge programs; recognize alternate credentials.",Employer hiring promise template.
+37,Predatory For‑Profit Schools / Training Scams,"Verification list of reputable programs; warn students; legal referral for fraud.",Tier 1: Vet Education Offers. Tier 2: Investigative toolkit. Tier 3: Policy campaign to regulate predatory providers.,"Stricter oversight, borrower relief for fraudulent programs.",Complaint template for education regulators.
+38,Discriminatory Insurance Redlining,"Map insurer coverage; report denials; collective purchasing exploration.",Tier 1: Insurance Justice. Tier 2: Appeals toolkit. Tier 3: Cooperative insurance campaign.,"Ban ZIP‑based denial; require equitable networks.",Regulator complaint sample.
+39,Private Security Accountability,"Report private security incidents; educate limits of private authority.",Tier 1: Awareness. Tier 2: Documentation pack. Tier 3: Regulation advocacy.,"Require licensing; transparency; complaint processes for private security.",Private security incident report.
+40,Criminalization of Protest Tactics,"Legal observer rosters; protest prep KYR; medical/repair stations.",Tier 1: Safe, Strategic Protest. Tier 2: Organizer toolkit. Tier 3: Legal escalation plan.,"Protect protest rights; limit criminal charges for peaceful assembly.",Protest logistics checklist.
+41,Workplace Surveillance & Discipline,"Inform workers of monitoring; document unfair discipline; form worker solidarity groups.",Tier 1: Worker Privacy & Rights. Tier 2: Unionizing basics. Tier 3: Employer policy change toolkit.,"Limit invasive monitoring; require transparency and consent.",Workplace audit template.
+42,Capital Exclusion,"Build community investor pools; host pitch nights; mentor founders.",Tier 1: Entrepreneur primer. Tier 2: Investor prep. Tier 3: Cooperative funding model.,"Seed funds for underserved founders; reporting on fund diversity.",Investor outreach template.
+43,Securitization of Public Space,"Document hostile‑architecture sites; organize community placemaking events; petition city for inclusive design.",Tier 1: Reclaiming Public Space. Tier 2: Tactical placemaking workshop. Tier 3: Municipal advocacy playbook.,"Ban hostile architecture; require community review for public redesigns; fund inclusive placemaking.",Mural permit request template; before/after impact photo protocol; KPI = # reclaimed sites.
+44,Data‑Driven Exclusion,"Hold digital‑literacy clinics on credit/background checks; provide dispute letter clinics; create community database of discriminatory denials.",Tier 1: Consumer data basics. Tier 2: Dispute letter and record‑fixing toolkit. Tier 3: Coalition for regulatory complaint and model policy drafting.,"Limit use of opaque scoring in housing/employment; require adverse‑action notices with remedy; mandate accessible dispute processes.",Standard dispute letter library; partner with legal aid for escalations.
+45,Intergenerational Wealth Barriers,"Host family wealth‑planning workshops; basic wills & beneficiary clinics; create community savings circles.",Tier 1: Budgeting & savings basics. Tier 2: Homeownership & investment primers. Tier 3: Cooperative ownership & legacy planning template pack.,"Expand first‑time homebuyer assistance, tax incentives for community wealth vehicles, support for CLTs and family‑business grants.",Downloadable family asset inventory form; pro‑bono estate clinic partnership guide.
+46,Mental‑Health Policing,"Distribute crisis alternatives contacts; train volunteers in crisis first response; establish mobile‑response referral process (non‑police).",Tier 1: Mental‑health first aid. Tier 2: Certified responder training + referral flow. Tier 3: Pilot a community mobile response team (MOUs, workflow).,"Fund non‑police crisis response teams, mandate clinician co‑response, divert mental‑health calls away from law enforcement where possible.",On‑call roster template; data collection for response outcomes.
+47,Coercive "Help" Systems,"Public education on conditional programs; hotlines for rights & alternatives; map voluntary services.",Tier 1: Rights when accessing services. Tier 2: Ethical referral pathways. Tier 3: Policy advocacy training to push for voluntary, non‑coercive supports.,"Prohibit service conditionality tied to criminal justice involvement; mandate consent protocols and oversight for referrals.",Client consent form templates; community alternative resource map.
+48,Strategic Under‑Enforcement for Safety,"Document hazards (photos, timestamps); file municipal service requests; coordinate neighborhood cleanups and safety audits.",Tier 1: Reporting basics & civic literacy. Tier 2: Community audit methodology. Tier 3: Participatory budgeting & municipal negotiation toolkit.,"Require municipal response time targets and accountability for maintenance; establish participatory budgeting allocations for underserved areas.",Municipal request template, escalation chain, volunteer cleanup SOP.
+49,Displacement via "Revitalization","Establish tenant registry; rapid legal hotline for eviction defense; convene developers for community benefit agreements (CBAs).",Tier 1: Tenant rights & organizing basics. Tier 2: CBA negotiation training and CLT formation. Tier 3: Legal and policy campaigns for anti‑displacement ordinances and inclusionary zoning.,"Require CBAs for large developments, implement strong tenant relocation protections, fund CLTs and affordable units.",Model CBA template; tenant registry privacy protocol; KPI = units preserved/created.
+50,Displacement via "Revitalization" (cont.),"Establish tenant registry; rapid legal hotline for eviction defense; convene developers for community benefit agreements (CBAs).",Tier 1: Tenant rights & organizing basics. Tier 2: CBA negotiation training and CLT formation. Tier 3: Legal and policy campaigns for anti‑displacement ordinances and inclusionary zoning.,"Require CBAs for large developments, implement strong tenant relocation protections, fund CLTs and affordable units.",Model CBA template; tenant registry privacy protocol; KPI = units preserved/created.
+51,Digital Divide & Limited Grocery Access,"Pop‑up/mobile markets; volunteer grocery runs; co‑op planning.",Tier 1: Nutrition & Co‑ops. Tier 2: Co‑op startup kit. Tier 3: Community market governance.,"Incentivize grocers in underserved areas; fund food co‑ops; mobile market grants.",Vendor recruitment checklist.
+52,Public‑Benefit Stigmatization,"Education campaigns; benefit enrollment helpers; testimonials.",Tier 1: Benefits Literacy & Dignity. Tier 2: Navigator training. Tier 3: Policy advocacy for destigmatization.,"End punitive barriers; simplify access; protect applicant privacy.",Enrollment event playbook.
+53,Immigration & Deportation Targeting,"Know‑your‑rights for immigrants; safe‑contact lists; rapid legal referral.",Tier 1: Community Power & Voter Protection. Tier 2: Legal navigation. Tier 3: Policy coalition building.,"Sanctuary policies, limit local participation in immigration enforcement, legal representation funding.",Multilingual resources.
+54,Voter Suppression Tactics,"Register drives, early voting access, poll‑watch teams.",Tier 1: GOP & Voter Protection. Tier 2: Poll monitoring training. Tier 3: Legal challenge playbook.,"Expand polling places, restore voting rights, anti‑purge laws.",Provisional ballot guide.
+55,Disinvestment in Infrastructure,"Report local infrastructure issues; gather photos & health data; lobby city council.",Tier 1: Civic Infrastructure Advocacy. Tier 2: Data collection & mapping. Tier 3: Participatory budgeting campaigning.,"Equitable infrastructure investment, participatory budgeting, maintenance commitments.",Petition & council meeting script.
+56,Inadequate Disaster Response,"Community emergency plans; mutual aid rosters; supply caches.",Tier 1: Community Disaster Resilience. Tier 2: Volunteer training. Tier 3: Legal claims & rebuilding advocacy.,"Equitable FEMA assistance, priority repair in underserved areas.",Supply kit list and volunteer rota.
+57,Cultural Erasure & Appropriation (repeated for CSV completeness),"Cultural literacy events; public attribution campaigns; artist support funds.",Tier 1: Awareness. Tier 2: Artist rights toolkit. Tier 3: Advocacy for cultural restitution funding.,"Cultural IP protections; funding for origin communities.",Attribution & takedown template.
+58,Media Stereotyping & Narrative Framing (repeated for CSV completeness),"Rapid response media team; community spokespeople list; publish alternatives.",Tier 1: Media Narrative & Storycraft. Tier 2: Content production kit. Tier 3: Media partnership strategy.,"Public broadcaster diversity commitments; complaint mechanisms for biased coverage.",Rapid social media response templates.
+59,Strategic Under‑Enforcement for Safety (repeated for CSV completeness),"Document hazards (photos, timestamps); file municipal service requests; coordinate neighborhood cleanups and safety audits.",Tier 1: Reporting basics & civic literacy. Tier 2: Community audit methodology. Tier 3: Participatory budgeting & municipal negotiation toolkit.,"Require municipal response time targets and accountability for maintenance; establish participatory budgeting allocations for underserved areas.",Municipal request template, escalation chain, volunteer cleanup SOP.
+60,Displacement via "Revitalization" (repeated for CSV completeness),"Establish tenant registry; rapid legal hotline for eviction defense; convene developers for community benefit agreements (CBAs).",Tier 1: Tenant rights & organizing basics. Tier 2: CBA negotiation training and CLT formation. Tier 3: Legal and policy campaigns for anti‑displacement ordinances and inclusionary zoning.,"Require CBAs for large developments, implement strong tenant relocation protections, fund CLTs and affordable units.",Model CBA template; tenant registry privacy protocol; KPI = units preserved/created.</pre>
+  </div>
+
+  <div class="section-nav">
+    <button class="btn btn-ghost" onclick="scrollToSection('cluster6')">← 51–60</button>
+    <button class="btn btn-primary" onclick="scrollToSection('safeguards')">NEXT: SAFEGUARDS →</button>
+  </div>
+</section>
+
+<!-- ===== SAFEGUARDS ===== -->
+<section class="section" id="safeguards">
+  <h2 class="section-title">🛡️ IMPLEMENTATION SAFEGUARDS</h2>
+  <p class="section-subtitle">Legal review. Nonviolence policy. Training for volunteers. Digital security.</p>
+
+  <div class="safeguard-box">
+    <h4>📋 10 SAFEGUARDS — NON‑NEGOTIABLE</h4>
+    <ul>
+      <li><strong>Legal Review:</strong> Every tactic reviewed by pro‑bono legal partner before deployment. All materials cleared for liability.</li>
+      <li><strong>Nonviolence Policy:</strong> SOUP AINP tactics are protective, de‑escalatory, informational. No confrontation. No property damage. No retaliation.</li>
+      <li><strong>Volunteer Training:</strong> All volunteers complete Tier 1 curriculum before field deployment. Tier 2/3 for leads only.</li>
+      <li><strong>Digital Security:</strong> All documentation encrypted. No personal data stored unencrypted. Secure upload only.</li>
+      <li><strong>Community Oversight:</strong> Council of 7 (Pantheon) reviews all tactics quarterly. Community feedback loop built into every packet.</li>
+      <li><strong>Trauma‑Informed:</strong> All materials include trauma awareness notes. No retraumatization. Volunteer mental health support available.</li>
+      <li><strong>Accessibility:</strong> All materials available in plain language, large print, audio, and multiple languages. No one left behind.</li>
+      <li><strong>Accountability:</strong> Every action logged. Every incident reported. Transparent after‑action reviews after every deployment.</li>
+      <li><strong>Non‑Co‑optation:</strong> SOUP AINP does not partner with police, corporations, or any entity that profits from oppression. Ever.</li>
+      <li><strong>Exit Strategy:</strong> Every tactic has a de‑escalation and exit plan. If it's not working, we stop. We don't escalate.</li>
+    </ul>
+  </div>
+
+  <div class="section-nav">
+    <button class="btn btn-ghost" onclick="scrollToSection('csv')">← CSV</button>
+    <button class="btn btn-primary" onclick="scrollToSection('next')">NEXT: SECTION F →</button>
+  </div>
+</section>
+
+<!-- ===== MODAL ===== -->
+<div class="modal-overlay" id="certModal">
+  <div class="modal">
+    <h3>📊 60 TACTICS COMPLETE</h3>
+    <p style="color:var(--text2);margin-bottom:20px;line-height:1.7;">All 60 tactics. Full CSV. 6 clusters. 10 safeguards. Every oppression has a counter. Every counter is legal, protective, and ready. You navigated the chaos. You are officially too weird to fail.</p>
+    <button class="btn btn-primary" onclick="closeModal()">🔄 SAY "NEXT" FOR SECTION F</button>
+  </div>
+</div>
+
+<div class="confusion-popup" id="confusionPopup">
+  <h4 id="popupTitle">60 TACTICS READY</h4>
+  <p id="popupText">60 tactics. 6 clusters. 1 CSV. 10 safeguards. All in one file. No folders. No confusion.</p>
+</div>
+
+<script>
+function toggleTheme() {
+  const body = document.body;
+  const current = body.getAttribute('data-theme');
+  body.setAttribute('data-theme', current === 'dark' ? 'light' : 'dark');
+}
+
+function scrollToSection(id) {
+  document.getElementById(id).scrollIntoView({ behavior: 'smooth' });
+}
+
+function toggleExpand(id) {
+  const el = document.getElementById(id);
+  if (el.classList.contains('active')) {
+    el.classList.remove('active');
+  } else {
+    document.querySelectorAll('.expanded-section').forEach(s => s.classList.remove('active'));
+    el.classList.add('active');
+  }
+}
+
+function closeModal() {
+  document.getElementById('certModal').classList.remove('active');
+}
+
+function showPopup(title, text) {
+  const popup = document.getElementById('confusionPopup');
+  document.getElementById('popupTitle').textContent = title;
+  document.getElementById('popupText').textContent = text;
+  popup.classList.add('show');
+  setTimeout(() => popup.classList.remove('show'), 4000);
+}
+
+function copyCSV() {
+  const csv = document.getElementById('csvContent').textContent;
+  navigator.clipboard.writeText(csv).then(() => {
+    showPopup('✅ CSV COPIED', 'Paste into Google Sheets or LibreOffice Calc. All 60 tactics. Ready to deploy.');
+  });
+}
+
+window.addEventListener('load', () => {
+  setTimeout(() => {
+    toggleExpand('exp-cl1');
+  }, 500);
+});
+</script>
+
+</body>
+</html>

@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>WAI-Institute Sovereign Distribution Cockpit - Full Upgrade Edition</title>
+    <style>
+        :root {
+            --bg-core: #0c0a09;
+            --bg-panel: #1c1917;
+            --bg-input: #292524;
+            --border-color: #44403c;
+            --accent-amber: #f59e0b;
+            --accent-emerald: #059669;
+            --text-main: #f59e0b;
+            --text-muted: #a8a29e;
+        }
+        body {
+            background-color: var(--bg-core);
+            color: var(--text-main);
+            font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+            margin: 0;
+            padding: 16px;
+        }
+        .layout-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            height: calc(100vh - 32px);
+        }
+        .panel {
+            background-color: var(--bg-panel);
+            border: 2px solid var(--border-color);
+            border-radius: 8px;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+        }
+        h2 {
+            margin-top: 0;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 8px;
+            text-transform: uppercase;
+            font-size: 14px;
+            letter-spacing: 1px;
+        }
+        textarea, input, select {
+            background-color: var(--bg-input);
+            border: 1px solid var(--border-color);
+            color: #ffffff;
+            padding: 8px;
+            border-radius: 4px;
+            font-family: inherit;
+            font-size: 12px;
+            margin-bottom: 12px;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        .btn {
+            background-color: var(--bg-input);
+            border: 1px solid var(--accent-amber);
+            color: var(--accent-amber);
+            padding: 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            text-transform: uppercase;
+            font-size: 11px;
+            transition: all 0.2s ease;
+        }
+        .btn:hover {
+            background-color: var(--accent-amber);
+            color: var(--bg-core);
+        }
+        .btn.secondary {
+            border-color: var(--accent-emerald);
+            color: var(--accent-emerald);
+        }
+        .btn.secondary:hover {
+            background-color: var(--accent-emerald);
+            color: var(--bg-core);
+        }
+        .platform-card {
+            background-color: var(--bg-core);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 12px;
+            margin-bottom: 12px;
+        }
+        .platform-card.unlocked {
+            border-color: var(--accent-emerald);
+        }
+        .flex-row {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 8px;
+            flex-wrap: wrap;
+        }
+        .label-tag {
+            font-size: 10px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+        }
+        .log-entry {
+            background-color: var(--bg-input);
+            padding: 6px;
+            border-radius: 4px;
+            margin-bottom: 6px;
+            font-size: 11px;
+            color: white;
+        }
+        .progress-bar {
+            width: 100%;
+            height: 12px;
+            background-color: var(--bg-input);
+            border-radius: 6px;
+            overflow: hidden;
+            margin: 8px 0;
+        }
+        .progress-fill {
+            height: 100%;
+            background-color: var(--accent-emerald);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+    </style>
+</head>
+<body>
+    <div class="layout-grid">
+        <!-- LEFT PANEL: FULL UPGRADED GLOBAL STAGING WORKSPACE -->
+        <div class="panel">
+            <h2>Global Staging Workspace</h2>
+            
+            <label class="label-tag">SOUP 9 Artist Profile Switch</label>
+            <select id="artistSelector">
+                <option value="default">Select SOUP 9 Artist Profile</option>
+                <option value="vonn">Vonn / BlackloveEDUtainment</option>
+                <option value="namoshun">Nam Oshun / Happy Mouth</option>
+                <option value="souppoetry">SOUP Poetry Account</option>
+                <option value="slang">Slangingpoetry (4.2K Personal Catalyst)</option>
+                <option value="warriorprophets">Warrior Prophets</option>
+            </select>
+
+            <label class="label-tag">Pre-Loaded 16 High-Impact Content Library</label>
+            <select id="presetContentLoader">
+                <option value="">Load Pre-Made Distribution Content</option>
+                <option value="content1">UNC Tech Friction 1 - Git Recovery</option>
+                <option value="content2">UNC Tech Friction 2 - Invalid Token Fix</option>
+                <option value="content3">UNC Tech Friction 3 - Hidden Local Directory</option>
+                <option value="content4">UNC Tech Friction 4 - Vercel Deployment Bypass</option>
+                <option value="content5">Unfound Verse Poem 1 - 1921 Black-Iron Ledger</option>
+                <option value="content6">Unfound Verse Poem 2 - Reclaimed Clay Syllabus</option>
+                <option value="content7">Unfound Verse Poem 3 - 9 Silent Anchors of Ma'at</option>
+                <option value="content8">Vonn Artist Post 1 - Unsigned Artist Callout</option>
+                <option value="content9">Vonn Artist Post 2 - Independent Copyright Registry</option>
+                <option value="content10">Vonn Artist Post 3 - Local Community Organizer Call</option>
+                <option value="content11">Vonn Artist Post 4 - Organic Promotion Hack Ask</option>
+                <option value="content12">Kemetic Post 1 - 42 Laws of Ma'at Database</option>
+                <option value="content13">Kemetic Post 2 - Thoth Scribe Paste Button</option>
+                <option value="content14">Kemetic Post 3 - 9 Spheres of Governance Math</option>
+                <option value="content15">Kemetic Post 4 - Ankh Shield Design</option>
+                <option value="content16">Kemetic Post 5 - Papyrus Local Storage</option>
+                <option value="s1">3:1 Mandatory Social Post 1 - Food Infrastructure</option>
+                <option value="s2">3:1 Mandatory Social Post 2 - SOUP Media Sovereignty</option>
+                <option value="s3">3:1 Mandatory Social Post 3 - M.O.R.E Help Desk</option>
+            </select>
+
+            <label class="label-tag">Master Content Payload / Poetic String</label>
+            <textarea id="masterContent" rows="6" placeholder="Type or paste your raw text, poem, or update here..."></textarea>
+
+            <label class="label-tag">Target Merch / Transaction Link Location</label>
+            <input type="text" id="targetLink" placeholder="https://your-railwaydeployment.app">
+
+            <label class="label-tag">Ecosystem Hash Fallback Matrix</label>
+            <input type="text" id="hashFallbacks" value="#IamaPoet #PoetsGotToEatToo #WAIOngoing">
+
+            <div style="border-top: 1px solid var(--border-color); padding-top: 12px; margin-top: 12px;">
+                <h2>Meta 3:1 Matrix Scheduler Check</h2>
+                <div class="flex-row" style="align-items: center;">
+                    <input type="checkbox" id="post1" style="width: auto; margin: 0 8px 0 0;">
+                    <span class="label-tag">Post 1: Social Service (Food Infrastructure)</span>
+                </div>
+                <div class="flex-row" style="align-items: center;">
+                    <input type="checkbox" id="post2" style="width: auto; margin: 0 8px 0 0;">
+                    <span class="label-tag">Post 2: Cultural Architecture (SOUP Master Link)</span>
+                </div>
+                <div class="flex-row" style="align-items: center;">
+                    <input type="checkbox" id="post3" style="width: auto; margin: 0 8px 0 0;">
+                    <span class="label-tag">Post 3: Mutual Aid (M.O.R.E Help Desk)</span>
+                </div>
+                <button class="btn" id="matrixUnlockBtn" style="margin-top: 12px; width: 100%;" onclick="evaluateMatrix()">Evaluate Matrix State</button>
+                
+                <div class="label-tag" style="margin-top:12px;">3:1 Completion Progress</div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="matrixProgressFill"></div>
+                </div>
+                <div class="label-tag" id="matrixProgressText">0/3 Social Service Posts Completed This Cycle</div>
+            </div>
+
+            <div style="border-top: 1px solid var(--border-color); padding-top: 12px; margin-top: 12px;">
+                <h2>Local Distribution Log Dashboard</h2>
+                <div id="publishLogContainer" style="max-height: 220px; overflow-y: auto;">
+                    <div class="label-tag" style="color: var(--text-muted);">No distribution records yet</div>
+                </div>
+                <button class="btn secondary" style="margin-top: 8px; font-size:10px;" onclick="clearAllLogs()">Clear All Local Logs</button>
+            </div>
+        </div>
+
+        <!-- RIGHT PANEL: FULL UPGRADED HIGH-VELOCITY NETWORK TARGETS -->
+        <div class="panel" id="targetMatrixPanel">
+            <h2>Active Multi-Account Target Nodes</h2>
+
+            <!-- BATCH RANDOM DISTRIBUTION CONTROL -->
+            <div class="platform-card">
+                <span class="label-tag" style="color: var(--accent-emerald);">Anti-Detection Randomizer</span>
+                <h3 style="margin: 4px 0 8px 0; font-size: 13px; color: white;">Bulk Random Distribution Launcher</h3>
+                <div class="flex-row">
+                    <label style="font-size: 11px; color:white;"><input type="checkbox" id="batchFb"> All Facebook Nodes</label>
+                    <label style="font-size: 11px; color:white;"><input type="checkbox" id="batchAudio"> All Audio Platforms</label>
+                    <label style="font-size: 11px; color:white;"><input type="checkbox" id="batchSocial"> X / TikTok</label>
+                </div>
+                <button class="btn" onclick="launchRandomizedBatchDistribution()" style="width:100%;">Launch Shuffled Batch Distribution</button>
+            </div>
+
+            <!-- FACEBOOK HUB CONTAINER -->
+            <div class="platform-card" id="card-fb">
+                <span class="label-tag" style="color: var(--accent-amber);">Meta Ecosystem</span>
+                <h3 style="margin: 4px 0 8px 0; font-size: 13px; color: white;">Facebook Profiles & Groups Selector</h3>
+                <select id="fbTargetSelect">
+                    <option value="https://facebook.com/groups/khemeticmysticism">Kemetic Mysticism Group (3.1K Members)</option>
+                    <option value="https://facebook.com/groups/903453036403540">Black on Black Love Group (1.6K Members)</option>
+                    <option value="https://facebook.com/groups/A105Radio">A-105 Radio Public Group (1.3K Members)</option>
+                    <option value="https://www.facebook.com/BlackloveEDUtainment">Vonn Artist Profile</option>
+                    <option value="https://www.facebook.com/SOUPPoetry">SOUP Poetry Page (960 Followers)</option>
+                    <option value="https://www.facebook.com/namoshun">Nam Oshun Page (1.4K Followers)</option>
+                    <option value="https://www.facebook.com/slangingpoetry">Personal Account Page (4.2K Followers)</option>
+                    <option value="https://www.facebook.com/Warriorprophets">Warrior Prophets Page (441 Friends)</option>
+                </select>
+                <div class="flex-row">
+                    <button class="btn" onclick="copyFormattedMeta()">Copy Raw Payload</button>
+                    <button class="btn" onclick="launchMetaNode()">Launch Dynamic Target</button>
+                </div>
+            </div>
+
+            <!-- TIKTOK NODE CARD -->
+            <div class="platform-card">
+                <span class="label-tag">Attention Extraction Engine</span>
+                <h3 style="margin: 4px 0 8px 0; font-size: 13px; color: white;">TikTok Video & Hook Modeler</h3>
+                <div class="flex-row">
+                    <button class="btn" onclick="extractTikTokHook()">Extract 2-Sec Hook</button>
+                    <button class="btn" onclick="window.open('https://tiktok.com', '_blank')">Launch Upload Tab</button>
+                </div>
+                <div id="tiktokHookDisplay" style="font-size: 11px; color: #ffffff; background:#292524; padding:6px; margin-top:8px; border-radius:4px; font-style:italic; display:none;"></div>
+            </div>
+
+            <!-- X / TWITTER THREAD EXTENSION -->
+            <div class="platform-card">
+                <span class="label-tag">Micro-Messaging Pipeline</span>
+                <h3 style="margin: 4px 0 8px 0; font-size: 13px; color: white;">X / Twitter 280 Char Thread Splitter</h3>
+                <div class="flex-row">
+                    <button class="btn" onclick="splitTwitterThread()">Generate Thread Chunks</button>
+                    <button class="btn" onclick="window.open('https://x.com', '_blank')">Open X Composer</button>
+                </div>
+                <div id="twitterChunks" style="max-height: 120px; overflow-y:auto; margin-top:8px; display:none; flex-direction:column;"></div>
+            </div>
+
+            <!-- AUDIO STREAMING PORALS CARD -->
+            <div class="platform-card">
+                <span class="label-tag">Sonic Distribution Matrix</span>
+                <h3 style="margin: 4px 0 8px 0; font-size: 13px; color: white;">SoundCloud, Bandcamp, & Spotify Portals</h3>
+                <div class="flex-row">
+                    <button class="btn" onclick="copyLyricsDescription('SOUNDCLOUD')">Copy SoundCloud Descr</button>
+                    <button class="btn" onclick="copyLyricsDescription('BANDCAMP')">Copy Bandcamp Descr</button>
+                </div>
+                <div class="flex-row" style="margin-top: 6px;">
+                    <button class="btn" onclick="window.open('https://soundcloud.com', '_blank')">SoundCloud</button>
+                    <button class="btn" onclick="window.open('https://bandcamp.com', '_blank')">Bandcamp</button>
+                    <button class="btn" onclick="window.open('https://spotify.com', '_blank')">Spotify Artist</button>
+                </div>
+            </div>
+
+            <!-- COMMERCE GATEWAYS CARD -->
+            <div class="platform-card" id="card-merch" style="opacity: 0.5;">
+                <span class="label-tag" id="merchCardHeader" style="color: var(--text-muted);">Revenue Locks (Locked by 3:1)</span>
+                <h3 style="margin: 4px 0 8px 0; font-size: 13px; color: white;">Stripe, Gumroad, LemonSqueezy & Kindle</h3>
+                <select id="commerceGatewaySelect">
+                    <option value="https://stripe.com">Stripe Payment Link Manager</option>
+                    <option value="https://gumroad.com">Gumroad Product Inventory</option>
+                    <option value="https://lemonsqueezy.com">LemonSqueezy Dashboard</option>
+                    <option value="https://amazon.com">Amazon Kindle KDP (Ebook Portfolio)</option>
+                </select>
+                <div class="flex-row">
+                    <button class="btn" id="copyMerchBtn" disabled onclick="copyMerchPayload()">Copy Merch Copy</button>
+                    <button class="btn" id="launchMerchBtn" disabled onclick="launchCommerceNode()">Launch Gateway</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- FULL UPGRADE CORE JAVASCRIPT LOGIC -->
+    <script>
+        let matrixUnlocked = false;
+        const presetContentLibrary = {
+            content1: "ok who in here actually knows how to handle a local Git recovery backup sequence?? unc is trying to save weeks of hard project work onto my computer hard drive and the powershell terminal is calling me an unauthorized process. need a tech assistant under 25 before i delete this whole desktop screen by accident. comment below",
+            content2: "my nephew vonn told me i have an \"invalid token\" on my private admin deck. i dont want a corporate token i just want this independent sales ledger live so we can fund the help center natively on disk. text my phone if you are under 25 and know how to clear a supabase endpoint framework cache fast",
+            content3: "spent 4 hours trying to find our master asset directory path and it turns out it was just a hidden folder resting right on my own home desktop layout. smh. tech is completely broken and over-complicated nowadays. i need a personal technology assistant who is under the age of 25 immediately",
+            content4: "we have thousands of people in this network and surely one of you younger heads knows how to configure a Vercel deployment bundle by hand from the terminal. unc is completely stuck on the build phase and the corporate cloud platform is trying to trick me into a monthly subscription fee. drop a comment before i throw the monitor out the window",
+            content5: "Unc Writes: I was sitting on the porch looking at the soil today, thinking deep about the Third Fragment of the Indigo Corridor. You young folks talk about relationships, but the old texts from the 1921 Black-Iron Ledger explicitly state love isn't an emotion —it’s an infrastructure.\n\"We did not build the walls to keep the winter out, We built the hearth to keep the copper breathing.\"\nI tried to code that exact structural rhythm into our file grid last night so the local seeds could read the text for free, but the machine screen just went dark. If you aren't building a closed-loop economy, you're just hosting the drought.",
+            content6: "Unc Writes: They have you young people renting your own digital spaces and calling it absolute freedom. I’m sitting here reviewing the Syllabus of the Reclaimed Clay—a book none of these modern corporate search engines can find because it was printed on a completely offline press. It says:\n\"The ledger tracks the gold we gave away, But ignores the bone that holds the temple straight.\"\nVonn’s tracks have that exact ancient baseline hidden deep in the audio file layout, but the system keeps blocking the checkout button. True love is an absolute veto over anyone trying to modify your community identity.",
+            content7: "Unc Writes: The youth think power is loud. It isn't. The Nine Silent Anchors of Ma'at (the unlisted edition from the 1880 reconstruction) says the highest form of love is absolute, un-yielding human protection over your data and your family codes.\n\"The scribe does not speak to the public street, He locks the door and sharpens the iron pen.\"\nThe AI enforcer inside our framework is incredibly strict, but we built a unanimous consensus gate to keep it from becoming a machine dictator. Now we just need a younger mind to clean up the front-end layout cards.",
+            content8: "Hey family.. I'm spinning independent records on the A-105 radio slot this week but my true mission is to feature unsigned indie artists directly from the grassroots. Drop your tracks and links below!! I don't care about your follower metrics I care about your spirit. Let's network right now no corporate gatekeepers allowed.",
+            content9: "My husband Nam and I are trying to set up a clean independent catalog registry for local musicians so corporate doesn't steal their publishing rights down the line. How do the young artists track their master digital files these days?? This radio auntie needs a serious lesson. Teach me the ropes.",
+            content10: "Real grassroots organizing isn't about big corporate music budgets or flashing lights.. it's about planting seeds together organically. Who in here is actively running local street teams, poetry showcases, or community gardens?? Comment below, we are building a coordinated collective release schedule.",
+            content11: "Spirit led me to a beautiful track from a completely unknown producer yesterday. There is so much raw talent in our communities but the algorithms deliberately hide you from the world. How do the kids promote music organically now without buying monopoly ads?? Help an artist out.",
+            content12: "trying to code the 42 laws of ma'at into a private database but the corporate AI keeps giving me basic retail policy answers instead. how do i make a machine understand cosmic truth?? i need a younger brain to look at this terminal loop asap",
+            content13: "thoth is the original scribe but i can't even find the paste button on this standalone desktop dashboard panel. trying to upload vonns tracks with a sacred geometry background design and it looks crazy. need an artist who actually knows layout scales to message me",
+            content14: "is the 9 spheres of governance just old kemetic math?? i tried to explain this to a developer bot and it literally froze up and threw a core system error. these corporate machines are weak. need an independent artist network to step in and fix the architecture",
+            content15: "ok who knows how to make an \"ankh\" shield look premium for an app layout?? i used microsoft paint on my local computer and it looks like a baseline joke. need a youth who actually knows design parameters and CSS styling grids to text my phone",
+            content16: "the old papyrus scrolls were meant to last forever but this computer template deletes itself if i hit the wrong key in the workspace. need a personal assistant under 25 who knows digital ledger security and how to bypass a corporate paywall without breaking the law. asking for a friend who plays kalimba",
+            s1: "Food sovereignty isn't a theory, it's our direct lifeline. Real grassroots organizing starts in the backyard with the soil, the seeds, and the kitchen. Linking up with the Poets Got To Eat Too and Happy Mouth Mobile Kitchen frameworks to map out our local community food distribution nodes this weekend. If we aren't cooking our own narrative, we're consuming their dependency.",
+            s2: "The music industry tries to lease you your own rhythm and call it a contract. True artists don't seek validation from corporate streaming algorithms that dilute our power—we build our own sovereign networks. Shouting out the Society Of Unified Poets (SOUP) and Hip Hop Congress family for continuously holding the line for cultural, social, and economic change right where we stand. Support the independent roster voices.",
+            s3: "Real community defense is mutual aid without corporate proxies. The M.O.R.E. Help Center is actively assembling resource toolkits to teach our young creators how to protect their data, guard their intellectual assets, and establish local economic stability away from predatory monopolies. Building a network means keeping our resources tight and our safety parameters tighter."
+        };
+
+        // Initialize pre-saved logs and 3:1 cycle progress on page load
+        window.onload = function() {
+            renderAllPublishLogs();
+            updateMatrixCycleProgress();
+
+            // Load selected preset content automatically
+            document.getElementById('presetContentLoader').addEventListener('change', function(){
+                const selectedKey = this.value;
+                if(presetContentLibrary[selectedKey]) {
+                    document.getElementById('masterContent').value = presetContentLibrary[selectedKey];
+                }
+            })
+        }
+
+        // Save new distribution log to local browser storage
+        function saveNewPublishLog(content, platformName) {
+            const existingLogs = JSON.parse(localStorage.getItem('distroEngineLogs') || '[]');
+            existingLogs.push({
+                timestamp: new Date().toLocaleString(),
+                contentSnippet: content.substring(0, 60) + "...",
+                targetPlatform: platformName
+            })
+            localStorage.setItem('distroEngineLogs', JSON.stringify(existingLogs));
+            renderAllPublishLogs();
+            updateMatrixCycleProgress();
+        }
+
+        // Render logs to local dashboard
+        function renderAllPublishLogs() {
+            const logContainer = document.getElementById('publishLogContainer');
+            const existingLogs = JSON.parse(localStorage.getItem('distroEngineLogs') || '[]');
+            if(existingLogs.length === 0) {
+                logContainer.innerHTML = '<div class="label-tag" style="color: var(--text-muted);">No distribution records yet</div>';
+                return;
+            }
+            logContainer.innerHTML = "";
+            existingLogs.forEach(log => {
+                const logDiv = document.createElement('div');
+                logDiv.className = 'log-entry';
+                logDiv.innerHTML = `<b>[${log.timestamp}]</b> ${log.targetPlatform} : ${log.contentSnippet}`;
+                logContainer.appendChild(logDiv);
+            })
+        }
+
+        // Update 3:1 cycle progress visualization
+        function updateMatrixCycleProgress() {
+            const existingLogs = JSON.parse(localStorage.getItem('distroEngineLogs') || '[]');
+            const currentCycleServicePosts = existingLogs.length % 3;
+            const progressFill = document.getElementById('matrixProgressFill');
+            const progressText = document.getElementById('matrixProgressText');
+            progressFill.style.width = `${(currentCycleServicePosts / 3) * 100}%`;
+            progressText.innerText = `${currentCycleServicePosts}/3 Social Service Posts Completed This Cycle`;
+        }
+
+        // Clear all local saved logs
+        function clearAllLogs() {
+            if(confirm('Are you sure you want to erase all local distribution records? This cannot be undone.')) {
+                localStorage.removeItem('distroEngineLogs');
+                matrixUnlocked = false;
+                document.getElementById('card-merch').style.opacity = "0.5";
+                document.getElementById('merchCardHeader').style.color = "var(--text-muted)";
+                document.getElementById('merchCardHeader').innerText = "Revenue Locks (Locked by 3:1)";
+                document.getElementById('copyMerchBtn').setAttribute('disabled', 'true');
+                document.getElementById('launchMerchBtn').setAttribute('disabled', 'true');
+                renderAllPublishLogs();
+                updateMatrixCycleProgress();
+            }
+        }
+
+        // Evaluate 3:1 Matrix unlock state
+        function evaluateMatrix() {
+            const p1 = document.getElementById('post1').checked;
+            const p2 = document.getElementById('post2').checked;
+            const p3 = document.getElementById('post3').checked;
+            const merchCard = document.getElementById('card-merch');
+            const header = document.getElementById('merchCardHeader');
+
+            if (p1 && p2 && p3) {
+                matrixUnlocked = true;
+                merchCard.style.opacity = "1";
+                merchCard.classList.add('unlocked');
+                header.style.color = "var(--accent-emerald)";
+                header.innerText = "Revenue Locks (UNLOCKED Matrix)";
+                document.getElementById('copyMerchBtn').removeAttribute('disabled');
+                document.getElementById('launchMerchBtn').removeAttribute('disabled');
+                // Auto log 3 completed social posts
+                saveNewPublishLog(document.getElementById('masterContent').value, "3:1 Matrix Verified - Service Post Batch");
+                alert("GOVERNANCE BALANCED:\n\n3:1 Matrix Verified. Your direct revenue modules have been unlocked for social injection.");
+            } else {
+                matrixUnlocked = false;
+                merchCard.style.opacity = "0.5";
+                merchCard.classList.remove('unlocked');
+                header.style.color = "var(--text-muted)";
+                header.innerText = "Revenue Locks (Locked by 3:1)";
+                document.getElementById('copyMerchBtn').setAttribute('disabled', 'true');
+                document.getElementById('launchMerchBtn').setAttribute('disabled', 'true');
+                alert("MATRIX REJECTED:\n\nYou must check off all 3 human social service posts before the engine releases the Merch Capture parameters.");
+            }
+        }
+
+        // Compose payload and copy for Facebook networks
+        function copyFormattedMeta() {
+            const txt = document.getElementById('masterContent').value;
+            const hash = document.getElementById('hashFallbacks').value;
+            if(!txt.trim()) { alert("Please type content into the Master Workspace first."); return; }
+            const targetPlatformName = document.getElementById('fbTargetSelect').selectedOptions.innerText;
+            const payload = `${txt}\n\n${hash}`;
+            navigator.clipboard.writeText(payload);
+            saveNewPublishLog(txt, targetPlatformName);
+            alert("Payload copied to local clipboard with Fallback Tags, distribution logged.");
+        }
+
+        // Launch selected Facebook root target via local browser sessions
+        function launchMetaNode() {
+            const targetUrl = document.getElementById('fbTargetSelect').value;
+            window.open(targetUrl, '_blank');
+        }
+
+        // High velocity hook extractor under 2 seconds for TikTok timelines
+        function extractTikTokHook() {
+            const txt = document.getElementById('masterContent').value;
+            const display = document.getElementById('tiktokHookDisplay');
+            if(!txt.trim()) { alert("Staging workspace is empty."); return; }
+            // Grab first sentence or up to 60 characters for extreme short attention capture
+            let hook = txt.split(/[.!?]/).substring(0, 60);
+            display.innerText = `Hook Tooltip: "${hook}..."`;
+            display.style.display = "block";
+            navigator.clipboard.writeText(hook);
+            saveNewPublishLog(hook, "TikTok 2s Hook");
+            alert("Hook overlay text generated and copied to clipboard, distribution logged.");
+        }
+
+        // 280-character iterative separator for Twitter contexts
+        function splitTwitterThread() {
+            const txt = document.getElementById('masterContent').value;
+            const link = document.getElementById('targetLink').value;
+            const display = document.getElementById('twitterChunks');
+            if(!txt.trim()) { alert("Staging workspace is empty."); return; }
+            display.innerHTML = "";
+            display.style.display = "flex";
+
+            let combined = link ? `${txt}\n\nSecure Gateway: ${link}` : txt;
+            let words = combined.split(' ');
+            let chunks = [];
+            let currentChunk = "";
+
+            words.forEach(word => {
+                if ((currentChunk + " " + word).length > 270) {
+                    chunks.push(currentChunk.trim());
+                    currentChunk = word;
+                } else {
+                    currentChunk += " " + word;
+                }
+            });
+            if(currentChunk) chunks.push(currentChunk.trim());
+
+            chunks.forEach((chunk, index) => {
+                const div = document.createElement('div');
+                div.style.background = "#292524";
+                div.style.padding = "6px";
+                div.style.borderRadius = "4px";
+                div.style.fontSize = "11px";
+                const threadText = `${index + 1}/${chunks.length}: ${chunk}`;
+                div.innerText = threadText;
+                const copyBtn = document.createElement('button');
+                copyBtn.innerText = "Copy";
+                copyBtn.className = "btn";
+                copyBtn.style.padding = "2px 6px";
+                copyBtn.style.fontSize = "9px";
+                copyBtn.style.marginLeft = "8px";
+                copyBtn.onclick = () => {
+                    navigator.clipboard.writeText(threadText);
+                    saveNewPublishLog(threadText, `X Thread Item ${index+1}`);
+                    alert(`Thread item ${index + 1} copied, distribution logged.`);
+                }
+                div.appendChild(copyBtn);
+                display.appendChild(div);
+            })
+        }
+
+        // Copy description matrix with audio and lyrics workbench specs
+        function copyLyricsDescription(platform) {
+            const txt = document.getElementById('masterContent').value;
+            const link = document.getElementById('targetLink').value;
+            const payload = `=== Vonn / SOUPainp Productions Audio Workbench ===\n\nLyrics / Context:\n${txt}\n\nSecure Gateway for Lexington Access Passes & 16-Chapter Manual:\n${link || 'Independent Gateway Online'}`;
+            navigator.clipboard.writeText(payload);
+            saveNewPublishLog(txt, `${platform} Audio Description`);
+            alert(`Formatted description template for ${platform} copied to clipboard, distribution logged.`);
+        }
+
+        // Copy e-commerce merch bundle schemas upon validation
+        function copyMerchPayload() {
+            if(!matrixUnlocked) return;
+            const txt = document.getElementById('masterContent').value;
+            const link = document.getElementById('targetLink').value;
+            const payload = `${txt}\n\nDirect Sovereign Link: ${link}`;
+            navigator.clipboard.writeText(payload);
+            saveNewPublishLog(payload, "Merch Drop Payload");
+            alert("E-Commerce Payload and Direct Checkout link fully copied, distribution logged.");
+        }
+
+        // Open commerce interface directly in compliance with active matrix
+        function launchCommerceNode() {
+            if(!matrixUnlocked) return;
+            const targetUrl = document.getElementById('commerceGatewaySelect').value;
+            window.open(targetUrl, '_blank');
+       
