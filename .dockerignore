@@ -2,9 +2,8 @@
 node_modules
 **/node_modules
 
-# Build output — regenerated during the image build
-frontend/build
-build
+# Build output. frontend/build is intentionally NOT ignored: the committed SPA
+# build is copied verbatim into the image by the Dockerfile.
 dist
 
 # VCS & local tooling
